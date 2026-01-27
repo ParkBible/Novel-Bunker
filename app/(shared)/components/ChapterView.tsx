@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
 import {
     chapterOps,
@@ -14,7 +15,12 @@ import { ContextPanel } from "./ContextPanel";
 import { SceneCard } from "./SceneCard";
 import { TreePanel } from "./TreePanel";
 
-export function EditorLayout() {
+interface ChapterViewProps {
+    chapterId: number;
+}
+
+export function ChapterView({ chapterId }: ChapterViewProps) {
+    const router = useRouter();
     const {
         chapters,
         scenes,
@@ -25,10 +31,8 @@ export function EditorLayout() {
     } = useEditorStore();
 
     const loadData = useCallback(async () => {
-        // Initialize demo data if needed
         await initializeDemoData();
 
-        // Load all data
         const [loadedChapters, loadedScenes, loadedCharacters, synopsis] =
             await Promise.all([
                 chapterOps.getAll(),
@@ -47,6 +51,9 @@ export function EditorLayout() {
         loadData();
     }, [loadData]);
 
+    const currentChapter = chapters.find((c) => c.id === chapterId);
+    const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
+
     const handleAddScene = async (chapterId: number, order: number) => {
         await sceneOps.create(chapterId, `새 씬 ${order + 1}`, order);
         await loadData();
@@ -58,9 +65,20 @@ export function EditorLayout() {
 
     const handleAddChapter = async () => {
         const chapterCount = chapters.length;
-        await chapterOps.create(`챕터 ${chapterCount + 1}`);
+        const newChapter = await chapterOps.create(`챕터 ${chapterCount + 1}`);
         await loadData();
+        if (newChapter) {
+            router.push(`/chapter/${newChapter}`);
+        }
     };
+
+    if (!currentChapter) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+                <p className="text-zinc-500">챕터를 찾을 수 없습니다.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-zinc-50 dark:bg-black">
@@ -72,44 +90,36 @@ export function EditorLayout() {
             {/* Center Panel - Editor */}
             <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-4xl p-8">
-                    {chapters.map((chapter) => {
-                        const chapterScenes = scenes.filter(
-                            (s) => s.chapterId === chapter.id,
-                        );
+                    <div className="mb-12">
+                        {/* Chapter Header */}
+                        <h2 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                            {currentChapter.title}
+                        </h2>
 
-                        return (
-                            <div key={chapter.id} className="mb-12">
-                                {/* Chapter Header */}
-                                <h2 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                                    {chapter.title}
-                                </h2>
-
-                                {/* Scenes */}
-                                {chapterScenes.map((scene, index) => (
-                                    <div key={scene.id}>
-                                        <SceneCard
-                                            scene={scene}
-                                            onUpdate={handleSceneUpdate}
-                                        />
-                                        <AddSceneButton
-                                            chapterId={chapter.id!}
-                                            order={scene.order + 1}
-                                            onAdd={handleAddScene}
-                                        />
-                                    </div>
-                                ))}
-
-                                {/* Add first scene if none exist */}
-                                {chapterScenes.length === 0 && (
-                                    <AddSceneButton
-                                        chapterId={chapter.id!}
-                                        order={0}
-                                        onAdd={handleAddScene}
-                                    />
-                                )}
+                        {/* Scenes */}
+                        {chapterScenes.map((scene) => (
+                            <div key={scene.id}>
+                                <SceneCard
+                                    scene={scene}
+                                    onUpdate={handleSceneUpdate}
+                                />
+                                <AddSceneButton
+                                    chapterId={chapterId}
+                                    order={scene.order + 1}
+                                    onAdd={handleAddScene}
+                                />
                             </div>
-                        );
-                    })}
+                        ))}
+
+                        {/* Add first scene if none exist */}
+                        {chapterScenes.length === 0 && (
+                            <AddSceneButton
+                                chapterId={chapterId}
+                                order={0}
+                                onAdd={handleAddScene}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
 

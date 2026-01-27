@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SceneEditor } from "./SceneEditor";
+import type { Scene } from "../db";
 import { sceneOps } from "../db/operations";
 import { useEditorStore } from "../stores/editorStore";
-import type { Scene } from "../db";
+import { SceneEditor } from "./SceneEditor";
 
 interface SceneCardProps {
     scene: Scene;
@@ -44,10 +44,11 @@ export function SceneCard({ scene, onUpdate }: SceneCardProps) {
     };
 
     return (
-        <div
+        <button
+            type="button"
             id={`scene-${scene.id}`}
             onClick={handleClick}
-            className={`rounded-lg border bg-white transition-all dark:bg-zinc-900 ${
+            className={`w-full rounded-lg border bg-white transition-all dark:bg-zinc-900 ${
                 isSelected
                     ? "border-zinc-400 shadow-md dark:border-zinc-600"
                     : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
@@ -77,6 +78,6 @@ export function SceneCard({ scene, onUpdate }: SceneCardProps) {
                     <span>등장인물: {scene.characters.join(", ")}</span>
                 )}
             </div>
-        </div>
+        </button>
     );
 }

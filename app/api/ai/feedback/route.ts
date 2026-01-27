@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { generateFeedback } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {

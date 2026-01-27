@@ -66,3 +66,12 @@ body {
         background: #52525b;
     }
 }
+
+button {
+    cursor: pointer;
+}
+
+.tiptap {
+    cursor: text;
+    text-align: left;
+}
