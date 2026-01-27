@@ -1,5 +1,5 @@
-import { EditorLayout } from './(shared)/components/EditorLayout';
+import { EditorLayout } from "./(shared)/components/EditorLayout";
 
 export default function Home() {
-  return <EditorLayout />;
+    return <EditorLayout />;
 }
