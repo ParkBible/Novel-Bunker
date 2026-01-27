@@ -33,21 +33,32 @@ description: git diff를 분석하여 Conventional Commits 형식으로 자동 �
 - 설명, 분석, 서론, 인사말, 영어 문장 절대 출력하지 않는다.
 
 실행 절차:
-1. 먼저 아래 명령어로 변경 사항을 스테이징하고 diff를 확인한다.
+1. 현재 브랜치를 확인하고 사용자에게 알린다.
+```bash
+git branch --show-current
+```
+
+2. AskUserQuestion 도구로 브랜치 선택을 물어본다.
+   - "현재 브랜치에서 커밋": 다음 단계로 진행
+   - "브랜치 변경": 브랜치명을 입력받아 checkout 실행
+     - 존재하는 브랜치면: `git checkout <브랜치명>`
+     - 새 브랜치면: `git checkout -b <브랜치명>`
+
+3. 변경 사항을 스테이징하고 diff를 확인한다.
 ```bash
 git add .
 git diff --cached
 ```
 
-2. diff를 분석하여 커밋 메시지를 생성한다.
+4. diff를 분석하여 커밋 메시지를 생성한다.
 
-3. 생성한 커밋 메시지로 커밋을 실행한다.
+5. 생성한 커밋 메시지로 커밋을 실행한다.
 ```bash
 git commit -m "<생성한 커밋 메시지>"
 ```
 
-4. 커밋 완료 후 결과를 사용자에게 알린다.
+6. 커밋 완료 후 결과를 사용자에게 알린다.
 
-5. AskUserQuestion 도구를 사용하여 push 여부를 물어본다.
+7. AskUserQuestion 도구를 사용하여 push 여부를 물어본다.
    - "Push" 선택 시: `git push` 실행
    - "아니오" 선택 시: 종료
