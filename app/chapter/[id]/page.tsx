@@ -1,11 +1,11 @@
 import { ChapterView } from "@/app/(shared)/components/ChapterView";
 
 interface ChapterPageProps {
-    params: Promise<{ id: string }>;
+    params: { id: string };
 }
 
 export default async function ChapterPage({ params }: ChapterPageProps) {
-    const { id } = await params;
+    const { id } = params;
     const chapterId = Number.parseInt(id, 10);
 
     if (Number.isNaN(chapterId)) {
