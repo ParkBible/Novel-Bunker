@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Chapter, Character, Scene } from "../db";
-import { chapterOps, sceneOps } from "../db/operations";
+import { chapterOps, novelOps, sceneOps } from "../db/operations";
 
 interface EditorState {
     // Data
@@ -8,18 +8,26 @@ interface EditorState {
     scenes: Scene[];
     characters: Character[];
     synopsis: string;
+    novelTitle: string;
 
     // UI State
     selectedSceneId: number | null;
     isLoadingAI: boolean;
+    isInitialized: boolean;
 
     // Actions
     setChapters: (chapters: Chapter[]) => void;
     setScenes: (scenes: Scene[]) => void;
     setCharacters: (characters: Character[]) => void;
     setSynopsis: (synopsis: string) => void;
+    setNovelTitle: (title: string) => void;
+    updateNovelTitle: (title: string) => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
+    setInitialized: (initialized: boolean) => void;
+
+    // Update actions
+    updateChapterTitle: (chapterId: number, title: string) => Promise<void>;
 
     // Delete actions
     deleteChapter: (chapterId: number) => Promise<void>;
@@ -36,16 +44,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     scenes: [],
     characters: [],
     synopsis: "",
+    novelTitle: "",
     selectedSceneId: null,
     isLoadingAI: false,
+    isInitialized: false,
 
     // Actions
     setChapters: (chapters) => set({ chapters }),
     setScenes: (scenes) => set({ scenes }),
     setCharacters: (characters) => set({ characters }),
     setSynopsis: (synopsis) => set({ synopsis }),
+    setNovelTitle: (novelTitle) => set({ novelTitle }),
+    updateNovelTitle: async (title) => {
+        await novelOps.updateNovelTitle(title);
+        set({ novelTitle: title });
+    },
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),
     setIsLoadingAI: (isLoadingAI) => set({ isLoadingAI }),
+    setInitialized: (isInitialized) => set({ isInitialized }),
+
+    // Update actions
+    updateChapterTitle: async (chapterId, title) => {
+        await chapterOps.update(chapterId, { title, updatedAt: new Date() });
+        const { chapters } = get();
+        set({
+            chapters: chapters.map((c) =>
+                c.id === chapterId ? { ...c, title } : c,
+            ),
+        });
+    },
 
     // Delete actions
     deleteChapter: async (chapterId) => {

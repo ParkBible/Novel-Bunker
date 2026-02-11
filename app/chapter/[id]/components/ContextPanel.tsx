@@ -2,11 +2,10 @@
 
 import { Calendar, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
-import { useEditorStore } from "../stores/editorStore";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 export function ContextPanel() {
-    const { getSelectedScene, characters, synopsis, isLoadingAI } =
-        useEditorStore();
+    const { getSelectedScene, synopsis, isLoadingAI } = useEditorStore();
     const selectedScene = getSelectedScene();
     const [feedback, setFeedback] = useState<string>("");
 
@@ -49,22 +48,18 @@ export function ContextPanel() {
         );
     }
 
-    // Word count (approximate, stripping HTML)
     const plainText = selectedScene.content.replace(/<[^>]*>/g, "");
     const wordCount = plainText.length;
 
     return (
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-            {/* Header */}
             <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                     씬 정보
                 </h2>
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Metadata */}
                 <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                         <Type className="h-4 w-4 text-zinc-500" />
@@ -82,7 +77,6 @@ export function ContextPanel() {
                     </div>
                 </div>
 
-                {/* Characters */}
                 <div>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
                         등장인물
@@ -105,7 +99,6 @@ export function ContextPanel() {
                     </div>
                 </div>
 
-                {/* AI Feedback */}
                 <div>
                     <div className="mb-2 flex items-center justify-between">
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-500">

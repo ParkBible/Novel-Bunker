@@ -35,7 +35,6 @@ export function SceneEditor({
         },
     });
 
-    // Update editor content when prop changes
     useEffect(() => {
         if (editor && content !== editor.getHTML()) {
             editor.commands.setContent(content);
