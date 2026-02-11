@@ -24,8 +24,10 @@
 
 ### 1. 의존성 설치
 
+이 프로젝트는 `pnpm`을 패키지 매니저로 사용합니다.
+
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. 환경 변수 설정
@@ -41,7 +43,7 @@ GEMINI_API_KEY=your_api_key_here
 ### 3. 개발 서버 실행
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 NovelBunker를 사용하세요.
@@ -67,8 +69,8 @@ npm run dev
 ## 빌드
 
 ```bash
-npm run build
-npm run start
+pnpm build
+pnpm start
 ```
 
 ## 라이선스
