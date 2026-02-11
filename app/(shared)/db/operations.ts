@@ -6,6 +6,13 @@ import {
     type Setting,
 } from "./index";
 
+// Novel Operations
+export const novelOps = {
+    async updateNovelTitle(title: string): Promise<void> {
+        await db.settings.put({ key: "novelTitle", value: title });
+    },
+};
+
 // Chapter Operations
 export const chapterOps = {
     async getAll(): Promise<Chapter[]> {

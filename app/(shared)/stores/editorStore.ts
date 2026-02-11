@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Chapter, Character, Scene } from "../db";
-import { chapterOps, sceneOps } from "../db/operations";
+import { chapterOps, novelOps, sceneOps } from "../db/operations";
 
 interface EditorState {
     // Data
@@ -56,7 +56,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     setSynopsis: (synopsis) => set({ synopsis }),
     setNovelTitle: (novelTitle) => set({ novelTitle }),
     updateNovelTitle: async (title) => {
-        await db.settings.put({ key: "novelTitle", value: title });
+        await novelOps.updateNovelTitle(title);
         set({ novelTitle: title });
     },
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),
@@ -65,7 +65,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     // Update actions
     updateChapterTitle: async (chapterId, title) => {
-        await db.chapters.update(chapterId, { title, updatedAt: new Date() });
+        await chapterOps.update(chapterId, { title, updatedAt: new Date() });
         const { chapters } = get();
         set({
             chapters: chapters.map((c) =>

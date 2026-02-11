@@ -3,11 +3,11 @@ import { ContextPanel } from "./components/ContextPanel";
 import { TreePanel } from "./components/tree/TreePanel";
 
 interface ChapterPageProps {
-    params: { id: string };
+    params: Promise<{ id: string }>;
 }
 
 export default async function ChapterPage({ params }: ChapterPageProps) {
-    const { id } = params;
+    const { id } = await params;
     const chapterId = Number.parseInt(id, 10);
 
     if (Number.isNaN(chapterId)) {
