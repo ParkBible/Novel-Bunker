@@ -1,15 +1,9 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-    chapterOps,
-    characterOps,
-    sceneOps,
-    settingsOps,
-} from "@/app/(shared)/db/operations";
+import { useEffect, useRef, useState } from "react";
+import { sceneOps } from "@/app/(shared)/db/operations";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
-import { initializeDemoData } from "@/app/(shared)/utils/demoData";
 import { AddSceneButton } from "./scene/AddSceneButton";
 import { SceneCard } from "./scene/SceneCard";
 
@@ -18,58 +12,18 @@ interface ChapterContentProps {
 }
 
 export function ChapterContent({ chapterId }: ChapterContentProps) {
-    const {
-        chapters,
-        scenes,
-        isInitialized,
-        setChapters,
-        setScenes,
-        setCharacters,
-        setSynopsis,
-        setNovelTitle,
-        setInitialized,
-        updateChapterTitle,
-    } = useEditorStore();
+    const { chapters, scenes, isInitialized, loadData, updateChapterTitle } =
+        useEditorStore();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState("");
     const titleInputRef = useRef<HTMLInputElement>(null);
 
-    const loadData = useCallback(async () => {
-        await initializeDemoData();
-
-        const [
-            loadedChapters,
-            loadedScenes,
-            loadedCharacters,
-            synopsis,
-            novelTitle,
-        ] = await Promise.all([
-            chapterOps.getAll(),
-            sceneOps.getAll(),
-            characterOps.getAll(),
-            settingsOps.get("synopsis"),
-            settingsOps.get("novelTitle"),
-        ]);
-
-        setChapters(loadedChapters);
-        setScenes(loadedScenes);
-        setCharacters(loadedCharacters);
-        setSynopsis(synopsis || "");
-        setNovelTitle(novelTitle || "");
-        setInitialized(true);
-    }, [
-        setChapters,
-        setScenes,
-        setCharacters,
-        setSynopsis,
-        setNovelTitle,
-        setInitialized,
-    ]);
-
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (!isInitialized) {
+            loadData();
+        }
+    }, [isInitialized, loadData]);
 
     const currentChapter = chapters.find((c) => c.id === chapterId);
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);

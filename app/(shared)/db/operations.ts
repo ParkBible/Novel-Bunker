@@ -85,17 +85,22 @@ export const sceneOps = {
         } else {
             // 특정 위치에 삽입 - 기존 씬들의 order를 밀어줌
             sceneOrder = insertAtOrder;
+
             const scenesToShift = scenes.filter(
                 (s) => s.order >= insertAtOrder,
             );
-            for (const scene of scenesToShift) {
-                if (scene.id !== undefined) {
-                    await db.scenes.update(scene.id, {
-                        order: scene.order + 1,
+
+            const updates = scenesToShift
+                .filter((s) => s.id !== undefined)
+                .map((s) => ({
+                    key: s.id,
+                    changes: {
+                        order: s.order + 1,
                         updatedAt: new Date(),
-                    });
-                }
-            }
+                    },
+                }));
+
+            if (updates.length > 0) await db.scenes.bulkUpdate(updates);
         }
 
         const id = await db.scenes.add({
