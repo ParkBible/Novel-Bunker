@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Chapter, Character, Scene } from "../db";
-import { db } from "../db";
+import { chapterOps, sceneOps } from "../db/operations";
 
 interface EditorState {
     // Data
@@ -49,8 +49,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     // Delete actions
     deleteChapter: async (chapterId) => {
-        await db.scenes.where("chapterId").equals(chapterId).delete();
-        await db.chapters.delete(chapterId);
+        await chapterOps.delete(chapterId);
         const { chapters, scenes, selectedSceneId } = get();
         const deletedSceneIds = scenes
             .filter((s) => s.chapterId === chapterId)
@@ -66,7 +65,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     deleteScene: async (sceneId) => {
-        await db.scenes.delete(sceneId);
+        await sceneOps.delete(sceneId);
         const { scenes, selectedSceneId } = get();
         set({
             scenes: scenes.filter((s) => s.id !== sceneId),
