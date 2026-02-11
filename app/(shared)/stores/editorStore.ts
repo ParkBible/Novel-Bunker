@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Chapter, Scene, Character } from "../db";
+import type { Chapter, Character, Scene } from "../db";
+import { chapterOps, sceneOps } from "../db/operations";
 
 interface EditorState {
     // Data
@@ -19,6 +20,10 @@ interface EditorState {
     setSynopsis: (synopsis: string) => void;
     setSelectedSceneId: (id: number | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
+
+    // Delete actions
+    deleteChapter: (chapterId: number) => Promise<void>;
+    deleteScene: (sceneId: number) => Promise<void>;
 
     // Helper methods
     getScenesForChapter: (chapterId: number) => Scene[];
@@ -41,6 +46,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     setSynopsis: (synopsis) => set({ synopsis }),
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),
     setIsLoadingAI: (isLoadingAI) => set({ isLoadingAI }),
+
+    // Delete actions
+    deleteChapter: async (chapterId) => {
+        await chapterOps.delete(chapterId);
+        const { chapters, scenes, selectedSceneId } = get();
+        const deletedSceneIds = scenes
+            .filter((s) => s.chapterId === chapterId)
+            .map((s) => s.id);
+        set({
+            chapters: chapters.filter((c) => c.id !== chapterId),
+            scenes: scenes.filter((s) => s.chapterId !== chapterId),
+            selectedSceneId:
+                selectedSceneId && deletedSceneIds.includes(selectedSceneId)
+                    ? null
+                    : selectedSceneId,
+        });
+    },
+
+    deleteScene: async (sceneId) => {
+        await sceneOps.delete(sceneId);
+        const { scenes, selectedSceneId } = get();
+        set({
+            scenes: scenes.filter((s) => s.id !== sceneId),
+            selectedSceneId:
+                selectedSceneId === sceneId ? null : selectedSceneId,
+        });
+    },
 
     // Helper methods
     getScenesForChapter: (chapterId) => {

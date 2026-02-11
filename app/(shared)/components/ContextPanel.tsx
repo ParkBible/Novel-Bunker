@@ -1,8 +1,8 @@
 "use client";
 
-import { Sparkles, Calendar, Type } from "lucide-react";
-import { useEditorStore } from "../stores/editorStore";
+import { Calendar, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
+import { useEditorStore } from "../stores/editorStore";
 
 export function ContextPanel() {
     const { getSelectedScene, characters, synopsis, isLoadingAI } =
@@ -112,6 +112,7 @@ export function ContextPanel() {
                             AI 피드백
                         </h3>
                         <button
+                            type="button"
                             onClick={handleRequestFeedback}
                             disabled={isLoadingAI}
                             className="flex items-center gap-1 rounded bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:bg-zinc-300 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-800"
