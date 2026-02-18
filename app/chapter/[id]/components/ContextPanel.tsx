@@ -2,6 +2,7 @@
 
 import { Calendar, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
+import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 export function ContextPanel() {
@@ -15,7 +16,7 @@ export function ContextPanel() {
         try {
             useEditorStore.setState({ isLoadingAI: true });
 
-            const response = await fetch("/api/ai/feedback", {
+            const response = await fetch(apiRoutes.aiFeedback, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

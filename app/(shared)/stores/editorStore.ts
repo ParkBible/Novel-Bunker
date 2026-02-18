@@ -19,6 +19,7 @@ interface EditorState {
 
     // UI State
     selectedSceneId: number | null;
+    expandedChapterIds: Set<number>;
     isLoadingAI: boolean;
     isInitialized: boolean;
 
@@ -26,6 +27,7 @@ interface EditorState {
     loadData: () => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
+    toggleExpandedChapter: (id: number) => void;
     updateNovelTitle: (title: string) => Promise<void>;
 
     // Update actions
@@ -48,6 +50,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     synopsis: "",
     novelTitle: "",
     selectedSceneId: null,
+    expandedChapterIds: new Set<number>(),
     isLoadingAI: false,
     isInitialized: false,
 
@@ -73,11 +76,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
+            expandedChapterIds: new Set(chapters.map((c) => c.id as number)),
         });
     },
 
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),
     setIsLoadingAI: (isLoadingAI) => set({ isLoadingAI }),
+    toggleExpandedChapter: (id) => {
+        const next = new Set(get().expandedChapterIds);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
+        }
+        set({ expandedChapterIds: next });
+    },
     updateNovelTitle: async (title) => {
         await novelOps.updateNovelTitle(title);
         set({ novelTitle: title });
