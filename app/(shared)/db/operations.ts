@@ -1,10 +1,17 @@
 import {
-    db,
     type Chapter,
-    type Scene,
     type Character,
+    db,
+    type Scene,
     type Setting,
 } from "./index";
+
+// Novel Operations
+export const novelOps = {
+    async updateNovelTitle(title: string): Promise<void> {
+        await db.settings.put({ key: "novelTitle", value: title });
+    },
+};
 
 // Chapter Operations
 export const chapterOps = {
@@ -32,7 +39,10 @@ export const chapterOps = {
     async delete(id: number): Promise<void> {
         // Delete all scenes in this chapter first
         const scenes = await db.scenes.where("chapterId").equals(id).toArray();
-        await db.scenes.bulkDelete(scenes.map((s) => s.id!));
+        const sceneIds = scenes
+            .map((s) => s.id)
+            .filter((id): id is number => id !== undefined);
+        await db.scenes.bulkDelete(sceneIds);
         await db.chapters.delete(id);
     },
 
@@ -57,19 +67,40 @@ export const sceneOps = {
     async create(
         chapterId: number,
         title: string,
-        order?: number,
+        insertAtOrder?: number,
     ): Promise<number> {
-        let sceneOrder = order;
+        const scenes = await db.scenes
+            .where("chapterId")
+            .equals(chapterId)
+            .toArray();
 
-        if (sceneOrder === undefined) {
-            const scenes = await db.scenes
-                .where("chapterId")
-                .equals(chapterId)
-                .toArray();
+        let sceneOrder: number;
+
+        if (insertAtOrder === undefined) {
+            // 맨 뒤에 추가
             sceneOrder =
                 scenes.length > 0
                     ? Math.max(...scenes.map((s) => s.order)) + 1
                     : 0;
+        } else {
+            // 특정 위치에 삽입 - 기존 씬들의 order를 밀어줌
+            sceneOrder = insertAtOrder;
+
+            const scenesToShift = scenes.filter(
+                (s) => s.order >= insertAtOrder,
+            );
+
+            const updates = scenesToShift
+                .filter((s) => s.id !== undefined)
+                .map((s) => ({
+                    key: s.id,
+                    changes: {
+                        order: s.order + 1,
+                        updatedAt: new Date(),
+                    },
+                }));
+
+            if (updates.length > 0) await db.scenes.bulkUpdate(updates);
         }
 
         const id = await db.scenes.add({
