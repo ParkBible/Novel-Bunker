@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterItem } from "./ChapterItem";
@@ -59,16 +59,13 @@ export function TreePanel() {
         if (currentChapterId !== chapterId) {
             router.push(`/chapter/${chapterId}`);
         }
-        setTimeout(() => {
-            const sceneElement = document.getElementById(`scene-${sceneId}`);
-            if (sceneElement) {
-                sceneElement.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                });
-            }
-        }, 100);
     };
+
+    useEffect(() => {
+        if (selectedSceneId === null) return;
+        const el = document.getElementById(`scene-${selectedSceneId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, [selectedSceneId]);
 
     return (
         <div className="flex h-full flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
