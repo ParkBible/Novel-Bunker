@@ -1,31 +1,30 @@
 import {
     chapterOps,
-    sceneOps,
     characterOps,
+    sceneOps,
     settingsOps,
 } from "../db/operations";
 
 export async function initializeDemoData() {
     // Check if data already exists
     const existingChapters = await chapterOps.getAll();
+
     if (existingChapters.length > 0) {
         return; // Already initialized
     }
 
     // Create characters
-    const char1 = await characterOps.create(
+    await characterOps.create(
         "이서윤",
         "28세, 소설가 지망생. 카페에서 아르바이트를 하며 첫 장편소설을 집필 중이다.",
         ["주인공", "여성", "작가"],
     );
-
-    const char2 = await characterOps.create(
+    await characterOps.create(
         "강민호",
         "32세, 출판사 편집자. 서윤의 원고를 우연히 발견하고 관심을 갖게 된다.",
         ["조연", "남성", "편집자"],
     );
-
-    const char3 = await characterOps.create(
+    await characterOps.create(
         "박지우",
         "55세, 베스트셀러 작가. 서윤의 멘토가 되어준다.",
         ["조연", "여성", "작가", "멘토"],
