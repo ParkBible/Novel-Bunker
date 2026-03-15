@@ -1,6 +1,7 @@
 import {
     type Chapter,
     type Character,
+    type CharacterRelationship,
     db,
     type Scene,
     type Setting,
@@ -153,6 +154,37 @@ export const characterOps = {
 
     async delete(id: number): Promise<void> {
         await db.characters.delete(id);
+    },
+};
+
+// Relationship Operations
+export const relationshipOps = {
+    async getAll(): Promise<CharacterRelationship[]> {
+        return db.characterRelationships.toArray();
+    },
+
+    async create(
+        fromCharacterId: number,
+        toCharacterId: number,
+        label: string,
+    ): Promise<number> {
+        const id = await db.characterRelationships.add({
+            fromCharacterId,
+            toCharacterId,
+            label,
+        });
+        return id as number;
+    },
+
+    async update(
+        id: number,
+        updates: Partial<CharacterRelationship>,
+    ): Promise<void> {
+        await db.characterRelationships.update(id, updates);
+    },
+
+    async delete(id: number): Promise<void> {
+        await db.characterRelationships.delete(id);
     },
 };
 

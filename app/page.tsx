@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { chapterOps } from "./(shared)/db/operations";
-import { routes } from "./(shared)/routes";
 import { useEditorStore } from "./(shared)/stores/editorStore";
+import { ChapterProgress } from "./components/dashboard/ChapterProgress";
+import { CharacterSummary } from "./components/dashboard/CharacterSummary";
+import { DashboardHeader } from "./components/dashboard/DashboardHeader";
+import { RelationshipDiagram } from "./components/dashboard/RelationshipDiagram";
+import { WorkStatistics } from "./components/dashboard/WorkStatistics";
 
 export default function Home() {
-    const router = useRouter();
-    const { chapters, isInitialized, loadData } = useEditorStore();
+    const { isInitialized, loadData } = useEditorStore();
 
     useEffect(() => {
         if (!isInitialized) {
@@ -16,26 +17,25 @@ export default function Home() {
         }
     }, [isInitialized, loadData]);
 
-    useEffect(() => {
-        if (!isInitialized) return;
-
-        const redirect = async () => {
-            if (chapters.length > 0 && chapters[0].id) {
-                router.replace(routes.chapter(chapters[0].id));
-            } else {
-                const newChapterId = await chapterOps.create("챕터 1");
-                if (newChapterId) {
-                    router.replace(routes.chapter(newChapterId));
-                }
-            }
-        };
-
-        redirect();
-    }, [isInitialized, chapters, router]);
+    if (!isInitialized) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+                <p className="text-zinc-500">로딩 중...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black">
-            <p className="text-zinc-500">로딩 중...</p>
+        <div className="min-h-screen bg-zinc-50 dark:bg-black">
+            <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
+                <DashboardHeader />
+                <WorkStatistics />
+                <div className="grid gap-6 lg:grid-cols-2">
+                    <ChapterProgress />
+                    <CharacterSummary />
+                </div>
+                <RelationshipDiagram />
+            </div>
         </div>
     );
 }

@@ -8,6 +8,7 @@ interface Scene {
     id?: number;
     title: string;
     chapterId: number;
+    content: string;
 }
 
 interface Chapter {

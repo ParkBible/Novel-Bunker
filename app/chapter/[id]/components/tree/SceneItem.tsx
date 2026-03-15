@@ -6,6 +6,7 @@ interface SceneItemProps {
     scene: {
         id?: number;
         title: string;
+        content: string;
     };
     isSelected: boolean;
     onSelect: () => void;
@@ -33,6 +34,12 @@ export function SceneItem({
             >
                 <FileText className="h-3.5 w-3.5" />
                 <span className="truncate">{scene.title}</span>
+                <span className="ml-auto shrink-0 text-xs text-zinc-400 dark:text-zinc-600">
+                    {
+                        scene.content.replace(/<[^>]*>/g, "").replace(/\s/g, "")
+                            .length
+                    }
+                </span>
             </button>
             <button
                 type="button"
