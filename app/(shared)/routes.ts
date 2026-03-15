@@ -1,4 +1,5 @@
 export const routes = {
+    dashboard: "/",
     chapter: (id: number) => `/chapter/${id}`,
     chapterPrefix: "/chapter/",
 } as const;

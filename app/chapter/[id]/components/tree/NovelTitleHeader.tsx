@@ -1,7 +1,9 @@
 "use client";
 
-import { Pencil, Plus } from "lucide-react";
+import { LayoutDashboard, Pencil, Plus } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { routes } from "@/app/(shared)/routes";
 
 interface NovelTitleHeaderProps {
     title: string;
@@ -82,14 +84,23 @@ export function NovelTitleHeader({
                     </>
                 )}
             </div>
-            <button
-                type="button"
-                onClick={onAddChapter}
-                className="ml-2 shrink-0 rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                title="챕터 추가"
-            >
-                <Plus className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-            </button>
+            <div className="ml-2 flex shrink-0 items-center gap-1">
+                <Link
+                    href={routes.dashboard}
+                    className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    title="대시보드"
+                >
+                    <LayoutDashboard className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                </Link>
+                <button
+                    type="button"
+                    onClick={onAddChapter}
+                    className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    title="챕터 추가"
+                >
+                    <Plus className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                </button>
+            </div>
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
+import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
 import { ChapterItem } from "./ChapterItem";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 
@@ -67,45 +68,62 @@ export function TreePanel() {
                 onAddChapter={handleAddChapter}
             />
 
-            <div className="flex-1 overflow-y-auto p-2">
-                {chapters.map((chapter) => {
-                    const chapterScenes = scenes.filter(
-                        (s) => s.chapterId === chapter.id,
-                    );
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-2">
+                    <h3 className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                        챕터
+                    </h3>
+                    {chapters.map((chapter) => {
+                        const chapterScenes = scenes.filter(
+                            (s) => s.chapterId === chapter.id,
+                        );
 
-                    const isExpanded = chapter.id
-                        ? expandedChapterIds.has(chapter.id)
-                        : false;
+                        const isExpanded = chapter.id
+                            ? expandedChapterIds.has(chapter.id)
+                            : false;
 
-                    return (
-                        <ChapterItem
-                            key={chapter.id}
-                            chapter={chapter}
-                            scenes={chapterScenes}
-                            isExpanded={isExpanded}
-                            isCurrentChapter={currentChapterId === chapter.id}
-                            selectedSceneId={selectedSceneId}
-                            onToggle={() =>
-                                chapter.id && toggleExpandedChapter(chapter.id)
-                            }
-                            onClick={() =>
-                                chapter.id && handleChapterClick(chapter.id)
-                            }
-                            onTitleUpdate={(title) =>
-                                chapter.id &&
-                                updateChapterTitle(chapter.id, title)
-                            }
-                            onDelete={() =>
-                                chapter.id && deleteChapter(chapter.id)
-                            }
-                            onSceneSelect={(sceneId) =>
-                                chapter.id &&
-                                handleSceneClick(sceneId, chapter.id)
-                            }
-                            onSceneDelete={deleteScene}
-                        />
-                    );
-                })}
+                        return (
+                            <ChapterItem
+                                key={chapter.id}
+                                chapter={chapter}
+                                scenes={chapterScenes}
+                                isExpanded={isExpanded}
+                                isCurrentChapter={
+                                    currentChapterId === chapter.id
+                                }
+                                selectedSceneId={selectedSceneId}
+                                onToggle={() =>
+                                    chapter.id &&
+                                    toggleExpandedChapter(chapter.id)
+                                }
+                                onClick={() =>
+                                    chapter.id && handleChapterClick(chapter.id)
+                                }
+                                onTitleUpdate={(title) =>
+                                    chapter.id &&
+                                    updateChapterTitle(chapter.id, title)
+                                }
+                                onDelete={() =>
+                                    chapter.id && deleteChapter(chapter.id)
+                                }
+                                onSceneSelect={(sceneId) =>
+                                    chapter.id &&
+                                    handleSceneClick(sceneId, chapter.id)
+                                }
+                                onSceneDelete={deleteScene}
+                            />
+                        );
+                    })}
+                </div>
+
+                <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
+                    <h3 className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                        등장인물
+                    </h3>
+                    <div className="px-2 pt-1">
+                        <CharacterSummaryContent />
+                    </div>
+                </div>
             </div>
         </div>
     );
