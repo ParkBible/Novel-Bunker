@@ -8,6 +8,7 @@ import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
 import { ChapterItem } from "./ChapterItem";
 import { NovelTitleHeader } from "./NovelTitleHeader";
+import { TreeSection } from "./TreeSection";
 
 export function TreePanel() {
     const router = useRouter();
@@ -69,10 +70,7 @@ export function TreePanel() {
             />
 
             <div className="flex-1 overflow-y-auto">
-                <div className="p-2">
-                    <h3 className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                        챕터
-                    </h3>
+                <TreeSection title="챕터" className="p-2">
                     {chapters.map((chapter) => {
                         const chapterScenes = scenes.filter(
                             (s) => s.chapterId === chapter.id,
@@ -114,16 +112,16 @@ export function TreePanel() {
                             />
                         );
                     })}
-                </div>
+                </TreeSection>
 
-                <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
-                    <h3 className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                        등장인물
-                    </h3>
+                <TreeSection
+                    title="등장인물"
+                    className="border-t border-zinc-200 p-2 dark:border-zinc-800"
+                >
                     <div className="px-2 pt-1">
                         <CharacterSummaryContent />
                     </div>
-                </div>
+                </TreeSection>
             </div>
         </div>
     );
