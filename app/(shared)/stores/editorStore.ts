@@ -76,7 +76,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
-            expandedChapterIds: new Set(chapters.map((c) => c.id as number)),
+            // DB에서 불러온 레코드이므로 id는 항상 존재
+            expandedChapterIds: new Set(chapters.map((c) => c.id!)),
         });
     },
 

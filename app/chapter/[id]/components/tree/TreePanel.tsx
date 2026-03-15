@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { routes } from "@/app/(shared)/routes";
@@ -10,7 +10,7 @@ import { NovelTitleHeader } from "./NovelTitleHeader";
 
 export function TreePanel() {
     const router = useRouter();
-    const pathname = usePathname();
+    const params = useParams();
     const {
         chapters,
         scenes,
@@ -25,8 +25,8 @@ export function TreePanel() {
         updateChapterTitle,
     } = useEditorStore();
 
-    const currentChapterId = pathname.startsWith(routes.chapterPrefix)
-        ? Number.parseInt(pathname.split("/")[2], 10)
+    const currentChapterId = params.id
+        ? Number.parseInt(params.id as string, 10)
         : null;
 
     const handleAddChapter = async () => {
