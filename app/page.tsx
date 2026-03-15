@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { chapterOps } from "./(shared)/db/operations";
+import { routes } from "./(shared)/routes";
 import { useEditorStore } from "./(shared)/stores/editorStore";
 
 export default function Home() {
@@ -20,11 +21,11 @@ export default function Home() {
 
         const redirect = async () => {
             if (chapters.length > 0 && chapters[0].id) {
-                router.replace(`/chapter/${chapters[0].id}`);
+                router.replace(routes.chapter(chapters[0].id));
             } else {
                 const newChapterId = await chapterOps.create("챕터 1");
                 if (newChapterId) {
-                    router.replace(`/chapter/${newChapterId}`);
+                    router.replace(routes.chapter(newChapterId));
                 }
             }
         };

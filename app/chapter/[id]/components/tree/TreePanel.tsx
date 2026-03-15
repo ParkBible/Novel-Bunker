@@ -1,20 +1,23 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { chapterOps } from "@/app/(shared)/db/operations";
+import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterItem } from "./ChapterItem";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 
 export function TreePanel() {
     const router = useRouter();
-    const pathname = usePathname();
+    const params = useParams();
     const {
         chapters,
         scenes,
         selectedSceneId,
         setSelectedSceneId,
+        expandedChapterIds,
+        toggleExpandedChapter,
         deleteChapter,
         deleteScene,
         novelTitle,
@@ -22,47 +25,36 @@ export function TreePanel() {
         updateChapterTitle,
     } = useEditorStore();
 
-    const [expandedChapters, setExpandedChapters] = useState<Set<number>>(
-        new Set(chapters.map((c) => c.id).filter((id): id is number => !!id)),
-    );
-
-    const currentChapterId = pathname.startsWith("/chapter/")
-        ? Number.parseInt(pathname.split("/")[2], 10)
+    const currentChapterId = params.id
+        ? Number.parseInt(params.id as string, 10)
         : null;
 
     const handleAddChapter = async () => {
         const newChapterId = await chapterOps.create(
             `챕터 ${chapters.length + 1}`,
         );
-        if (newChapterId) {
-            router.push(`/chapter/${newChapterId}`);
-        }
-    };
 
-    const toggleChapter = (chapterId: number) => {
-        const newExpanded = new Set(expandedChapters);
-        if (newExpanded.has(chapterId)) {
-            newExpanded.delete(chapterId);
-        } else {
-            newExpanded.add(chapterId);
+        if (newChapterId) {
+            router.push(routes.chapter(newChapterId));
         }
-        setExpandedChapters(newExpanded);
     };
 
     const handleChapterClick = (chapterId: number) => {
         setSelectedSceneId(null);
-        router.push(`/chapter/${chapterId}`);
+        router.push(routes.chapter(chapterId));
     };
 
     const handleSceneClick = (sceneId: number, chapterId: number) => {
         setSelectedSceneId(sceneId);
+
         if (currentChapterId !== chapterId) {
-            router.push(`/chapter/${chapterId}`);
+            router.push(routes.chapter(chapterId));
         }
     };
 
     useEffect(() => {
         if (selectedSceneId === null) return;
+
         const el = document.getElementById(`scene-${selectedSceneId}`);
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, [selectedSceneId]);
@@ -80,8 +72,9 @@ export function TreePanel() {
                     const chapterScenes = scenes.filter(
                         (s) => s.chapterId === chapter.id,
                     );
+
                     const isExpanded = chapter.id
-                        ? expandedChapters.has(chapter.id)
+                        ? expandedChapterIds.has(chapter.id)
                         : false;
 
                     return (
@@ -93,7 +86,7 @@ export function TreePanel() {
                             isCurrentChapter={currentChapterId === chapter.id}
                             selectedSceneId={selectedSceneId}
                             onToggle={() =>
-                                chapter.id && toggleChapter(chapter.id)
+                                chapter.id && toggleExpandedChapter(chapter.id)
                             }
                             onClick={() =>
                                 chapter.id && handleChapterClick(chapter.id)
