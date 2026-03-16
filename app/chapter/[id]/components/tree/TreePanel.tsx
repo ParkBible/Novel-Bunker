@@ -25,6 +25,7 @@ export function TreePanel() {
         novelTitle,
         updateNovelTitle,
         updateChapterTitle,
+        reorderScenes,
     } = useEditorStore();
 
     const currentChapterId = params.id
@@ -109,6 +110,10 @@ export function TreePanel() {
                                     handleSceneClick(sceneId, chapter.id)
                                 }
                                 onSceneDelete={deleteScene}
+                                onSceneReorder={(activeId, overId) =>
+                                    chapter.id &&
+                                    reorderScenes(chapter.id, activeId, overId)
+                                }
                             />
                         );
                     })}
