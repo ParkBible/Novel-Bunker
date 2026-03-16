@@ -47,6 +47,13 @@ interface EditorState {
     ) => Promise<void>;
     removeRelationship: (id: number) => Promise<void>;
 
+    // Reorder actions
+    reorderScenes: (
+        chapterId: number,
+        activeId: number,
+        overId: number,
+    ) => Promise<void>;
+
     // Helper methods
     getScenesForChapter: (chapterId: number) => Scene[];
     getSelectedScene: () => Scene | null;
@@ -172,6 +179,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         set({
             relationships: get().relationships.filter((r) => r.id !== id),
         });
+    },
+
+    // Reorder actions
+    reorderScenes: async (chapterId, activeId, overId) => {
+        const { scenes } = get();
+        const chapterScenes = scenes
+            .filter((s) => s.chapterId === chapterId)
+            .sort((a, b) => a.order - b.order);
+
+        const oldIndex = chapterScenes.findIndex((s) => s.id === activeId);
+        const newIndex = chapterScenes.findIndex((s) => s.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        // arrayMove 로직
+        const reordered = [...chapterScenes];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        // DB 업데이트
+        const updates = reordered.map((s, i) => ({
+            id: s.id!,
+            order: i,
+        }));
+        await Promise.all(updates.map((u) => sceneOps.reorder(u.id, u.order)));
+
+        // 스토어 업데이트
+        const otherScenes = scenes.filter((s) => s.chapterId !== chapterId);
+        const updatedScenes = reordered.map((s, i) => ({ ...s, order: i }));
+        set({ scenes: [...otherScenes, ...updatedScenes] });
     },
 
     // Helper methods
