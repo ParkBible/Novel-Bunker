@@ -3,6 +3,7 @@ import {
     type Character,
     type CharacterRelationship,
     db,
+    type Lore,
     type Scene,
     type Setting,
 } from "./index";
@@ -185,6 +186,40 @@ export const relationshipOps = {
 
     async delete(id: number): Promise<void> {
         await db.characterRelationships.delete(id);
+    },
+};
+
+// Lore Operations
+export const loreOps = {
+    async getAll(): Promise<Lore[]> {
+        return db.lores.orderBy("createdAt").toArray();
+    },
+
+    async getByCategory(category: string): Promise<Lore[]> {
+        return db.lores.where("category").equals(category).toArray();
+    },
+
+    async create(
+        name: string,
+        category: string,
+        description = "",
+    ): Promise<number> {
+        const id = await db.lores.add({
+            name,
+            category,
+            description,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+        return id as number;
+    },
+
+    async update(id: number, updates: Partial<Lore>): Promise<void> {
+        await db.lores.update(id, { ...updates, updatedAt: new Date() });
+    },
+
+    async delete(id: number): Promise<void> {
+        await db.lores.delete(id);
     },
 };
 
