@@ -99,12 +99,6 @@ export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
                     placeholder="씬 내용을 작성하세요..."
                 />
             </div>
-
-            <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500 dark:border-zinc-800">
-                {scene.characters.length > 0 && (
-                    <span>등장인물: {scene.characters.join(", ")}</span>
-                )}
-            </div>
         </div>
     );
 }

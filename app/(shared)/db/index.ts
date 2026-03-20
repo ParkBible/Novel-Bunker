@@ -5,6 +5,7 @@ export interface Chapter {
     id?: number;
     title: string;
     order: number;
+    memo?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -15,6 +16,7 @@ export interface Scene {
     title: string;
     content: string;
     order: number;
+    memo?: string;
     characters: string[]; // Array of character IDs or names
     aiFeedback?: string;
     createdAt: Date;

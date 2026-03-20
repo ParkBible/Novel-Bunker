@@ -17,6 +17,12 @@ import {
 } from "../db/operations";
 import { initializeDemoData } from "../utils/demoData";
 
+export type DetailPanel =
+    | { type: "scene"; sceneId: number }
+    | { type: "chapter"; chapterId: number }
+    | { type: "character"; characterId: number }
+    | { type: "lore"; loreId: number };
+
 interface EditorState {
     // Data
     chapters: Chapter[];
@@ -30,6 +36,7 @@ interface EditorState {
 
     // UI State
     selectedSceneId: number | null;
+    detailPanel: DetailPanel | null;
     expandedChapterIds: Set<number>;
     isLoadingAI: boolean;
     isInitialized: boolean;
@@ -37,12 +44,15 @@ interface EditorState {
     // Actions
     loadData: () => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
+    setDetailPanel: (panel: DetailPanel | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
     toggleExpandedChapter: (id: number) => void;
     updateNovelTitle: (title: string) => Promise<void>;
 
     // Update actions
     updateChapterTitle: (chapterId: number, title: string) => Promise<void>;
+    updateChapterMemo: (chapterId: number, memo: string) => Promise<void>;
+    updateSceneMemo: (sceneId: number, memo: string) => Promise<void>;
 
     // Delete actions
     deleteChapter: (chapterId: number) => Promise<void>;
@@ -86,6 +96,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     synopsis: "",
     novelTitle: "",
     selectedSceneId: null,
+    detailPanel: null,
     expandedChapterIds: new Set<number>(),
     isLoadingAI: false,
     isInitialized: false,
@@ -137,6 +148,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),
+    setDetailPanel: (detailPanel) => set({ detailPanel }),
     setIsLoadingAI: (isLoadingAI) => set({ isLoadingAI }),
     toggleExpandedChapter: (id) => {
         const next = new Set(get().expandedChapterIds);
@@ -159,6 +171,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         set({
             chapters: chapters.map((c) =>
                 c.id === chapterId ? { ...c, title } : c,
+            ),
+        });
+    },
+
+    updateChapterMemo: async (chapterId, memo) => {
+        await chapterOps.update(chapterId, { memo });
+        set({
+            chapters: get().chapters.map((c) =>
+                c.id === chapterId ? { ...c, memo } : c,
+            ),
+        });
+    },
+
+    updateSceneMemo: async (sceneId, memo) => {
+        await sceneOps.update(sceneId, { memo });
+        set({
+            scenes: get().scenes.map((s) =>
+                s.id === sceneId ? { ...s, memo } : s,
             ),
         });
     },

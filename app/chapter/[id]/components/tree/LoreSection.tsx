@@ -11,7 +11,8 @@ function LoreCategoryGroup({
     category: string;
     isCustom: boolean;
 }) {
-    const { lores, addLore, deleteLore, removeLoreCategory } = useEditorStore();
+    const { lores, addLore, deleteLore, removeLoreCategory, setDetailPanel } =
+        useEditorStore();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState("");
@@ -85,9 +86,26 @@ function LoreCategoryGroup({
             {isExpanded && (
                 <div className="ml-3 space-y-0.5 py-0.5">
                     {categoryLores.map((lore) => (
+                        // biome-ignore lint/a11y/useSemanticElements: 내부에 삭제 버튼 포함으로 button 중첩 불가
                         <div
                             key={lore.id}
-                            className="group/item flex items-center justify-between rounded-md px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                            className="group/item flex cursor-pointer items-center justify-between rounded-md px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                            onClick={() =>
+                                lore.id &&
+                                setDetailPanel({
+                                    type: "lore",
+                                    loreId: lore.id,
+                                })
+                            }
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && lore.id)
+                                    setDetailPanel({
+                                        type: "lore",
+                                        loreId: lore.id,
+                                    });
+                            }}
+                            role="button"
+                            tabIndex={0}
                         >
                             <span className="truncate text-sm text-zinc-600 dark:text-zinc-400">
                                 {lore.name}
@@ -95,7 +113,10 @@ function LoreCategoryGroup({
                             <button
                                 type="button"
                                 className="rounded p-0.5 opacity-0 hover:bg-zinc-200 group-hover/item:opacity-100 dark:hover:bg-zinc-700"
-                                onClick={() => lore.id && deleteLore(lore.id)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (lore.id) deleteLore(lore.id);
+                                }}
                             >
                                 <Trash2 className="h-3 w-3 text-zinc-400" />
                             </button>
