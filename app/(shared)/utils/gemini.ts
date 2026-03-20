@@ -42,6 +42,42 @@ ${sceneContent.replace(/<[^>]*>/g, "")}
     }
 }
 
+export async function chatWithCharacter(
+    characterName: string,
+    characterDescription: string,
+    characterTags: string[],
+    messages: { role: "user" | "model"; text: string }[],
+): Promise<string> {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: `당신은 소설 속 등장인물 "${characterName}"입니다. 아래 설정을 기반으로 이 인물처럼 대화해주세요. 절대 캐릭터에서 벗어나지 마세요.
+
+**인물 설명:**
+${characterDescription || "설정 없음"}
+
+**태그:**
+${characterTags.length > 0 ? characterTags.join(", ") : "없음"}
+
+항상 한국어로 답변하고, 이 인물의 성격과 말투를 일관되게 유지하세요.`,
+    });
+
+    const chat = model.startChat({
+        history: messages.slice(0, -1).map((m) => ({
+            role: m.role,
+            parts: [{ text: m.text }],
+        })),
+    });
+
+    try {
+        const lastMessage = messages[messages.length - 1];
+        const result = await chat.sendMessage(lastMessage.text);
+        return result.response.text();
+    } catch (error) {
+        console.error("Gemini API error:", error);
+        throw new Error("캐릭터 대화 생성에 실패했습니다.");
+    }
+}
+
 export async function checkGrammar(content: string): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 

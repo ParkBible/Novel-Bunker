@@ -1,5 +1,5 @@
 import { ChapterContent } from "./components/ChapterContent";
-import { ContextPanel } from "./components/ContextPanel";
+import { DetailPanel } from "./components/detail/DetailPanel";
 import { TreePanel } from "./components/tree/TreePanel";
 
 interface ChapterPageProps {
@@ -20,16 +20,15 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
 
     return (
         <div className="flex h-screen bg-zinc-50 dark:bg-black">
-            <div className="w-64 flex-shrink-0">
-                <TreePanel />
+            <div className="flex flex-shrink-0">
+                <div className="w-64">
+                    <TreePanel />
+                </div>
+                <DetailPanel />
             </div>
 
             <div className="flex-1 overflow-y-auto">
                 <ChapterContent chapterId={chapterId} />
-            </div>
-
-            <div className="w-80 flex-shrink-0">
-                <ContextPanel />
             </div>
         </div>
     );
