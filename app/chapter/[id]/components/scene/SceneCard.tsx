@@ -92,7 +92,7 @@ export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
                 </button>
             </div>
 
-            <div className="min-h-[200px]">
+            <div className="min-h-50">
                 <SceneEditor
                     content={content}
                     onChange={setContent}
