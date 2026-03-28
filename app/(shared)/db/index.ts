@@ -28,6 +28,12 @@ export interface Character {
     name: string;
     description: string;
     tags: string[];
+    age?: string;
+    gender?: string;
+    role?: string;
+    mbti?: string;
+    appearance?: string;
+    personality?: string;
 }
 
 export interface CharacterRelationship {
@@ -79,6 +85,15 @@ class NovelBunkerDB extends Dexie {
         });
 
         this.version(3).stores({
+            chapters: "++id, order, createdAt",
+            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+            characters: "++id, name",
+            characterRelationships: "++id, fromCharacterId, toCharacterId",
+            lores: "++id, category, createdAt",
+            settings: "key",
+        });
+
+        this.version(4).stores({
             chapters: "++id, order, createdAt",
             scenes: "++id, chapterId, order, [chapterId+order], createdAt",
             characters: "++id, name",
