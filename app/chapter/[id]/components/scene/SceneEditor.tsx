@@ -18,6 +18,7 @@ export function SceneEditor({
     placeholder,
 }: SceneEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const toolbarRef = useRef<HTMLDivElement>(null);
     const mouseRef = useRef({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
     const [bubbleMenu, setBubbleMenu] = useState<{
@@ -27,12 +28,7 @@ export function SceneEditor({
 
     const editor = useEditor({
         immediatelyRender: false,
-        extensions: [
-            StarterKit,
-            Placeholder.configure({
-                placeholder: placeholder || "여기에 씬을 작성하세요...",
-            }),
-        ],
+        extensions: [StarterKit, Placeholder.configure({ placeholder })],
         content,
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML());
@@ -70,7 +66,9 @@ export function SceneEditor({
         const handleMouseMove = (e: MouseEvent) => {
             mouseRef.current = { x: e.clientX, y: e.clientY };
         };
-        const handleMouseUp = () => {
+        const handleMouseUp = (e: MouseEvent) => {
+            // toolbar 내부 클릭이면 위치 업데이트 안함
+            if (toolbarRef.current?.contains(e.target as Node)) return;
             // 드래그 끝난 뒤 메뉴 표시
             requestAnimationFrame(() => updateBubbleMenu());
         };
@@ -91,7 +89,9 @@ export function SceneEditor({
             if (isDraggingRef.current) return;
             updateBubbleMenu();
         };
-        const handleMouseDown = () => {
+        const handleMouseDown = (e: MouseEvent) => {
+            // toolbar 내부 클릭이면 네이티브 이벤트 무시 (bold/italic 버튼 클릭 시 메뉴 유지)
+            if (toolbarRef.current?.contains(e.target as Node)) return;
             isDraggingRef.current = true;
             setBubbleMenu(null);
         };
@@ -122,6 +122,7 @@ export function SceneEditor({
         <div ref={containerRef} className="relative">
             {editor && bubbleMenu && (
                 <div
+                    ref={toolbarRef}
                     role="toolbar"
                     className="absolute z-50 flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white px-1 py-0.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
                     style={{
