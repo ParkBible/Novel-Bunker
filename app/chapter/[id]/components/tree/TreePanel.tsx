@@ -7,6 +7,7 @@ import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
 import { ChapterItem } from "./ChapterItem";
+import { DriveSync } from "./DriveSync";
 import { LoreSection } from "./LoreSection";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 import { TreeSection } from "./TreeSection";
@@ -188,6 +189,8 @@ export function TreePanel() {
                     </div>
                 </TreeSection>
             </div>
+
+            <DriveSync />
         </div>
     );
 }
