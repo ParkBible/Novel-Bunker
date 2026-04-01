@@ -1,4 +1,6 @@
 import {
+    type AiConversation,
+    type AiMessage,
     type Chapter,
     type Character,
     type CharacterRelationship,
@@ -7,6 +9,62 @@ import {
     type Scene,
     type Setting,
 } from "./index";
+
+// AI Conversation Operations
+export const aiConversationOps = {
+    async getAll(): Promise<AiConversation[]> {
+        return db.aiConversations.orderBy("createdAt").reverse().toArray();
+    },
+
+    async create(title: string): Promise<number> {
+        const id = await db.aiConversations.add({
+            title,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+        return id as number;
+    },
+
+    async updateTitle(id: number, title: string): Promise<void> {
+        await db.aiConversations.update(id, { title, updatedAt: new Date() });
+    },
+
+    async delete(id: number): Promise<void> {
+        await db.aiMessages.where("conversationId").equals(id).delete();
+        await db.aiConversations.delete(id);
+    },
+};
+
+// AI Message Operations
+export const aiMessageOps = {
+    async getByConversation(conversationId: number): Promise<AiMessage[]> {
+        return db.aiMessages
+            .where("conversationId")
+            .equals(conversationId)
+            .sortBy("createdAt");
+    },
+
+    async create(
+        conversationId: number,
+        role: "user" | "model",
+        text: string,
+        context?: {
+            contextType: "scene" | "chapter";
+            contextId: number;
+            contextTitle: string;
+            contextContent: string;
+        },
+    ): Promise<number> {
+        const id = await db.aiMessages.add({
+            conversationId,
+            role,
+            text,
+            ...context,
+            createdAt: new Date(),
+        });
+        return id as number;
+    },
+};
 
 // Novel Operations
 export const novelOps = {

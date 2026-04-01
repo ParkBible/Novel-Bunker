@@ -69,12 +69,14 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
 
     if (!isInitialized) {
         return (
-            <div className="p-8">
-                <div className="mb-6 h-8 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
-                <div className="space-y-4">
-                    <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
-                    <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
-                    <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+            <div className="px-8 py-8">
+                <div className="mx-auto max-w-3xl">
+                    <div className="mb-6 h-8 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+                    <div className="space-y-4">
+                        <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                        <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                        <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                    </div>
                 </div>
             </div>
         );
@@ -89,64 +91,67 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     }
 
     return (
-        <div className="p-8">
-            <div className="mb-12">
-                <div className="group mb-6 flex items-center gap-2">
-                    {isEditingTitle ? (
-                        <input
-                            ref={titleInputRef}
-                            type="text"
-                            value={editedTitle}
-                            onChange={(e) => setEditedTitle(e.target.value)}
-                            onBlur={handleTitleSave}
-                            onKeyDown={handleTitleKeyDown}
-                            className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-2xl font-bold text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
-                        />
-                    ) : (
-                        <>
-                            <button
-                                type="button"
-                                onClick={startEditingTitle}
-                                className="text-left text-2xl font-bold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300"
-                            >
-                                {currentChapter.title}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={startEditingTitle}
-                                className="rounded p-1 opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100 dark:hover:bg-zinc-800"
-                                title="챕터 이름 편집"
-                            >
-                                <Pencil className="h-4 w-4 text-zinc-500" />
-                            </button>
-                        </>
-                    )}
-                </div>
-
-                {chapterScenes.map((scene, index) => (
-                    <div key={scene.id}>
-                        <AddSceneButton
-                            chapterId={chapterId}
-                            order={scene.order}
-                            onAdd={handleAddScene}
-                        />
-                        <SceneCard
-                            scene={scene}
-                            sceneIndex={index + 1}
-                            onUpdate={handleSceneUpdate}
-                        />
+        <div className="px-8 py-8">
+            <div className="mx-auto max-w-3xl">
+                <div className="mb-12">
+                    <div className="group mb-6 flex items-center gap-2">
+                        {isEditingTitle ? (
+                            <input
+                                ref={titleInputRef}
+                                type="text"
+                                value={editedTitle}
+                                onChange={(e) => setEditedTitle(e.target.value)}
+                                onBlur={handleTitleSave}
+                                onKeyDown={handleTitleKeyDown}
+                                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-2xl font-bold text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+                            />
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={startEditingTitle}
+                                    className="text-left text-2xl font-bold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300"
+                                >
+                                    {currentChapter.title}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={startEditingTitle}
+                                    className="rounded p-1 opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100 dark:hover:bg-zinc-800"
+                                    title="챕터 이름 편집"
+                                >
+                                    <Pencil className="h-4 w-4 text-zinc-500" />
+                                </button>
+                            </>
+                        )}
                     </div>
-                ))}
 
-                <AddSceneButton
-                    chapterId={chapterId}
-                    order={
-                        chapterScenes.length > 0
-                            ? chapterScenes[chapterScenes.length - 1].order + 1
-                            : 0
-                    }
-                    onAdd={handleAddScene}
-                />
+                    {chapterScenes.map((scene, index) => (
+                        <div key={scene.id}>
+                            <AddSceneButton
+                                chapterId={chapterId}
+                                order={scene.order}
+                                onAdd={handleAddScene}
+                            />
+                            <SceneCard
+                                scene={scene}
+                                sceneIndex={index + 1}
+                                onUpdate={handleSceneUpdate}
+                            />
+                        </div>
+                    ))}
+
+                    <AddSceneButton
+                        chapterId={chapterId}
+                        order={
+                            chapterScenes.length > 0
+                                ? chapterScenes[chapterScenes.length - 1]
+                                      .order + 1
+                                : 0
+                        }
+                        onAdd={handleAddScene}
+                    />
+                </div>
             </div>
         </div>
     );
