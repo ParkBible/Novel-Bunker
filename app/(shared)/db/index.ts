@@ -1,6 +1,25 @@
 import Dexie, { type EntityTable } from "dexie";
 
 // Type definitions for database entities
+export interface AiConversation {
+    id?: number;
+    title: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface AiMessage {
+    id?: number;
+    conversationId: number;
+    role: "user" | "model";
+    text: string;
+    contextType?: "scene" | "chapter";
+    contextId?: number;
+    contextTitle?: string;
+    contextContent?: string;
+    createdAt: Date;
+}
+
 export interface Chapter {
     id?: number;
     title: string;
@@ -65,6 +84,8 @@ class NovelBunkerDB extends Dexie {
     characterRelationships!: EntityTable<CharacterRelationship, "id">;
     lores!: EntityTable<Lore, "id">;
     settings!: EntityTable<Setting, "key">;
+    aiConversations!: EntityTable<AiConversation, "id">;
+    aiMessages!: EntityTable<AiMessage, "id">;
 
     constructor() {
         super("NovelBunkerDB");
@@ -100,6 +121,17 @@ class NovelBunkerDB extends Dexie {
             characterRelationships: "++id, fromCharacterId, toCharacterId",
             lores: "++id, category, createdAt",
             settings: "key",
+        });
+
+        this.version(5).stores({
+            chapters: "++id, order, createdAt",
+            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+            characters: "++id, name",
+            characterRelationships: "++id, fromCharacterId, toCharacterId",
+            lores: "++id, category, createdAt",
+            settings: "key",
+            aiConversations: "++id, createdAt",
+            aiMessages: "++id, conversationId, createdAt",
         });
     }
 }

@@ -78,6 +78,44 @@ ${characterTags.length > 0 ? characterTags.join(", ") : "없음"}
     }
 }
 
+export async function generateAiChatReply(
+    messages: { role: "user" | "model"; text: string }[],
+    context?: {
+        type: "scene" | "chapter";
+        title: string;
+        content: string;
+    },
+): Promise<string> {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction:
+            "당신은 소설 창작을 도와주는 AI 어시스턴트입니다. 작가의 질문에 친절하고 건설적으로 답변하세요. 항상 한국어로 답변하세요.",
+    });
+
+    const historyMessages = messages.slice(0, -1).map((m) => ({
+        role: m.role,
+        parts: [{ text: m.text }],
+    }));
+
+    const lastMessage = messages[messages.length - 1];
+    let lastText = lastMessage.text;
+    if (context) {
+        const typeLabel = context.type === "scene" ? "씬" : "챕터";
+        const stripped = context.content.replace(/<[^>]*>/g, "").slice(0, 3000);
+        lastText = `[참조 ${typeLabel}: ${context.title}]\n${stripped}\n\n${lastText}`;
+    }
+
+    const chat = model.startChat({ history: historyMessages });
+
+    try {
+        const result = await chat.sendMessage(lastText);
+        return result.response.text();
+    } catch (error) {
+        console.error("Gemini API error:", error);
+        throw new Error("AI 응답 생성에 실패했습니다.");
+    }
+}
+
 export async function checkGrammar(content: string): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 

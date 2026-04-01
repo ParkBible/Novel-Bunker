@@ -18,8 +18,6 @@ import {
 import { initializeDemoData } from "../utils/demoData";
 
 export type DetailPanel =
-    | { type: "scene"; sceneId: number }
-    | { type: "chapter"; chapterId: number }
     | { type: "character"; characterId: number }
     | { type: "lore"; loreId: number };
 
