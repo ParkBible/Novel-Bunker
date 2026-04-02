@@ -21,6 +21,7 @@ export function SceneEditor({
     const toolbarRef = useRef<HTMLDivElement>(null);
     const mouseRef = useRef({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
+    const isToolbarActionRef = useRef(false);
     const [bubbleMenu, setBubbleMenu] = useState<{
         top: number;
         left: number;
@@ -88,8 +89,14 @@ export function SceneEditor({
 
         // 키보드 선택(Shift+방향키 등)은 selectionUpdate로 처리
         const handleSelectionUpdate = () => {
-            // 마우스 버튼이 눌린 상태(드래그 중)면 무시
             if (isDraggingRef.current) return;
+            // 툴바 버튼 클릭으로 인한 selectionUpdate면 위치 재계산 건너뜀
+            if (isToolbarActionRef.current) {
+                isToolbarActionRef.current = false;
+                const { from, to } = editor.state.selection;
+                if (from === to) setBubbleMenu(null);
+                return;
+            }
             updateBubbleMenu();
         };
         const handleMouseDown = (e: MouseEvent) => {
@@ -132,7 +139,10 @@ export function SceneEditor({
                         top: bubbleMenu.top,
                         left: bubbleMenu.left,
                     }}
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        isToolbarActionRef.current = true;
+                    }}
                 >
                     <button
                         type="button"
