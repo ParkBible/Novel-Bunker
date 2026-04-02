@@ -65,8 +65,6 @@ export function SceneEditor({
     }, [editor]);
 
     useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
         const handleMouseMove = (e: MouseEvent) => {
             mouseRef.current = { x: e.clientX, y: e.clientY };
         };
@@ -76,11 +74,11 @@ export function SceneEditor({
             // 드래그 끝난 뒤 메뉴 표시
             requestAnimationFrame(() => updateBubbleMenu());
         };
-        el.addEventListener("mousemove", handleMouseMove);
-        el.addEventListener("mouseup", handleMouseUp);
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
         return () => {
-            el.removeEventListener("mousemove", handleMouseMove);
-            el.removeEventListener("mouseup", handleMouseUp);
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
         };
     }, [updateBubbleMenu]);
 
