@@ -26,6 +26,9 @@ export function ContextPanel() {
                 }),
             });
 
+            if (!response.ok) {
+                throw new Error(`AI 피드백 요청 실패: ${response.statusText}`);
+            }
             const data = await response.json();
             setFeedback(data.feedback);
         } catch (error) {
