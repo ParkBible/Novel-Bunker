@@ -49,6 +49,9 @@ interface EditorState {
     toggleExpandedChapter: (id: number) => void;
     updateNovelTitle: (title: string) => Promise<void>;
 
+    // Character actions
+    updateCharacter: (id: number, updates: Partial<Character>) => Promise<void>;
+
     // Update actions
     updateChapterTitle: (chapterId: number, title: string) => Promise<void>;
     updateChapterMemo: (chapterId: number, memo: string) => Promise<void>;
@@ -173,6 +176,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     updateNovelTitle: async (title) => {
         await novelOps.updateNovelTitle(title);
         set({ novelTitle: title });
+    },
+
+    // Character actions
+    updateCharacter: async (id, updates) => {
+        await characterOps.update(id, updates);
+        set({
+            characters: get().characters.map((c) =>
+                c.id === id ? { ...c, ...updates } : c,
+            ),
+        });
     },
 
     // Update actions

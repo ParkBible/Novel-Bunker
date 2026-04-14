@@ -1,9 +1,9 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
 import type { Scene } from "@/app/(shared)/db";
 import { sceneOps } from "@/app/(shared)/db/operations";
+import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { SceneEditor } from "./SceneEditor";
 
@@ -16,29 +16,29 @@ interface SceneCardProps {
 export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
     const { selectedSceneId, setSelectedSceneId, deleteScene } =
         useEditorStore();
-    const [title, setTitle] = useState(scene.title);
-    const [content, setContent] = useState(scene.content);
     const isSelected = selectedSceneId === scene.id;
 
-    useEffect(() => {
-        const timeout = setTimeout(async () => {
-            if (title !== scene.title && scene.id !== undefined) {
-                await sceneOps.update(scene.id, { title });
+    const { draft: title, handleChange: handleTitleChange } = useDraftValue(
+        scene.title,
+        async (val) => {
+            if (scene.id !== undefined) {
+                await sceneOps.update(scene.id, { title: val });
                 onUpdate();
             }
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [title, scene.title, scene.id, onUpdate]);
+        },
+        500,
+    );
 
-    useEffect(() => {
-        const timeout = setTimeout(async () => {
-            if (content !== scene.content && scene.id !== undefined) {
-                await sceneOps.updateContent(scene.id, content);
+    const { draft: content, handleChange: handleContentChange } = useDraftValue(
+        scene.content,
+        async (val) => {
+            if (scene.id !== undefined) {
+                await sceneOps.updateContent(scene.id, val);
                 onUpdate();
             }
-        }, 1000);
-        return () => clearTimeout(timeout);
-    }, [content, scene.content, scene.id, onUpdate]);
+        },
+        1000,
+    );
 
     const handleClick = () => {
         if (scene.id !== undefined) {
@@ -75,7 +75,7 @@ export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
                 <input
                     type="text"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => handleTitleChange(e.target.value)}
                     className="flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
                     placeholder="씬 제목"
                 />
@@ -92,10 +92,10 @@ export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
                 </button>
             </div>
 
-            <div className="min-h-[200px]">
+            <div className="min-h-50">
                 <SceneEditor
                     content={content}
-                    onChange={setContent}
+                    onChange={handleContentChange}
                     placeholder="씬 내용을 작성하세요..."
                 />
             </div>

@@ -53,18 +53,26 @@ export function DetailPanel() {
     return (
         <div className="flex h-full w-80 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                    {typeof panelTitle === "string" ? (
-                        panelTitle
-                    ) : (
-                        <>
-                            <span className="text-zinc-400 dark:text-zinc-500">
-                                {panelTitle.prefix}
-                            </span>{" "}
-                            {panelTitle.title}
-                        </>
-                    )}
-                </h2>
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                        {detailPanel.type === "scene" && "씬"}
+                        {detailPanel.type === "chapter" && "챕터"}
+                        {detailPanel.type === "character" && "등장인물"}
+                        {detailPanel.type === "lore" && "설정집"}
+                    </span>
+                    <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                        {typeof panelTitle === "string" ? (
+                            panelTitle
+                        ) : (
+                            <>
+                                <span className="text-zinc-400 dark:text-zinc-500">
+                                    {panelTitle.prefix}
+                                </span>{" "}
+                                {panelTitle.title}
+                            </>
+                        )}
+                    </h2>
+                </div>
                 <button
                     type="button"
                     onClick={() => setDetailPanel(null)}
@@ -74,7 +82,7 @@ export function DetailPanel() {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex flex-1 flex-col overflow-hidden p-4">
                 {detailPanel.type === "scene" && (
                     <SceneDetail sceneId={detailPanel.sceneId} />
                 )}
