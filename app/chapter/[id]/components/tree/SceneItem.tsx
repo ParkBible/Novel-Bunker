@@ -1,6 +1,8 @@
 "use client";
 
-import { FileText, Trash2 } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { FileText, GripVertical, Trash2 } from "lucide-react";
 
 interface SceneItemProps {
     scene: {
@@ -19,14 +21,40 @@ export function SceneItem({
     onSelect,
     onDelete,
 }: SceneItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: scene.id ?? 0 });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
     return (
         <div
-            className={`group flex w-full items-center gap-2 rounded px-2 py-1 text-sm transition-colors ${
-                isSelected
-                    ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50"
-                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+            ref={setNodeRef}
+            style={style}
+            className={`group flex w-full items-center gap-1 rounded px-1 py-1 text-sm transition-colors ${
+                isDragging
+                    ? "z-50 opacity-50"
+                    : isSelected
+                      ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50"
+                      : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
             }`}
         >
+            <button
+                type="button"
+                className="cursor-grab touch-none rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
+                {...attributes}
+                {...listeners}
+            >
+                <GripVertical className="h-3 w-3 text-zinc-400" />
+            </button>
             <button
                 type="button"
                 onClick={onSelect}

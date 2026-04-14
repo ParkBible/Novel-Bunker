@@ -1,5 +1,20 @@
 "use client";
 
+import {
+    closestCenter,
+    DndContext,
+    type DragEndEvent,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SceneItem } from "./SceneItem";
@@ -28,6 +43,7 @@ interface ChapterItemProps {
     onDelete: () => void;
     onSceneSelect: (sceneId: number) => void;
     onSceneDelete: (sceneId: number) => void;
+    onSceneReorder: (activeId: number, overId: number) => void;
 }
 
 export function ChapterItem({
@@ -42,10 +58,27 @@ export function ChapterItem({
     onDelete,
     onSceneSelect,
     onSceneDelete,
+    onSceneReorder,
 }: ChapterItemProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(chapter.title);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 5 },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            onSceneReorder(active.id as number, over.id as number);
+        }
+    };
 
     useEffect(() => {
         if (isEditing && inputRef.current) {
@@ -140,15 +173,33 @@ export function ChapterItem({
 
             {isExpanded && (
                 <div className="ml-6 mt-0.5">
-                    {scenes.map((scene) => (
-                        <SceneItem
-                            key={scene.id}
-                            scene={scene}
-                            isSelected={selectedSceneId === scene.id}
-                            onSelect={() => scene.id && onSceneSelect(scene.id)}
-                            onDelete={() => scene.id && onSceneDelete(scene.id)}
-                        />
-                    ))}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        modifiers={[restrictToVerticalAxis]}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={scenes
+                                .filter((s) => s.id != null)
+                                .map((s) => s.id!)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {scenes.map((scene) => (
+                                <SceneItem
+                                    key={scene.id}
+                                    scene={scene}
+                                    isSelected={selectedSceneId === scene.id}
+                                    onSelect={() =>
+                                        scene.id && onSceneSelect(scene.id)
+                                    }
+                                    onDelete={() =>
+                                        scene.id && onSceneDelete(scene.id)
+                                    }
+                                />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
                 </div>
             )}
         </div>

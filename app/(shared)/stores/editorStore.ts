@@ -1,8 +1,15 @@
 import { create } from "zustand";
-import type { Chapter, Character, CharacterRelationship, Scene } from "../db";
+import type {
+    Chapter,
+    Character,
+    CharacterRelationship,
+    Lore,
+    Scene,
+} from "../db";
 import {
     chapterOps,
     characterOps,
+    loreOps,
     novelOps,
     relationshipOps,
     sceneOps,
@@ -16,6 +23,8 @@ interface EditorState {
     scenes: Scene[];
     characters: Character[];
     relationships: CharacterRelationship[];
+    lores: Lore[];
+    loreCategories: string[];
     synopsis: string;
     novelTitle: string;
 
@@ -47,6 +56,20 @@ interface EditorState {
     ) => Promise<void>;
     removeRelationship: (id: number) => Promise<void>;
 
+    // Lore actions
+    addLore: (name: string, category: string) => Promise<void>;
+    updateLore: (id: number, updates: Partial<Lore>) => Promise<void>;
+    deleteLore: (id: number) => Promise<void>;
+    addLoreCategory: (category: string) => Promise<void>;
+    removeLoreCategory: (category: string) => Promise<void>;
+
+    // Reorder actions
+    reorderScenes: (
+        chapterId: number,
+        activeId: number,
+        overId: number,
+    ) => Promise<void>;
+
     // Helper methods
     getScenesForChapter: (chapterId: number) => Scene[];
     getSelectedScene: () => Scene | null;
@@ -58,6 +81,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     scenes: [],
     characters: [],
     relationships: [],
+    lores: [],
+    loreCategories: ["세계관", "장소", "아이템"],
     synopsis: "",
     novelTitle: "",
     selectedSceneId: null,
@@ -76,22 +101,44 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             scenes,
             characters,
             relationships,
+            lores,
             synopsis,
             novelTitle,
+            savedCategories,
         ] = await Promise.all([
             chapterOps.getAll(),
             sceneOps.getAll(),
             characterOps.getAll(),
             relationshipOps.getAll(),
+            loreOps.getAll(),
             settingsOps.get("synopsis"),
             settingsOps.get("novelTitle"),
+            settingsOps.get("loreCategories"),
         ]);
+
+        const defaultCategories = ["세계관", "장소", "아이템"];
+        let loreCategories = defaultCategories;
+        if (savedCategories) {
+            try {
+                const parsed = JSON.parse(savedCategories);
+                if (Array.isArray(parsed)) {
+                    loreCategories = parsed;
+                }
+            } catch (e) {
+                console.error(
+                    "Failed to parse loreCategories from settings:",
+                    e,
+                );
+            }
+        }
 
         set({
             chapters,
             scenes,
             characters,
             relationships,
+            lores,
+            loreCategories,
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
@@ -172,6 +219,75 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         set({
             relationships: get().relationships.filter((r) => r.id !== id),
         });
+    },
+
+    // Lore actions
+    addLore: async (name, category) => {
+        const id = await loreOps.create(name, category);
+        const newLore = {
+            id,
+            name,
+            category,
+            description: "",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+        set({ lores: [...get().lores, newLore] });
+    },
+
+    updateLore: async (id, updates) => {
+        await loreOps.update(id, updates);
+        set({
+            lores: get().lores.map((l) =>
+                l.id === id ? { ...l, ...updates, updatedAt: new Date() } : l,
+            ),
+        });
+    },
+
+    deleteLore: async (id) => {
+        await loreOps.delete(id);
+        set({ lores: get().lores.filter((l) => l.id !== id) });
+    },
+
+    addLoreCategory: async (category) => {
+        const categories = [...get().loreCategories, category];
+        await settingsOps.set("loreCategories", JSON.stringify(categories));
+        set({ loreCategories: categories });
+    },
+
+    removeLoreCategory: async (category) => {
+        const categories = get().loreCategories.filter((c) => c !== category);
+        await settingsOps.set("loreCategories", JSON.stringify(categories));
+        set({ loreCategories: categories });
+    },
+
+    // Reorder actions
+    reorderScenes: async (chapterId, activeId, overId) => {
+        const { scenes } = get();
+        const chapterScenes = scenes
+            .filter((s) => s.chapterId === chapterId)
+            .sort((a, b) => a.order - b.order);
+
+        const oldIndex = chapterScenes.findIndex((s) => s.id === activeId);
+        const newIndex = chapterScenes.findIndex((s) => s.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        // arrayMove 로직
+        const reordered = [...chapterScenes];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        // DB 업데이트
+        const updates = reordered.map((s, i) => ({
+            id: s.id!,
+            order: i,
+        }));
+        await Promise.all(updates.map((u) => sceneOps.reorder(u.id, u.order)));
+
+        // 스토어 업데이트
+        const otherScenes = scenes.filter((s) => s.chapterId !== chapterId);
+        const updatedScenes = reordered.map((s, i) => ({ ...s, order: i }));
+        set({ scenes: [...otherScenes, ...updatedScenes] });
     },
 
     // Helper methods

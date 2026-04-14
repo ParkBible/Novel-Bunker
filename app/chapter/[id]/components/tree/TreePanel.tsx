@@ -7,6 +7,7 @@ import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
 import { ChapterItem } from "./ChapterItem";
+import { LoreSection } from "./LoreSection";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 import { TreeSection } from "./TreeSection";
 
@@ -25,6 +26,7 @@ export function TreePanel() {
         novelTitle,
         updateNovelTitle,
         updateChapterTitle,
+        reorderScenes,
     } = useEditorStore();
 
     const currentChapterId = params.id
@@ -62,15 +64,18 @@ export function TreePanel() {
     }, [selectedSceneId]);
 
     return (
-        <div className="flex h-full flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex h-full flex-col gap-3 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <NovelTitleHeader
                 title={novelTitle}
                 onTitleUpdate={updateNovelTitle}
                 onAddChapter={handleAddChapter}
             />
 
-            <div className="flex-1 overflow-y-auto">
-                <TreeSection title="챕터" className="p-2">
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+                <TreeSection
+                    title="챕터"
+                    className="flex flex-col gap-2 px-2 pb-2"
+                >
                     {chapters.map((chapter) => {
                         const chapterScenes = scenes.filter(
                             (s) => s.chapterId === chapter.id,
@@ -109,6 +114,10 @@ export function TreePanel() {
                                     handleSceneClick(sceneId, chapter.id)
                                 }
                                 onSceneDelete={deleteScene}
+                                onSceneReorder={(activeId, overId) =>
+                                    chapter.id &&
+                                    reorderScenes(chapter.id, activeId, overId)
+                                }
                             />
                         );
                     })}
@@ -116,10 +125,19 @@ export function TreePanel() {
 
                 <TreeSection
                     title="등장인물"
-                    className="border-t border-zinc-200 p-2 dark:border-zinc-800"
+                    className="px-2 pb-2 flex flex-col gap-2"
                 >
                     <div className="px-2 pt-1">
                         <CharacterSummaryContent />
+                    </div>
+                </TreeSection>
+
+                <TreeSection
+                    title="설정집"
+                    className="flex flex-col gap-2 px-2 pb-2"
+                >
+                    <div className="px-2 pt-1">
+                        <LoreSection />
                     </div>
                 </TreeSection>
             </div>

@@ -75,3 +75,7 @@ button:not(:disabled) {
     cursor: text;
     text-align: left;
 }
+
+.tiptap p {
+    margin-bottom: 1.2em;
+}
