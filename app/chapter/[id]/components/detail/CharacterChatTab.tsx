@@ -1,7 +1,7 @@
 "use client";
 
 import { SendHorizontal } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiRoutes } from "@/app/(shared)/routes";
 
 interface ChatMessage {
@@ -19,6 +19,14 @@ export function CharacterChatTab({
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: messages 변경 시 스크롤 트리거용 의존성
+    useEffect(() => {
+        scrollRef.current?.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: "smooth",
+        });
+    }, [messages]);
 
     const handleSend = async () => {
         const trimmed = input.trim();
@@ -62,12 +70,6 @@ export function CharacterChatTab({
             ]);
         } finally {
             setIsLoading(false);
-            setTimeout(() => {
-                scrollRef.current?.scrollTo({
-                    top: scrollRef.current.scrollHeight,
-                    behavior: "smooth",
-                });
-            }, 50);
         }
     };
 
