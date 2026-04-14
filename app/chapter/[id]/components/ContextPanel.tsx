@@ -6,7 +6,8 @@ import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 export function ContextPanel() {
-    const { getSelectedScene, synopsis, isLoadingAI } = useEditorStore();
+    const { getSelectedScene, synopsis, isLoadingAI, setIsLoadingAI } =
+        useEditorStore();
     const selectedScene = getSelectedScene();
     const [feedback, setFeedback] = useState<string>("");
 
@@ -14,7 +15,7 @@ export function ContextPanel() {
         if (!selectedScene) return;
 
         try {
-            useEditorStore.setState({ isLoadingAI: true });
+            setIsLoadingAI(true);
 
             const response = await fetch(apiRoutes.aiFeedback, {
                 method: "POST",
@@ -32,7 +33,7 @@ export function ContextPanel() {
             console.error("AI 피드백 요청 실패:", error);
             setFeedback("피드백을 가져오는 중 오류가 발생했습니다.");
         } finally {
-            useEditorStore.setState({ isLoadingAI: false });
+            setIsLoadingAI(false);
         }
     };
 

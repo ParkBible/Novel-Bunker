@@ -12,7 +12,7 @@ function openInEditor({ codeInfo }: Required<InspectParams>) {
         lineNumber: String(lineNumber ?? 1),
         colNumber: String(columnNumber ?? 1),
     });
-    fetch(`/api/open-in-editor?${params}`);
+    fetch(`/api/open-in-editor?${params}`).catch(console.error);
 }
 
 export function DevInspector() {
