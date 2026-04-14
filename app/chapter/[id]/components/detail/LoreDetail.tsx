@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Lore } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -44,13 +44,13 @@ function AutoResizeTextarea({
     const { draft, handleChange: saveDraft } = useDraftValue(value, onChange);
     const ref = useRef<HTMLTextAreaElement>(null);
 
-    const handleChange = (val: string) => {
-        saveDraft(val);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: draft를 의존성으로 등록하여 값 변경 시 높이 재계산 트리거
+    useEffect(() => {
         if (ref.current) {
             ref.current.style.height = "auto";
             ref.current.style.height = `${ref.current.scrollHeight}px`;
         }
-    };
+    }, [draft]);
 
     return (
         <textarea
@@ -58,7 +58,7 @@ function AutoResizeTextarea({
             value={draft}
             rows={4}
             placeholder={placeholder}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => saveDraft(e.target.value)}
             className={inlineTextareaClass}
         />
     );
