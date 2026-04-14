@@ -117,9 +117,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ]);
 
         const defaultCategories = ["세계관", "장소", "아이템"];
-        const loreCategories = savedCategories
-            ? JSON.parse(savedCategories)
-            : defaultCategories;
+        let loreCategories = defaultCategories;
+        if (savedCategories) {
+            try {
+                const parsed = JSON.parse(savedCategories);
+                if (Array.isArray(parsed)) {
+                    loreCategories = parsed;
+                }
+            } catch (e) {
+                console.error(
+                    "Failed to parse loreCategories from settings:",
+                    e,
+                );
+            }
+        }
 
         set({
             chapters,
