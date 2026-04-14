@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Sparkles, Type } from "lucide-react";
+import { Calendar, CalendarPlus, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
 import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -69,8 +69,18 @@ export function ContextPanel() {
                         </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
+                        <CalendarPlus className="h-4 w-4 text-zinc-500" />
+                        <span className="text-zinc-600 dark:text-zinc-400">
+                            생성{" "}
+                            {new Date(
+                                selectedScene.createdAt,
+                            ).toLocaleDateString("ko-KR")}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
                         <Calendar className="h-4 w-4 text-zinc-500" />
                         <span className="text-zinc-600 dark:text-zinc-400">
+                            수정{" "}
                             {new Date(
                                 selectedScene.updatedAt,
                             ).toLocaleDateString("ko-KR")}

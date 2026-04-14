@@ -1,9 +1,10 @@
 import { create } from "zustand";
-import type { Chapter, Character, Scene } from "../db";
+import type { Chapter, Character, CharacterRelationship, Scene } from "../db";
 import {
     chapterOps,
     characterOps,
     novelOps,
+    relationshipOps,
     sceneOps,
     settingsOps,
 } from "../db/operations";
@@ -14,6 +15,7 @@ interface EditorState {
     chapters: Chapter[];
     scenes: Scene[];
     characters: Character[];
+    relationships: CharacterRelationship[];
     synopsis: string;
     novelTitle: string;
 
@@ -37,6 +39,14 @@ interface EditorState {
     deleteChapter: (chapterId: number) => Promise<void>;
     deleteScene: (sceneId: number) => Promise<void>;
 
+    // Relationship actions
+    addRelationship: (
+        fromCharacterId: number,
+        toCharacterId: number,
+        label: string,
+    ) => Promise<void>;
+    removeRelationship: (id: number) => Promise<void>;
+
     // Helper methods
     getScenesForChapter: (chapterId: number) => Scene[];
     getSelectedScene: () => Scene | null;
@@ -47,6 +57,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     chapters: [],
     scenes: [],
     characters: [],
+    relationships: [],
     synopsis: "",
     novelTitle: "",
     selectedSceneId: null,
@@ -60,19 +71,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             await initializeDemoData();
         }
 
-        const [chapters, scenes, characters, synopsis, novelTitle] =
-            await Promise.all([
-                chapterOps.getAll(),
-                sceneOps.getAll(),
-                characterOps.getAll(),
-                settingsOps.get("synopsis"),
-                settingsOps.get("novelTitle"),
-            ]);
+        const [
+            chapters,
+            scenes,
+            characters,
+            relationships,
+            synopsis,
+            novelTitle,
+        ] = await Promise.all([
+            chapterOps.getAll(),
+            sceneOps.getAll(),
+            characterOps.getAll(),
+            relationshipOps.getAll(),
+            settingsOps.get("synopsis"),
+            settingsOps.get("novelTitle"),
+        ]);
 
         set({
             chapters,
             scenes,
             characters,
+            relationships,
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
@@ -132,6 +151,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             scenes: scenes.filter((s) => s.id !== sceneId),
             selectedSceneId:
                 selectedSceneId === sceneId ? null : selectedSceneId,
+        });
+    },
+
+    // Relationship actions
+    addRelationship: async (fromCharacterId, toCharacterId, label) => {
+        const id = await relationshipOps.create(
+            fromCharacterId,
+            toCharacterId,
+            label,
+        );
+        const newRelationship = { id, fromCharacterId, toCharacterId, label };
+        set({
+            relationships: [...get().relationships, newRelationship],
+        });
+    },
+
+    removeRelationship: async (id) => {
+        await relationshipOps.delete(id);
+        set({
+            relationships: get().relationships.filter((r) => r.id !== id),
         });
     },
 

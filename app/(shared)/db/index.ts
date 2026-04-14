@@ -28,6 +28,13 @@ export interface Character {
     tags: string[];
 }
 
+export interface CharacterRelationship {
+    id?: number;
+    fromCharacterId: number;
+    toCharacterId: number;
+    label: string;
+}
+
 export interface Setting {
     key: string;
     value: string;
@@ -38,6 +45,7 @@ class NovelBunkerDB extends Dexie {
     chapters!: EntityTable<Chapter, "id">;
     scenes!: EntityTable<Scene, "id">;
     characters!: EntityTable<Character, "id">;
+    characterRelationships!: EntityTable<CharacterRelationship, "id">;
     settings!: EntityTable<Setting, "key">;
 
     constructor() {
@@ -47,6 +55,14 @@ class NovelBunkerDB extends Dexie {
             chapters: "++id, order, createdAt",
             scenes: "++id, chapterId, order, [chapterId+order], createdAt",
             characters: "++id, name",
+            settings: "key",
+        });
+
+        this.version(2).stores({
+            chapters: "++id, order, createdAt",
+            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+            characters: "++id, name",
+            characterRelationships: "++id, fromCharacterId, toCharacterId",
             settings: "key",
         });
     }

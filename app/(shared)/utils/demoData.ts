@@ -1,6 +1,7 @@
 import {
     chapterOps,
     characterOps,
+    relationshipOps,
     sceneOps,
     settingsOps,
 } from "../db/operations";
@@ -14,21 +15,25 @@ export async function initializeDemoData() {
     }
 
     // Create characters
-    await characterOps.create(
+    const seoyunId = await characterOps.create(
         "이서윤",
         "28세, 소설가 지망생. 카페에서 아르바이트를 하며 첫 장편소설을 집필 중이다.",
         ["주인공", "여성", "작가"],
     );
-    await characterOps.create(
+    const minhoId = await characterOps.create(
         "강민호",
         "32세, 출판사 편집자. 서윤의 원고를 우연히 발견하고 관심을 갖게 된다.",
         ["조연", "남성", "편집자"],
     );
-    await characterOps.create(
+    const jiwooId = await characterOps.create(
         "박지우",
         "55세, 베스트셀러 작가. 서윤의 멘토가 되어준다.",
         ["조연", "여성", "작가", "멘토"],
     );
+
+    // Create character relationships
+    await relationshipOps.create(seoyunId, minhoId, "원고 발견");
+    await relationshipOps.create(seoyunId, jiwooId, "멘토-멘티");
 
     // Create chapters
     const chapter1 = await chapterOps.create("프롤로그");
