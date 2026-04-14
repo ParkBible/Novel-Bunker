@@ -16,7 +16,9 @@ export function ChapterProgress() {
                 (s) => s.chapterId === chapter.id,
             );
             const charCount = chapterScenes.reduce((sum, scene) => {
-                const plainText = scene.content.replace(/<[^>]*>/g, "");
+                const plainText = scene.content
+                    .replace(/<[^>]*>/g, "")
+                    .replace(/\s/g, "");
                 return sum + plainText.length;
             }, 0);
             return {

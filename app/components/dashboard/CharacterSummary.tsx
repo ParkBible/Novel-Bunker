@@ -1,18 +1,27 @@
 "use client";
 
 import { Users } from "lucide-react";
+import { useMemo } from "react";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
 
 export function CharacterSummaryContent() {
     const { characters, scenes } = useEditorStore();
 
-    const characterStats = characters.map((char) => {
-        const appearsIn = scenes.filter((s) =>
-            s.characters.includes(char.name),
-        ).length;
-        return { ...char, appearsIn };
-    });
+    const appearanceMap = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const scene of scenes) {
+            for (const charName of scene.characters) {
+                map.set(charName, (map.get(charName) ?? 0) + 1);
+            }
+        }
+        return map;
+    }, [scenes]);
+
+    const characterStats = characters.map((char) => ({
+        ...char,
+        appearsIn: appearanceMap.get(char.name) ?? 0,
+    }));
 
     return (
         <div className="space-y-3">
