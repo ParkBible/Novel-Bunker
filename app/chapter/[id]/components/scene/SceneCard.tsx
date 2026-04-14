@@ -11,9 +11,15 @@ interface SceneCardProps {
     scene: Scene;
     sceneIndex?: number;
     onUpdate: () => void;
+    onEditorReady?: () => void;
 }
 
-export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
+export function SceneCard({
+    scene,
+    sceneIndex,
+    onUpdate,
+    onEditorReady,
+}: SceneCardProps) {
     const { selectedSceneId, setSelectedSceneId, deleteScene } =
         useEditorStore();
     const isSelected = selectedSceneId === scene.id;
@@ -97,6 +103,7 @@ export function SceneCard({ scene, sceneIndex, onUpdate }: SceneCardProps) {
                     content={content}
                     onChange={handleContentChange}
                     placeholder="씬 내용을 작성하세요..."
+                    onReady={onEditorReady}
                 />
             </div>
         </div>

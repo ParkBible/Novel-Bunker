@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -44,29 +43,18 @@ export function TreePanel() {
         }
     };
 
-    const scrollToSceneRef = useRef(false);
-
     const handleChapterClick = (chapterId: number) => {
         setSelectedSceneId(null);
         router.push(routes.chapter(chapterId));
     };
 
     const handleSceneClick = (sceneId: number, chapterId: number) => {
-        scrollToSceneRef.current = true;
         setSelectedSceneId(sceneId);
 
         if (currentChapterId !== chapterId) {
             router.push(routes.chapter(chapterId));
         }
     };
-
-    useEffect(() => {
-        if (selectedSceneId === null || !scrollToSceneRef.current) return;
-        scrollToSceneRef.current = false;
-
-        const el = document.getElementById(`scene-${selectedSceneId}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, [selectedSceneId]);
 
     return (
         <div className="flex h-full flex-col gap-3 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">

@@ -10,12 +10,14 @@ interface SceneEditorProps {
     content: string;
     onChange: (content: string) => void;
     placeholder?: string;
+    onReady?: () => void;
 }
 
 export function SceneEditor({
     content,
     onChange,
     placeholder,
+    onReady,
 }: SceneEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
@@ -34,6 +36,9 @@ export function SceneEditor({
             Placeholder.configure({ placeholder }),
         ],
         content,
+        onCreate: () => {
+            onReady?.();
+        },
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML());
         },

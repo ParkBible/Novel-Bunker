@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sceneOps } from "@/app/(shared)/db/operations";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { AddSceneButton } from "./scene/AddSceneButton";
@@ -12,8 +12,14 @@ interface ChapterContentProps {
 }
 
 export function ChapterContent({ chapterId }: ChapterContentProps) {
-    const { chapters, scenes, isInitialized, loadData, updateChapterTitle } =
-        useEditorStore();
+    const {
+        chapters,
+        scenes,
+        isInitialized,
+        loadData,
+        updateChapterTitle,
+        selectedSceneId,
+    } = useEditorStore();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState("");
@@ -27,6 +33,42 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
 
     const currentChapter = chapters.find((c) => c.id === chapterId);
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
+
+    const needsScrollAfterLoadRef = useRef(false);
+    const editorReadyCountRef = useRef(0);
+
+    // 다른 챕터로 이동 시: 에디터 로드 후 스크롤 필요 표시
+    // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
+    useEffect(() => {
+        if (selectedSceneId) {
+            needsScrollAfterLoadRef.current = true;
+            editorReadyCountRef.current = 0;
+        }
+    }, [chapterId]);
+
+    // 같은 챕터 내 씬 이동: 에디터 이미 초기화됨, 뷰포트 밖일 때만 스크롤
+    useEffect(() => {
+        if (needsScrollAfterLoadRef.current) return;
+        if (!selectedSceneId) return;
+        const el = document.getElementById(`scene-${selectedSceneId}`);
+        if (!el) return;
+        const { top, bottom } = el.getBoundingClientRect();
+        const isVisible = top < window.innerHeight && bottom > 0;
+        if (!isVisible) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }, [selectedSceneId]);
+
+    // 다른 챕터 이동: 모든 에디터 초기화 완료 후 스크롤
+    const handleEditorReady = useCallback(() => {
+        if (!needsScrollAfterLoadRef.current) return;
+        editorReadyCountRef.current += 1;
+        if (editorReadyCountRef.current < chapterScenes.length) return;
+        needsScrollAfterLoadRef.current = false;
+        if (!selectedSceneId) return;
+        const el = document.getElementById(`scene-${selectedSceneId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [chapterScenes.length, selectedSceneId]);
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
@@ -137,6 +179,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
                                 scene={scene}
                                 sceneIndex={index + 1}
                                 onUpdate={handleSceneUpdate}
+                                onEditorReady={handleEditorReady}
                             />
                         </div>
                     ))}
