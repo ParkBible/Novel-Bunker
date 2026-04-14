@@ -69,7 +69,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
 
     if (!isInitialized) {
         return (
-            <div className="mx-auto max-w-4xl p-8">
+            <div className="p-8">
                 <div className="mb-6 h-8 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
                 <div className="space-y-4">
                     <div className="h-32 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
@@ -89,7 +89,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     }
 
     return (
-        <div className="mx-auto max-w-4xl p-8">
+        <div className="p-8">
             <div className="mb-12">
                 <div className="group mb-6 flex items-center gap-2">
                     {isEditingTitle ? (

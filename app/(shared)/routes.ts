@@ -6,4 +6,5 @@ export const routes = {
 
 export const apiRoutes = {
     aiFeedback: "/api/ai/feedback",
+    characterChat: "/api/ai/character-chat",
 } as const;

@@ -10,8 +10,17 @@ export async function generateFeedback(
     sceneContent: string,
     synopsis: string,
     characters: string[],
+    customPrompt?: string,
 ): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+    const feedbackRequest = customPrompt
+        ? customPrompt
+        : `다음 항목에 대해 피드백을 제공해주세요:
+1. 시놉시스와의 일관성
+2. 캐릭터의 행동과 대사가 설정에 부합하는지
+3. 문장 흐름과 가독성
+4. 개선할 수 있는 부분`;
 
     const prompt = `당신은 전문 소설 편집자입니다. 다음 정보를 바탕으로 씬에 대한 건설적인 피드백을 제공해주세요.
 
@@ -24,11 +33,7 @@ ${characters.join(", ") || "정보 없음"}
 **씬 내용:**
 ${sceneContent.replace(/<[^>]*>/g, "")}
 
-다음 항목에 대해 피드백을 제공해주세요:
-1. 시놉시스와의 일관성
-2. 캐릭터의 행동과 대사가 설정에 부합하는지
-3. 문장 흐름과 가독성
-4. 개선할 수 있는 부분
+${feedbackRequest}
 
 피드백은 한국어로, 친절하고 건설적인 톤으로 작성해주세요.`;
 
@@ -39,6 +44,42 @@ ${sceneContent.replace(/<[^>]*>/g, "")}
     } catch (error) {
         console.error("Gemini API error:", error);
         throw new Error("AI 피드백 생성에 실패했습니다.");
+    }
+}
+
+export async function chatWithCharacter(
+    characterName: string,
+    characterDescription: string,
+    characterTags: string[],
+    messages: { role: "user" | "model"; text: string }[],
+): Promise<string> {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: `당신은 소설 속 등장인물 "${characterName}"입니다. 아래 설정을 기반으로 이 인물처럼 대화해주세요. 절대 캐릭터에서 벗어나지 마세요.
+
+**인물 설명:**
+${characterDescription || "설정 없음"}
+
+**태그:**
+${characterTags.length > 0 ? characterTags.join(", ") : "없음"}
+
+항상 한국어로 답변하고, 이 인물의 성격과 말투를 일관되게 유지하세요.`,
+    });
+
+    const chat = model.startChat({
+        history: messages.slice(0, -1).map((m) => ({
+            role: m.role,
+            parts: [{ text: m.text }],
+        })),
+    });
+
+    try {
+        const lastMessage = messages[messages.length - 1];
+        const result = await chat.sendMessage(lastMessage.text);
+        return result.response.text();
+    } catch (error) {
+        console.error("Gemini API error:", error);
+        throw new Error("캐릭터 대화 생성에 실패했습니다.");
     }
 }
 
