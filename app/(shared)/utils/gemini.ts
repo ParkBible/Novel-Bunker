@@ -10,8 +10,17 @@ export async function generateFeedback(
     sceneContent: string,
     synopsis: string,
     characters: string[],
+    customPrompt?: string,
 ): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+    const feedbackRequest = customPrompt
+        ? customPrompt
+        : `다음 항목에 대해 피드백을 제공해주세요:
+1. 시놉시스와의 일관성
+2. 캐릭터의 행동과 대사가 설정에 부합하는지
+3. 문장 흐름과 가독성
+4. 개선할 수 있는 부분`;
 
     const prompt = `당신은 전문 소설 편집자입니다. 다음 정보를 바탕으로 씬에 대한 건설적인 피드백을 제공해주세요.
 
@@ -24,11 +33,7 @@ ${characters.join(", ") || "정보 없음"}
 **씬 내용:**
 ${sceneContent.replace(/<[^>]*>/g, "")}
 
-다음 항목에 대해 피드백을 제공해주세요:
-1. 시놉시스와의 일관성
-2. 캐릭터의 행동과 대사가 설정에 부합하는지
-3. 문장 흐름과 가독성
-4. 개선할 수 있는 부분
+${feedbackRequest}
 
 피드백은 한국어로, 친절하고 건설적인 톤으로 작성해주세요.`;
 
