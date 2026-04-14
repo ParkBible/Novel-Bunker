@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
         const { characterName, characterDescription, characterTags, messages } =
             await request.json();
 
-        if (!characterName || !messages?.length) {
+        if (!characterName || !messages) {
             return NextResponse.json(
                 { error: "인물 정보와 메시지가 필요합니다." },
                 { status: 400 },
