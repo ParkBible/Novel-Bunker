@@ -92,15 +92,6 @@ class NovelBunkerDB extends Dexie {
             lores: "++id, category, createdAt",
             settings: "key",
         });
-
-        this.version(4).stores({
-            chapters: "++id, order, createdAt",
-            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
-            characters: "++id, name",
-            characterRelationships: "++id, fromCharacterId, toCharacterId",
-            lores: "++id, category, createdAt",
-            settings: "key",
-        });
     }
 }
 

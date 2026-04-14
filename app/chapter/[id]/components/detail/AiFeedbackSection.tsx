@@ -46,7 +46,7 @@ export function AiFeedbackSection({
     content: string;
     promptOptions: PromptOption[];
 }) {
-    const { synopsis, isLoadingAI } = useEditorStore();
+    const { synopsis, isLoadingAI, setIsLoadingAI } = useEditorStore();
     const [feedback, setFeedback] = useState<string>("");
     const [selectedPrompt, setSelectedPrompt] = useState<string>(
         promptOptions[0].value,
@@ -54,7 +54,7 @@ export function AiFeedbackSection({
 
     const handleRequestFeedback = async () => {
         try {
-            useEditorStore.setState({ isLoadingAI: true });
+            setIsLoadingAI(true);
 
             const response = await fetch(apiRoutes.aiFeedback, {
                 method: "POST",
@@ -72,7 +72,7 @@ export function AiFeedbackSection({
             console.error("AI 피드백 요청 실패:", error);
             setFeedback("피드백을 가져오는 중 오류가 발생했습니다.");
         } finally {
-            useEditorStore.setState({ isLoadingAI: false });
+            setIsLoadingAI(false);
         }
     };
 
