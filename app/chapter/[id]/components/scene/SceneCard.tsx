@@ -91,7 +91,7 @@ export function SceneCard({
                         e.stopPropagation();
                         if (scene.id) deleteScene(scene.id);
                     }}
-                    className="mr-3 rounded p-1 opacity-0 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800"
+                    className={`mr-3 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${isSelected ? "opacity-100" : "opacity-0 md:opacity-0"}`}
                     title="씬 삭제"
                 >
                     <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />

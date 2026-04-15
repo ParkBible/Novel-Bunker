@@ -9,52 +9,56 @@ interface Step {
     highlight?: string;
 }
 
-const STEPS: Step[] = [
-    {
-        title: "Google Cloud Console 접속",
-        desc: "Google 계정으로 로그인한 뒤 새 프로젝트를 만드세요.",
-        link: {
-            label: "console.cloud.google.com 열기",
-            href: "https://console.cloud.google.com/",
+function getSteps(origin: string): Step[] {
+    return [
+        {
+            title: "Google Cloud Console 접속",
+            desc: "Google 계정으로 로그인한 뒤 새 프로젝트를 만드세요.",
+            link: {
+                label: "console.cloud.google.com 열기",
+                href: "https://console.cloud.google.com/",
+            },
         },
-    },
-    {
-        title: "Google Drive API 활성화",
-        desc: '좌측 메뉴에서 "API 및 서비스 → 라이브러리"를 열고 Google Drive API를 검색해 사용 설정하세요.',
-        link: {
-            label: "Drive API 라이브러리 열기",
-            href: "https://console.cloud.google.com/apis/library/drive.googleapis.com",
+        {
+            title: "Google Drive API 활성화",
+            desc: '좌측 메뉴에서 "API 및 서비스 → 라이브러리"를 열고 Google Drive API를 검색해 사용 설정하세요.',
+            link: {
+                label: "Drive API 라이브러리 열기",
+                href: "https://console.cloud.google.com/apis/library/drive.googleapis.com",
+            },
         },
-    },
-    {
-        title: "OAuth 동의 화면 설정",
-        desc: '"API 및 서비스 → OAuth 동의 화면"에서 User Type을 외부로 선택하고 앱 이름과 이메일을 입력하세요. 테스트 사용자 섹션에 본인 구글 계정을 추가하세요.',
-        link: {
-            label: "OAuth 동의 화면 열기",
-            href: "https://console.cloud.google.com/apis/credentials/consent",
+        {
+            title: "OAuth 동의 화면 설정",
+            desc: '"API 및 서비스 → OAuth 동의 화면"에서 User Type을 외부로 선택하고 앱 이름과 이메일을 입력하세요. 테스트 사용자 섹션에 본인 구글 계정을 추가하세요.',
+            link: {
+                label: "OAuth 동의 화면 열기",
+                href: "https://console.cloud.google.com/apis/credentials/consent",
+            },
+            highlight: "앱을 게시하지 말고 테스트 모드를 유지하세요.",
         },
-        highlight: "앱을 게시하지 말고 테스트 모드를 유지하세요.",
-    },
-    {
-        title: "OAuth 클라이언트 ID 발급",
-        desc: '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본에 아래 주소를 추가하세요.',
-        link: {
-            label: "사용자 인증 정보 열기",
-            href: "https://console.cloud.google.com/apis/credentials",
+        {
+            title: "OAuth 클라이언트 ID 발급",
+            desc: '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본에 아래 주소를 추가하세요.',
+            link: {
+                label: "사용자 인증 정보 열기",
+                href: "https://console.cloud.google.com/apis/credentials",
+            },
+            highlight: origin,
         },
-        highlight: "http://localhost:3000",
-    },
-    {
-        title: "클라이언트 ID 복사 후 입력",
-        desc: '생성된 클라이언트 ID는 "xxxxx.apps.googleusercontent.com" 형태입니다. 복사해서 아래 입력란에 붙여넣으세요.',
-    },
-];
+        {
+            title: "클라이언트 ID 복사 후 입력",
+            desc: '생성된 클라이언트 ID는 "xxxxx.apps.googleusercontent.com" 형태입니다. 복사해서 아래 입력란에 붙여넣으세요.',
+        },
+    ];
+}
 
 interface Props {
     onClose: () => void;
 }
 
 export function ClientIdGuideModal({ onClose }: Props) {
+    const steps = getSteps(window.location.origin);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -86,7 +90,7 @@ export function ClientIdGuideModal({ onClose }: Props) {
 
                 {/* 단계 목록 */}
                 <ol className="flex flex-col gap-4 overflow-y-auto px-5 py-4">
-                    {STEPS.map((step, i) => (
+                    {steps.map((step, i) => (
                         <li key={step.title} className="flex gap-3">
                             <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                                 {i + 1}

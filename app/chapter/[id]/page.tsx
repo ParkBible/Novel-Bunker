@@ -1,6 +1,4 @@
-import { ChapterContent } from "./components/ChapterContent";
-import { ContextPanel } from "./components/context/ContextPanel";
-import { TreePanel } from "./components/tree/TreePanel";
+import { ChapterLayout } from "./components/ChapterLayout";
 
 interface ChapterPageProps {
     params: Promise<{ id: string }>;
@@ -18,19 +16,5 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         );
     }
 
-    return (
-        <div className="flex h-screen bg-zinc-50 dark:bg-black">
-            <div className="w-[clamp(16rem,17vw,20rem)] flex-shrink-0">
-                <TreePanel />
-            </div>
-
-            <div className="editor-scroll flex-1 overflow-y-auto">
-                <ChapterContent chapterId={chapterId} />
-            </div>
-
-            <div className="w-[clamp(20rem,21vw,24rem)] flex-shrink-0">
-                <ContextPanel />
-            </div>
-        </div>
-    );
+    return <ChapterLayout chapterId={chapterId} />;
 }
