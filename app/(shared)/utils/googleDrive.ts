@@ -1,4 +1,6 @@
 import type {
+    AiConversation,
+    AiMessage,
     Chapter,
     Character,
     CharacterRelationship,
@@ -8,6 +10,8 @@ import type {
 } from "../db";
 import { db } from "../db";
 import {
+    aiConversationOps,
+    aiMessageOps,
     chapterOps,
     characterOps,
     loreOps,
@@ -120,6 +124,8 @@ interface BackupData {
     characterRelationships: CharacterRelationship[];
     lores: Lore[];
     settings: Setting[];
+    aiConversations: AiConversation[];
+    aiMessages: AiMessage[];
 }
 
 export async function collectLocalData(): Promise<BackupData> {
@@ -130,6 +136,8 @@ export async function collectLocalData(): Promise<BackupData> {
         characterRelationships,
         lores,
         settings,
+        aiConversations,
+        aiMessages,
     ] = await Promise.all([
         chapterOps.getAll(),
         sceneOps.getAll(),
@@ -137,10 +145,12 @@ export async function collectLocalData(): Promise<BackupData> {
         relationshipOps.getAll(),
         loreOps.getAll(),
         settingsOps.getAll(),
+        aiConversationOps.getAll(),
+        db.aiMessages.toArray(),
     ]);
 
     return {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         chapters,
         scenes,
@@ -148,6 +158,8 @@ export async function collectLocalData(): Promise<BackupData> {
         characterRelationships,
         lores,
         settings,
+        aiConversations,
+        aiMessages,
     };
 }
 
@@ -215,6 +227,16 @@ async function applyImportedData(data: BackupData): Promise<void> {
         updatedAt: toDate(l.updatedAt),
     }));
 
+    const aiConversations = (data.aiConversations ?? []).map((c) => ({
+        ...c,
+        createdAt: toDate(c.createdAt),
+        updatedAt: toDate(c.updatedAt),
+    }));
+    const aiMessages = (data.aiMessages ?? []).map((m) => ({
+        ...m,
+        createdAt: toDate(m.createdAt),
+    }));
+
     await db.transaction(
         "rw",
         [
@@ -224,6 +246,8 @@ async function applyImportedData(data: BackupData): Promise<void> {
             db.characterRelationships,
             db.lores,
             db.settings,
+            db.aiConversations,
+            db.aiMessages,
         ],
         async () => {
             await db.chapters.clear();
@@ -232,6 +256,8 @@ async function applyImportedData(data: BackupData): Promise<void> {
             await db.characterRelationships.clear();
             await db.lores.clear();
             await db.settings.clear();
+            await db.aiConversations.clear();
+            await db.aiMessages.clear();
 
             await db.chapters.bulkAdd(chapters);
             await db.scenes.bulkAdd(scenes);
@@ -241,6 +267,9 @@ async function applyImportedData(data: BackupData): Promise<void> {
             );
             await db.lores.bulkAdd(lores);
             await db.settings.bulkAdd(data.settings);
+            if (aiConversations.length > 0)
+                await db.aiConversations.bulkAdd(aiConversations);
+            if (aiMessages.length > 0) await db.aiMessages.bulkAdd(aiMessages);
         },
     );
 }

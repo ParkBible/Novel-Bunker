@@ -224,7 +224,7 @@ export function CharacterInfoTab({
     className?: string;
 }) {
     return (
-        <div className={`space-y-4 overflow-x-hidden ${className ?? ""}`}>
+        <div className={`space-y-4 overflow-x-hidden px-1 ${className ?? ""}`}>
             {/* 단답 필드 */}
             <div className="space-y-1.5">
                 {SHORT_FIELDS.map(({ key, label }) => (

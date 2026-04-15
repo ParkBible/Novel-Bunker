@@ -3,24 +3,27 @@
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic } from "lucide-react";
+import { Bold, Italic, TextQuote } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SceneEditorProps {
     content: string;
     onChange: (content: string) => void;
     placeholder?: string;
+    onReady?: () => void;
 }
 
 export function SceneEditor({
     content,
     onChange,
     placeholder,
+    onReady,
 }: SceneEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
     const mouseRef = useRef({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
+    const isToolbarActionRef = useRef(false);
     const [bubbleMenu, setBubbleMenu] = useState<{
         top: number;
         left: number;
@@ -28,8 +31,14 @@ export function SceneEditor({
 
     const editor = useEditor({
         immediatelyRender: false,
-        extensions: [StarterKit, Placeholder.configure({ placeholder })],
+        extensions: [
+            StarterKit.configure({ codeBlock: false, code: false }),
+            Placeholder.configure({ placeholder }),
+        ],
         content,
+        onCreate: () => {
+            onReady?.();
+        },
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML());
         },
@@ -61,8 +70,6 @@ export function SceneEditor({
     }, [editor]);
 
     useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
         const handleMouseMove = (e: MouseEvent) => {
             mouseRef.current = { x: e.clientX, y: e.clientY };
         };
@@ -72,11 +79,11 @@ export function SceneEditor({
             // 드래그 끝난 뒤 메뉴 표시
             requestAnimationFrame(() => updateBubbleMenu());
         };
-        el.addEventListener("mousemove", handleMouseMove);
-        el.addEventListener("mouseup", handleMouseUp);
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
         return () => {
-            el.removeEventListener("mousemove", handleMouseMove);
-            el.removeEventListener("mouseup", handleMouseUp);
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
         };
     }, [updateBubbleMenu]);
 
@@ -85,8 +92,14 @@ export function SceneEditor({
 
         // 키보드 선택(Shift+방향키 등)은 selectionUpdate로 처리
         const handleSelectionUpdate = () => {
-            // 마우스 버튼이 눌린 상태(드래그 중)면 무시
             if (isDraggingRef.current) return;
+            // 툴바 버튼 클릭으로 인한 selectionUpdate면 위치 재계산 건너뜀
+            if (isToolbarActionRef.current) {
+                isToolbarActionRef.current = false;
+                const { from, to } = editor.state.selection;
+                if (from === to) setBubbleMenu(null);
+                return;
+            }
             updateBubbleMenu();
         };
         const handleMouseDown = (e: MouseEvent) => {
@@ -129,7 +142,10 @@ export function SceneEditor({
                         top: bubbleMenu.top,
                         left: bubbleMenu.left,
                     }}
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        isToolbarActionRef.current = true;
+                    }}
                 >
                     <button
                         type="button"
@@ -158,6 +174,20 @@ export function SceneEditor({
                         title="기울임 (Ctrl+I)"
                     >
                         <Italic className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() =>
+                            editor.chain().focus().toggleBlockquote().run()
+                        }
+                        className={`rounded p-1.5 transition-colors ${
+                            editor.isActive("blockquote")
+                                ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
+                                : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                        }`}
+                        title="인용문"
+                    >
+                        <TextQuote className="h-4 w-4" />
                     </button>
                 </div>
             )}
