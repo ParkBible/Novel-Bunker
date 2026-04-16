@@ -47,6 +47,8 @@ export interface Character {
     name: string;
     description: string;
     tags: string[];
+    order: number;
+    group: string;
     age?: string;
     gender?: string;
     role?: string;
@@ -124,6 +126,44 @@ class NovelBunkerDB extends Dexie {
             aiConversations: "++id, createdAt",
             aiMessages: "++id, conversationId, createdAt",
         });
+
+        this.version(5)
+            .stores({
+                chapters: "++id, order, createdAt",
+                scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+                characters: "++id, name, order",
+                characterRelationships: "++id, fromCharacterId, toCharacterId",
+                lores: "++id, category, createdAt",
+                settings: "key",
+                aiConversations: "++id, createdAt",
+                aiMessages: "++id, conversationId, createdAt",
+            })
+            .upgrade(async (tx) => {
+                const chars = await tx.table("characters").toArray();
+                await Promise.all(
+                    chars.map((c, i) =>
+                        tx.table("characters").update(c.id, { order: i }),
+                    ),
+                );
+            });
+
+        this.version(6)
+            .stores({
+                chapters: "++id, order, createdAt",
+                scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+                characters: "++id, name, order, group",
+                characterRelationships: "++id, fromCharacterId, toCharacterId",
+                lores: "++id, category, createdAt",
+                settings: "key",
+                aiConversations: "++id, createdAt",
+                aiMessages: "++id, conversationId, createdAt",
+            })
+            .upgrade(async (tx) => {
+                await tx
+                    .table("characters")
+                    .toCollection()
+                    .modify({ group: "주인공" });
+            });
     }
 }
 

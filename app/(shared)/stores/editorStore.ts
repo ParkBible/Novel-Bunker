@@ -29,6 +29,7 @@ interface EditorState {
     relationships: CharacterRelationship[];
     lores: Lore[];
     loreCategories: string[];
+    characterGroups: string[];
     synopsis: string;
     novelTitle: string;
 
@@ -48,7 +49,13 @@ interface EditorState {
     updateNovelTitle: (title: string) => Promise<void>;
 
     // Character actions
+    addCharacter: (name: string, group: string) => Promise<void>;
+    deleteCharacter: (id: number) => Promise<void>;
     updateCharacter: (id: number, updates: Partial<Character>) => Promise<void>;
+    reorderCharacters: (activeId: number, overId: number) => Promise<void>;
+    addCharacterGroup: (group: string) => Promise<void>;
+    removeCharacterGroup: (group: string) => Promise<void>;
+    renameCharacterGroup: (oldName: string, newName: string) => Promise<void>;
 
     // Update actions
     updateChapterTitle: (chapterId: number, title: string) => Promise<void>;
@@ -94,6 +101,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     relationships: [],
     lores: [],
     loreCategories: ["세계관", "장소", "아이템"],
+    characterGroups: ["주인공", "조연", "기타"],
     synopsis: "",
     novelTitle: "",
     selectedSceneId: null,
@@ -117,6 +125,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             synopsis,
             novelTitle,
             savedCategories,
+            savedCharGroups,
         ] = await Promise.all([
             chapterOps.getAll(),
             sceneOps.getAll(),
@@ -126,6 +135,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             settingsOps.get("synopsis"),
             settingsOps.get("novelTitle"),
             settingsOps.get("loreCategories"),
+            settingsOps.get("characterGroups"),
         ]);
 
         const defaultCategories = ["세계관", "장소", "아이템"];
@@ -142,6 +152,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             }
         })();
 
+        const defaultCharGroups = ["주인공", "조연", "기타"];
+        const characterGroups = (() => {
+            if (!savedCharGroups) return defaultCharGroups;
+            try {
+                return JSON.parse(savedCharGroups);
+            } catch {
+                return defaultCharGroups;
+            }
+        })();
+
         set({
             chapters,
             scenes,
@@ -149,6 +169,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             relationships,
             lores,
             loreCategories,
+            characterGroups,
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
@@ -175,6 +196,87 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     // Character actions
+    addCharacter: async (name, group) => {
+        const order = get().characters.length;
+        const id = await characterOps.create(name, "", [], order, group);
+        const newCharacter: Character = {
+            id,
+            name,
+            description: "",
+            tags: [],
+            order,
+            group,
+        };
+        set({ characters: [...get().characters, newCharacter] });
+    },
+
+    deleteCharacter: async (id) => {
+        const relatedIds = get()
+            .relationships.filter(
+                (r) => r.fromCharacterId === id || r.toCharacterId === id,
+            )
+            .map((r) => r.id!);
+        await characterOps.delete(id);
+        await Promise.all(relatedIds.map((rid) => relationshipOps.delete(rid)));
+        const { detailPanel } = get();
+        set({
+            characters: get().characters.filter((c) => c.id !== id),
+            relationships: get().relationships.filter(
+                (r) => r.fromCharacterId !== id && r.toCharacterId !== id,
+            ),
+            detailPanel:
+                detailPanel?.type === "character" &&
+                detailPanel.characterId === id
+                    ? null
+                    : detailPanel,
+        });
+    },
+
+    addCharacterGroup: async (group) => {
+        const groups = [...get().characterGroups, group];
+        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        set({ characterGroups: groups });
+    },
+
+    removeCharacterGroup: async (group) => {
+        const groups = get().characterGroups.filter((g) => g !== group);
+        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        set({ characterGroups: groups });
+    },
+
+    renameCharacterGroup: async (oldName, newName) => {
+        const groups = get().characterGroups.map((g) =>
+            g === oldName ? newName : g,
+        );
+        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        const affected = get().characters.filter((c) => c.group === oldName);
+        await Promise.all(
+            affected.map((c) => characterOps.update(c.id!, { group: newName })),
+        );
+        set({
+            characterGroups: groups,
+            characters: get().characters.map((c) =>
+                c.group === oldName ? { ...c, group: newName } : c,
+            ),
+        });
+    },
+
+    reorderCharacters: async (activeId, overId) => {
+        const sorted = [...get().characters].sort((a, b) => a.order - b.order);
+        const oldIndex = sorted.findIndex((c) => c.id === activeId);
+        const newIndex = sorted.findIndex((c) => c.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        await Promise.all(
+            reordered.map((c, i) => characterOps.reorder(c.id!, i)),
+        );
+        set({ characters: reordered.map((c, i) => ({ ...c, order: i })) });
+    },
+
     updateCharacter: async (id, updates) => {
         await characterOps.update(id, updates);
         set({
