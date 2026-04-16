@@ -109,26 +109,6 @@ export function requestToken(clientId: string): Promise<string> {
     });
 }
 
-// ── Silent OAuth (팝업 없이 토큰 재획득 시도) ─────────────────
-export function requestTokenSilent(clientId: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        if (!window.google) {
-            reject(new Error("GIS not loaded"));
-            return;
-        }
-        const client = window.google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: DRIVE_SCOPE,
-            prompt: "", // 빈 문자열 = 팝업/동의 화면 없이 시도
-            callback: (response) => {
-                if (response.error) reject(new Error(response.error));
-                else resolve(response.access_token);
-            },
-        });
-        client.requestAccessToken();
-    });
-}
-
 // ── 인증 fetch ────────────────────────────────────────────────
 async function authFetch(
     url: string,

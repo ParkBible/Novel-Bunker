@@ -20,10 +20,13 @@ export function useGoogleDrive(clientId: string) {
     const [isConnected, setIsConnected] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() =>
-        getLastSyncedAt(),
-    );
+    const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
     const { loadData } = useEditorStore();
+
+    useEffect(() => {
+        setIsConnected(!!getAccessToken());
+        setLastSyncedAt(getLastSyncedAt());
+    }, []);
 
     // 수동 동기화용 — 팝업 띄워서 토큰 획득
     const ensureAuth = useCallback(async (): Promise<void> => {
@@ -86,8 +89,12 @@ export function useGoogleDrive(clientId: string) {
             const now = new Date();
             saveLastSyncedAt(now);
             setLastSyncedAt(now);
-        } catch {
-            // silent 실패 → 무시
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "";
+            if (msg.includes("401") || msg.includes("인증")) {
+                clearAccessToken();
+                setIsConnected(false);
+            }
         }
     }, []);
 
