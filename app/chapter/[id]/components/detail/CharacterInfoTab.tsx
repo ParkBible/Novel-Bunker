@@ -1,9 +1,10 @@
 "use client";
 
 import { HelpCircle, Lightbulb, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Character } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import {
     type GuideItem,
     LONG_FIELDS,
@@ -41,12 +42,16 @@ function AutoResizeTextarea({
     const { draft, handleChange: saveDraft } = useDraftValue(value, onChange);
     const ref = useRef<HTMLTextAreaElement>(null);
 
-    const handleChange = (val: string) => {
-        saveDraft(val);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
+    useLayoutEffect(() => {
         if (ref.current) {
             ref.current.style.height = "auto";
             ref.current.style.height = `${ref.current.scrollHeight}px`;
         }
+    }, [draft]);
+
+    const handleChange = (val: string) => {
+        saveDraft(val);
     };
 
     return (
@@ -223,6 +228,8 @@ export function CharacterInfoTab({
     onSave: (updates: Partial<Character>) => void;
     className?: string;
 }) {
+    const { characterGroups } = useEditorStore();
+
     return (
         <div className={`space-y-4 overflow-x-hidden px-1 ${className ?? ""}`}>
             {/* 단답 필드 */}
@@ -239,6 +246,22 @@ export function CharacterInfoTab({
                         />
                     </div>
                 ))}
+                <div className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 text-xs text-zinc-400">
+                        그룹
+                    </span>
+                    <select
+                        value={character.group}
+                        onChange={(e) => onSave({ group: e.target.value })}
+                        className="w-full rounded bg-transparent px-1 py-0.5 text-sm text-zinc-700 outline-none hover:bg-zinc-50 focus:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                    >
+                        {characterGroups.map((g) => (
+                            <option key={g} value={g}>
+                                {g}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {/* 태그 */}

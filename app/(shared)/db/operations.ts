@@ -202,13 +202,25 @@ export const characterOps = {
         name: string,
         description: string,
         tags: string[] = [],
+        order = 0,
+        group = "주인공",
     ): Promise<number> {
-        const id = await db.characters.add({ name, description, tags });
+        const id = await db.characters.add({
+            name,
+            description,
+            tags,
+            order,
+            group,
+        });
         return id as number;
     },
 
     async update(id: number, updates: Partial<Character>): Promise<void> {
         await db.characters.update(id, updates);
+    },
+
+    async reorder(id: number, order: number): Promise<void> {
+        await db.characters.update(id, { order });
     },
 
     async delete(id: number): Promise<void> {
