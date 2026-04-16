@@ -33,10 +33,34 @@ declare global {
                             access_token: string;
                             error?: string;
                         }) => void;
+                        prompt?: string;
+                        hint?: string;
                     }): { requestAccessToken(): void };
                 };
             };
         };
+    }
+}
+
+// ── 마지막 동기화 시각 (localStorage) ────────────────────────
+const LAST_SYNCED_AT_KEY = "novelbunker_drive_last_synced_at";
+
+export function getLastSyncedAt(): Date | null {
+    try {
+        const raw = localStorage.getItem(LAST_SYNCED_AT_KEY);
+        if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : d;
+    } catch {
+        return null;
+    }
+}
+
+export function saveLastSyncedAt(date: Date): void {
+    try {
+        localStorage.setItem(LAST_SYNCED_AT_KEY, date.toISOString());
+    } catch {
+        // private browsing 등에서 조용히 무시
     }
 }
 
@@ -79,6 +103,26 @@ export function requestToken(clientId: string): Promise<string> {
                 } else {
                     resolve(response.access_token);
                 }
+            },
+        });
+        client.requestAccessToken();
+    });
+}
+
+// ── Silent OAuth (팝업 없이 토큰 재획득 시도) ─────────────────
+export function requestTokenSilent(clientId: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        if (!window.google) {
+            reject(new Error("GIS not loaded"));
+            return;
+        }
+        const client = window.google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: DRIVE_SCOPE,
+            prompt: "", // 빈 문자열 = 팝업/동의 화면 없이 시도
+            callback: (response) => {
+                if (response.error) reject(new Error(response.error));
+                else resolve(response.access_token);
             },
         });
         client.requestAccessToken();
