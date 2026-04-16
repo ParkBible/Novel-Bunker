@@ -7,6 +7,15 @@ import { ClientIdGuideModal } from "./ClientIdGuideModal";
 
 const SETTINGS_KEY = "googleClientId";
 
+function formatRelativeTime(date: Date): string {
+    const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffMin < 1) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    return `${Math.floor(diffHour / 24)}일 전`;
+}
+
 export function DriveSync() {
     const [clientId, setClientId] = useState<string | null>(null);
     const [isEditingClientId, setIsEditingClientId] = useState(false);
@@ -49,10 +58,19 @@ export function DriveSync() {
         isConnected,
         syncStatus,
         errorMessage,
+        lastSyncedAt,
         upload,
         download,
         disconnect,
     } = useGoogleDrive(clientId ?? "");
+
+    // 1분마다 강제 리렌더 — 상대 시간 텍스트 갱신
+    const [, forceUpdate] = useState(0);
+    useEffect(() => {
+        if (!lastSyncedAt) return;
+        const id = setInterval(() => forceUpdate((n) => n + 1), 60_000);
+        return () => clearInterval(id);
+    }, [lastSyncedAt]);
 
     const isSyncing = syncStatus === "syncing";
 
@@ -174,6 +192,11 @@ export function DriveSync() {
                 </button>
             </div>
 
+            {lastSyncedAt && !isSyncing && (
+                <p className="mt-1 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                    마지막 동기화: {formatRelativeTime(lastSyncedAt)}
+                </p>
+            )}
             {isSyncing && (
                 <p className="mt-1 text-center text-xs text-zinc-400">
                     동기화 중...

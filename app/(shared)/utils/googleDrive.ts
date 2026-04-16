@@ -33,10 +33,34 @@ declare global {
                             access_token: string;
                             error?: string;
                         }) => void;
+                        prompt?: string;
+                        hint?: string;
                     }): { requestAccessToken(): void };
                 };
             };
         };
+    }
+}
+
+// ── 마지막 동기화 시각 (localStorage) ────────────────────────
+const LAST_SYNCED_AT_KEY = "novelbunker_drive_last_synced_at";
+
+export function getLastSyncedAt(): Date | null {
+    try {
+        const raw = localStorage.getItem(LAST_SYNCED_AT_KEY);
+        if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : d;
+    } catch {
+        return null;
+    }
+}
+
+export function saveLastSyncedAt(date: Date): void {
+    try {
+        localStorage.setItem(LAST_SYNCED_AT_KEY, date.toISOString());
+    } catch {
+        // private browsing 등에서 조용히 무시
     }
 }
 
