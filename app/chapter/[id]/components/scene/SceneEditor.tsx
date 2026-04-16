@@ -152,7 +152,9 @@ export function SceneEditor({
     }, [editor, updateBubbleMenu]);
 
     useEffect(() => {
-        if (editor && content !== editor.getHTML()) {
+        if (!editor) return;
+        if (editor.isFocused) return; // 타이핑 중 외부 content 반영 차단 → 스크롤 버그 방지
+        if (content !== editor.getHTML()) {
             editor.commands.setContent(content);
         }
     }, [content, editor]);
