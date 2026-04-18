@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DevInspector } from "./(shared)/components/DevInspector";
 import { GoogleAuthScript } from "./(shared)/components/GoogleAuthScript";
+import { ThemeProvider } from "./(shared)/components/ThemeProvider";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -31,13 +32,15 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
-                <GoogleAuthScript />
-                <DevInspector />
-                {children}
+                <ThemeProvider>
+                    <GoogleAuthScript />
+                    <DevInspector />
+                    {children}
+                </ThemeProvider>
             </body>
         </html>
     );
