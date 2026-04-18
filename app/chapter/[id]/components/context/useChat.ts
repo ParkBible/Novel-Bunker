@@ -131,6 +131,7 @@ export function useChat({
                     model: geminiModel,
                 }),
             });
+            if (!res.ok) throw new Error(await res.text());
             const data = await res.json();
 
             const modelMsgId = await aiMessageOps.create(

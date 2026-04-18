@@ -79,7 +79,7 @@ export function CharacterChatTab({
                     model: geminiModel,
                 }),
             });
-
+            if (!response.ok) throw new Error(await response.text());
             const data = await response.json();
             const replyId = await characterMessageOps.create(
                 character.id,
