@@ -3,7 +3,11 @@
 import { SendHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { characterMessageOps } from "@/app/(shared)/db/operations";
-import { apiRoutes } from "@/app/(shared)/routes";
+import {
+    apiRoutes,
+    GEMINI_MODELS,
+    type GeminiModelId,
+} from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 interface ChatMessage {
@@ -22,7 +26,7 @@ export function CharacterChatTab({
         tags: string[];
     };
 }) {
-    const { geminiModel } = useEditorStore();
+    const { geminiModel, setGeminiModel } = useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -147,7 +151,23 @@ export function CharacterChatTab({
                 )}
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex items-center gap-1.5 pb-1">
+                <select
+                    value={geminiModel}
+                    onChange={(e) =>
+                        setGeminiModel(e.target.value as GeminiModelId)
+                    }
+                    className="rounded px-1.5 py-0.5 text-xs bg-zinc-100 text-zinc-600 outline-none cursor-pointer hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    title="AI 모델 선택"
+                >
+                    {GEMINI_MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                            {m.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div className="flex gap-2">
                 <button
                     type="button"
                     onClick={handleClear}
