@@ -3,6 +3,7 @@
 import { LayoutDashboard, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
 import { routes } from "@/app/(shared)/routes";
 
 interface NovelTitleHeaderProps {
@@ -85,6 +86,7 @@ export function NovelTitleHeader({
                 )}
             </div>
             <div className="ml-2 flex shrink-0 items-center gap-1">
+                <ThemeToggle />
                 <Link
                     href={routes.dashboard}
                     className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
