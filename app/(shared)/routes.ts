@@ -18,4 +18,5 @@ export const GEMINI_MODELS = [
 ] as const;
 
 export type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
-export const DEFAULT_GEMINI_MODEL: GeminiModelId = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL: GeminiModelId =
+    "gemini-3.1-flash-lite-preview";
