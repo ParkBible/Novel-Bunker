@@ -11,8 +11,9 @@ export async function generateFeedback(
     synopsis: string,
     characters: string[],
     customPrompt?: string,
+    modelId = "gemini-2.5-flash",
 ): Promise<string> {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: modelId });
 
     const feedbackRequest = customPrompt
         ? customPrompt
@@ -52,9 +53,10 @@ export async function chatWithCharacter(
     characterDescription: string,
     characterTags: string[],
     messages: { role: "user" | "model"; text: string }[],
+    modelId = "gemini-2.5-flash",
 ): Promise<string> {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: modelId,
         systemInstruction: `당신은 소설 속 등장인물 "${characterName}"입니다. 아래 설정을 기반으로 이 인물처럼 대화해주세요. 절대 캐릭터에서 벗어나지 마세요.
 
 **인물 설명:**
@@ -90,9 +92,10 @@ export async function generateAiChatReply(
         title: string;
         content: string;
     },
+    modelId = "gemini-2.5-flash",
 ): Promise<string> {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: modelId,
         systemInstruction:
             "당신은 소설 창작을 도와주는 AI 어시스턴트입니다. 작가의 질문에 친절하고 건설적으로 답변하세요. 항상 한국어로 답변하세요.",
     });
@@ -121,8 +124,11 @@ export async function generateAiChatReply(
     }
 }
 
-export async function checkGrammar(content: string): Promise<string> {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+export async function checkGrammar(
+    content: string,
+    modelId = "gemini-2.5-flash",
+): Promise<string> {
+    const model = genAI.getGenerativeModel({ model: modelId });
 
     const prompt = `다음 텍스트의 맞춤법과 문법을 검토하고, 발견된 오류를 수정해주세요.
 

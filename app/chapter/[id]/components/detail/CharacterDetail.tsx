@@ -54,7 +54,14 @@ export function CharacterDetail({ characterId }: { characterId: number }) {
                     className="flex-1 overflow-y-auto"
                 />
             ) : (
-                <CharacterChatTab character={character} />
+                <CharacterChatTab
+                    character={{
+                        id: character.id!,
+                        name: character.name,
+                        description: character.description,
+                        tags: character.tags,
+                    }}
+                />
             )}
         </div>
     );

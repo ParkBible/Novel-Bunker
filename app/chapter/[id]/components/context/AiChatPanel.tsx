@@ -14,7 +14,7 @@ import { useMention } from "./useMention";
 type ViewMode = "chat" | "conversations";
 
 export function AiChatPanel() {
-    const { scenes, chapters } = useEditorStore();
+    const { scenes, chapters, geminiModel, setGeminiModel } = useEditorStore();
     const [viewMode, setViewMode] = useState<ViewMode>("chat");
     const [input, setInput] = useState("");
     const [attachedCtxs, setAttachedCtxs] = useState<AttachedContext[]>([]);
@@ -45,6 +45,7 @@ export function AiChatPanel() {
         setInput,
         attachedCtxs,
         setAttachedCtxs,
+        geminiModel,
     });
 
     const {
@@ -103,6 +104,8 @@ export function AiChatPanel() {
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <ChatHeader
                 title={activeConv?.title ?? "AI 채팅"}
+                geminiModel={geminiModel}
+                onModelChange={setGeminiModel}
                 onShowConversations={() => setViewMode("conversations")}
                 onNewConversation={handleNewConversation}
             />

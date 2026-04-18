@@ -46,7 +46,8 @@ export function AiFeedbackSection({
     content: string;
     promptOptions: PromptOption[];
 }) {
-    const { synopsis, isLoadingAI, setIsLoadingAI } = useEditorStore();
+    const { synopsis, isLoadingAI, setIsLoadingAI, geminiModel } =
+        useEditorStore();
     const [feedback, setFeedback] = useState<string>("");
     const [selectedPrompt, setSelectedPrompt] = useState<string>(
         promptOptions[0].value,
@@ -63,6 +64,7 @@ export function AiFeedbackSection({
                     sceneContent: content,
                     synopsis,
                     prompt: selectedPrompt,
+                    model: geminiModel,
                 }),
             });
 

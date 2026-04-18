@@ -3,6 +3,7 @@ import {
     type AiMessage,
     type Chapter,
     type Character,
+    type CharacterMessage,
     type CharacterRelationship,
     db,
     type Lore,
@@ -290,6 +291,37 @@ export const loreOps = {
 
     async delete(id: number): Promise<void> {
         await db.lores.delete(id);
+    },
+};
+
+// Character Message Operations
+export const characterMessageOps = {
+    async getByCharacter(characterId: number): Promise<CharacterMessage[]> {
+        return db.characterMessages
+            .where("characterId")
+            .equals(characterId)
+            .sortBy("createdAt");
+    },
+
+    async create(
+        characterId: number,
+        role: "user" | "model",
+        text: string,
+    ): Promise<number> {
+        const id = await db.characterMessages.add({
+            characterId,
+            role,
+            text,
+            createdAt: new Date(),
+        });
+        return id as number;
+    },
+
+    async clearByCharacter(characterId: number): Promise<void> {
+        await db.characterMessages
+            .where("characterId")
+            .equals(characterId)
+            .delete();
     },
 };
 
