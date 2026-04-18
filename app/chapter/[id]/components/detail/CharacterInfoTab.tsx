@@ -22,7 +22,7 @@ const inlineInputClass =
     "w-full bg-transparent text-sm text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
 const inlineTextareaClass =
-    "w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
+    "w-full resize-none bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
 function AutoResizeTextarea({
     value,
@@ -39,20 +39,16 @@ function AutoResizeTextarea({
     guideDescription: string;
     showGuide?: boolean;
 }) {
-    const { draft, handleChange: saveDraft } = useDraftValue(value, onChange);
+    const { draft, handleChange } = useDraftValue(value, onChange);
     const ref = useRef<HTMLTextAreaElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
     useLayoutEffect(() => {
-        if (ref.current) {
+        if (ref.current && !CSS.supports("field-sizing", "content")) {
             ref.current.style.height = "auto";
             ref.current.style.height = `${ref.current.scrollHeight}px`;
         }
     }, [draft]);
-
-    const handleChange = (val: string) => {
-        saveDraft(val);
-    };
 
     return (
         <div className="flex flex-col gap-1">
@@ -65,7 +61,7 @@ function AutoResizeTextarea({
                         </p>
                     </div>
                     {guideDescription && (
-                        <p className="mb-4 text-xs text-zinc-400 dark:text-zinc-500 font-medium italic">
+                        <p className="mb-4 text-xs font-medium italic text-zinc-400 dark:text-zinc-500">
                             "{guideDescription}"
                         </p>
                     )}
@@ -92,7 +88,7 @@ function AutoResizeTextarea({
                 rows={3}
                 placeholder={placeholder}
                 onChange={(e) => handleChange(e.target.value)}
-                className={inlineTextareaClass}
+                className={`${inlineTextareaClass} field-sizing-content`}
             />
         </div>
     );

@@ -4,11 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useEditorStore } from "../stores/editorStore";
 import {
     clearAccessToken,
+    createAutoSnapshot,
+    deleteSnapshot as deleteSnapshotFn,
     exportToDrive,
+    exportToDriveWithSnapshot,
     getAccessToken,
     getLastSyncedAt,
     importFromDrive,
+    listSnapshots as listSnapshotsFn,
     requestToken,
+    restoreSnapshot as restoreSnapshotFn,
+    type SnapshotInfo,
     saveLastSyncedAt,
     setAccessToken,
 } from "../utils/googleDrive";
@@ -61,7 +67,7 @@ export function useGoogleDrive(clientId: string) {
     );
 
     const upload = useCallback(
-        () => withSync(() => exportToDrive()),
+        () => withSync(() => exportToDriveWithSnapshot()),
         [withSync],
     );
 
@@ -81,10 +87,33 @@ export function useGoogleDrive(clientId: string) {
         setErrorMessage(null);
     }, []);
 
+    const loadSnapshots = useCallback(async (): Promise<SnapshotInfo[]> => {
+        await ensureAuth();
+        return listSnapshotsFn();
+    }, [ensureAuth]);
+
+    const restoreSnapshot = useCallback(
+        (fileId: string) =>
+            withSync(async () => {
+                await restoreSnapshotFn(fileId);
+                await loadData();
+            }),
+        [withSync, loadData],
+    );
+
+    const deleteSnapshot = useCallback(
+        async (fileId: string): Promise<void> => {
+            await ensureAuth();
+            await deleteSnapshotFn(fileId);
+        },
+        [ensureAuth],
+    );
+
     // 자동 업로드 — 이미 토큰이 있을 때만 실행 (팝업 없이)
     const autoUploadCore = useCallback(async () => {
         if (!getAccessToken()) return; // 미인증 상태면 스킵
         try {
+            await createAutoSnapshot();
             await exportToDrive();
             const now = new Date();
             saveLastSyncedAt(now);
@@ -108,7 +137,11 @@ export function useGoogleDrive(clientId: string) {
                 state.scenes !== prevState.scenes ||
                 state.characters !== prevState.characters ||
                 state.relationships !== prevState.relationships ||
-                state.lores !== prevState.lores;
+                state.lores !== prevState.lores ||
+                state.novelTitle !== prevState.novelTitle ||
+                state.synopsis !== prevState.synopsis ||
+                state.loreCategories !== prevState.loreCategories ||
+                state.characterGroups !== prevState.characterGroups;
             if (changed) autoUpload();
         });
         return unsubscribe;
@@ -122,5 +155,8 @@ export function useGoogleDrive(clientId: string) {
         upload,
         download,
         disconnect,
+        loadSnapshots,
+        restoreSnapshot,
+        deleteSnapshot,
     };
 }

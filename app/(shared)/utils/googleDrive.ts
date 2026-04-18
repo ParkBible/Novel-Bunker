@@ -11,7 +11,6 @@ import type {
 import { db } from "../db";
 import {
     aiConversationOps,
-    aiMessageOps,
     chapterOps,
     characterOps,
     loreOps,
@@ -66,6 +65,12 @@ export function saveLastSyncedAt(date: Date): void {
 
 // ── 상수 ──────────────────────────────────────────────────────
 const DRIVE_FILE_NAME = "novelbunker-data.json";
+const MANUAL_SNAPSHOT_PREFIX = "novelbunker-snapshot-manual-";
+const AUTO_SNAPSHOT_PREFIX = "novelbunker-snapshot-auto-";
+const MAX_MANUAL_SNAPSHOTS = 5;
+const MAX_AUTO_SNAPSHOTS = 30;
+const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5분
+const LAST_AUTO_SNAPSHOT_KEY = "novelbunker_last_auto_snapshot";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
@@ -99,7 +104,15 @@ export function requestToken(clientId: string): Promise<string> {
             scope: DRIVE_SCOPE,
             callback: (response) => {
                 if (response.error) {
-                    reject(new Error(response.error));
+                    const msg =
+                        response.error === "popup_failed_to_open"
+                            ? "팝업이 차단되었습니다. 브라우저 주소창의 팝업 차단 아이콘을 클릭해 허용해 주세요."
+                            : response.error === "popup_closed_by_user"
+                              ? "로그인 창이 닫혔습니다. 다시 시도해 주세요."
+                              : response.error === "access_denied"
+                                ? "Drive 접근 권한이 거부되었습니다."
+                                : response.error;
+                    reject(new Error(msg));
                 } else {
                     resolve(response.access_token);
                 }
@@ -136,6 +149,141 @@ export async function findBackupFile(): Promise<string | null> {
     );
     const data = await res.json();
     return (data.files as { id: string }[] | undefined)?.[0]?.id ?? null;
+}
+
+// ── 스냅샷 목록 조회 ──────────────────────────────────────────
+export interface SnapshotInfo {
+    id: string;
+    name: string;
+    createdAt: Date;
+    type: "manual" | "auto";
+}
+
+export async function listSnapshots(): Promise<SnapshotInfo[]> {
+    const q = encodeURIComponent("name contains 'novelbunker-snapshot-'");
+    const res = await authFetch(
+        `${DRIVE_API}/files?spaces=appDataFolder&q=${q}&fields=files(id,name,createdTime)`,
+    );
+    const data = await res.json();
+    const files = (data.files ?? []) as {
+        id: string;
+        name: string;
+        createdTime: string;
+    }[];
+    return files
+        .map((f) => ({
+            id: f.id,
+            name: f.name,
+            createdAt: new Date(f.createdTime),
+            type: f.name.startsWith(MANUAL_SNAPSHOT_PREFIX)
+                ? ("manual" as const)
+                : ("auto" as const),
+        }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+// ── Drive 파일 콘텐츠 텍스트로 다운로드 ──────────────────────
+async function downloadFileText(fileId: string): Promise<string> {
+    const res = await authFetch(`${DRIVE_API}/files/${fileId}?alt=media`);
+    return res.text();
+}
+
+// ── 스냅샷 파일 업로드 (multipart) ───────────────────────────
+async function uploadNewFile(name: string, json: string): Promise<void> {
+    const metadata = JSON.stringify({ name, parents: ["appDataFolder"] });
+    const boundary = "novelbunker_boundary";
+    const body =
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n` +
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n` +
+        `--${boundary}--`;
+    await authFetch(`${UPLOAD_API}/files?uploadType=multipart`, {
+        method: "POST",
+        headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+        body,
+    });
+}
+
+// ── 타입별 오래된 스냅샷 정리 ────────────────────────────────
+async function pruneSnapshots(prefix: string, max: number): Promise<void> {
+    const all = await listSnapshots();
+    const typed = all.filter((s) => s.name.startsWith(prefix));
+    if (typed.length <= max) return;
+    await Promise.allSettled(
+        typed
+            .slice(max)
+            .map((s) =>
+                authFetch(`${DRIVE_API}/files/${s.id}`, { method: "DELETE" }),
+            ),
+    );
+}
+
+// ── 서버 측 파일 복사 (files.copy) ──────────────────────────
+async function copyFile(fileId: string, name: string): Promise<void> {
+    await authFetch(`${DRIVE_API}/files/${fileId}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, parents: ["appDataFolder"] }),
+    });
+}
+
+// ── 수동 스냅샷 생성 ──────────────────────────────────────────
+export async function createManualSnapshot(): Promise<void> {
+    const fileId = await findBackupFile();
+    if (!fileId) return;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    await copyFile(fileId, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
+    await pruneSnapshots(MANUAL_SNAPSHOT_PREFIX, MAX_MANUAL_SNAPSHOTS);
+}
+
+// ── 자동 스냅샷 생성 (5분 쓰로틀) ─────────────────────────
+export async function createAutoSnapshot(): Promise<void> {
+    try {
+        const lastStr = localStorage.getItem(LAST_AUTO_SNAPSHOT_KEY);
+        if (lastStr) {
+            const elapsed = Date.now() - new Date(lastStr).getTime();
+            if (elapsed < AUTO_SNAPSHOT_INTERVAL_MS) return;
+        }
+    } catch {
+        // ignore
+    }
+    const fileId = await findBackupFile();
+    if (!fileId) return;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    await copyFile(fileId, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
+    await pruneSnapshots(AUTO_SNAPSHOT_PREFIX, MAX_AUTO_SNAPSHOTS);
+    try {
+        localStorage.setItem(LAST_AUTO_SNAPSHOT_KEY, new Date().toISOString());
+    } catch {
+        // ignore
+    }
+}
+
+// ── 스냅샷 복원 ───────────────────────────────────────────────
+export async function restoreSnapshot(fileId: string): Promise<void> {
+    const json = await downloadFileText(fileId);
+    const data: BackupData = JSON.parse(json);
+    await applyImportedData(data);
+}
+
+// ── 스냅샷 삭제 ───────────────────────────────────────────────
+export async function deleteSnapshot(fileId: string): Promise<void> {
+    await authFetch(`${DRIVE_API}/files/${fileId}`, { method: "DELETE" });
+}
+
+// ── 로컬 데이터가 비어있는지 확인 ────────────────────────────
+export async function isLocalDataEmpty(): Promise<boolean> {
+    const [chapters, scenes, characters, lores] = await Promise.all([
+        chapterOps.getAll(),
+        sceneOps.getAll(),
+        characterOps.getAll(),
+        loreOps.getAll(),
+    ]);
+    return (
+        chapters.length === 0 &&
+        scenes.length === 0 &&
+        characters.length === 0 &&
+        lores.length === 0
+    );
 }
 
 // ── 로컬 데이터 수집 ──────────────────────────────────────────
@@ -200,24 +348,14 @@ export async function exportToDrive(): Promise<void> {
             body: json,
         });
     } else {
-        const metadata = JSON.stringify({
-            name: DRIVE_FILE_NAME,
-            parents: ["appDataFolder"],
-        });
-        const boundary = "novelbunker_boundary";
-        const body =
-            `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n` +
-            `--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n` +
-            `--${boundary}--`;
-
-        await authFetch(`${UPLOAD_API}/files?uploadType=multipart`, {
-            method: "POST",
-            headers: {
-                "Content-Type": `multipart/related; boundary=${boundary}`,
-            },
-            body,
-        });
+        await uploadNewFile(DRIVE_FILE_NAME, json);
     }
+}
+
+// ── 수동 스냅샷 생성 후 업로드 ───────────────────────────────
+export async function exportToDriveWithSnapshot(): Promise<void> {
+    await createManualSnapshot();
+    await exportToDrive();
 }
 
 // ── Drive에서 다운로드 ────────────────────────────────────────
