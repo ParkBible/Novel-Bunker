@@ -208,7 +208,7 @@ async function pruneSnapshots(prefix: string, max: number): Promise<void> {
     const all = await listSnapshots();
     const typed = all.filter((s) => s.name.startsWith(prefix));
     if (typed.length <= max) return;
-    await Promise.all(
+    await Promise.allSettled(
         typed
             .slice(max)
             .map((s) =>
@@ -217,17 +217,25 @@ async function pruneSnapshots(prefix: string, max: number): Promise<void> {
     );
 }
 
+// ── 서버 측 파일 복사 (files.copy) ──────────────────────────
+async function copyFile(fileId: string, name: string): Promise<void> {
+    await authFetch(`${DRIVE_API}/files/${fileId}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, parents: ["appDataFolder"] }),
+    });
+}
+
 // ── 수동 스냅샷 생성 ──────────────────────────────────────────
 export async function createManualSnapshot(): Promise<void> {
     const fileId = await findBackupFile();
     if (!fileId) return;
-    const json = await downloadFileText(fileId);
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await uploadNewFile(`${MANUAL_SNAPSHOT_PREFIX}${ts}.json`, json);
+    await copyFile(fileId, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(MANUAL_SNAPSHOT_PREFIX, MAX_MANUAL_SNAPSHOTS);
 }
 
-// ── 자동 스냅샷 생성 (1시간 쓰로틀) ─────────────────────────
+// ── 자동 스냅샷 생성 (5분 쓰로틀) ─────────────────────────
 export async function createAutoSnapshot(): Promise<void> {
     try {
         const lastStr = localStorage.getItem(LAST_AUTO_SNAPSHOT_KEY);
@@ -240,9 +248,8 @@ export async function createAutoSnapshot(): Promise<void> {
     }
     const fileId = await findBackupFile();
     if (!fileId) return;
-    const json = await downloadFileText(fileId);
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await uploadNewFile(`${AUTO_SNAPSHOT_PREFIX}${ts}.json`, json);
+    await copyFile(fileId, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(AUTO_SNAPSHOT_PREFIX, MAX_AUTO_SNAPSHOTS);
     try {
         localStorage.setItem(LAST_AUTO_SNAPSHOT_KEY, new Date().toISOString());

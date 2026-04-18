@@ -1,7 +1,7 @@
 "use client";
 
 import { HelpCircle, Lightbulb, X } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Character } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -40,6 +40,15 @@ function AutoResizeTextarea({
     showGuide?: boolean;
 }) {
     const { draft, handleChange } = useDraftValue(value, onChange);
+    const ref = useRef<HTMLTextAreaElement>(null);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
+    useLayoutEffect(() => {
+        if (ref.current && !CSS.supports("field-sizing", "content")) {
+            ref.current.style.height = "auto";
+            ref.current.style.height = `${ref.current.scrollHeight}px`;
+        }
+    }, [draft]);
 
     return (
         <div className="flex flex-col gap-1">
@@ -74,6 +83,7 @@ function AutoResizeTextarea({
                 </div>
             )}
             <textarea
+                ref={ref}
                 value={draft}
                 rows={3}
                 placeholder={placeholder}

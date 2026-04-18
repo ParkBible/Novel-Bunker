@@ -221,7 +221,7 @@ export function SnapshotModal({
                 {/* 푸터 */}
                 <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
                     <p className="text-center text-xs text-zinc-400">
-                        업로드할 때마다 자동 저장 · 최대 {5}개 유지
+                        수동 최대 5개 · 자동 최대 30개 유지
                     </p>
                 </div>
             </div>
