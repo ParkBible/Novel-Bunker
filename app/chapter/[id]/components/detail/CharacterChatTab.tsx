@@ -1,11 +1,17 @@
 "use client";
 
-import { SendHorizontal } from "lucide-react";
+import { SendHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiRoutes } from "@/app/(shared)/routes";
+import { characterMessageOps } from "@/app/(shared)/db/operations";
+import {
+    apiRoutes,
+    GEMINI_MODELS,
+    type GeminiModelId,
+} from "@/app/(shared)/routes";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 interface ChatMessage {
-    id: string;
+    id?: number;
     role: "user" | "model";
     text: string;
 }
@@ -13,12 +19,26 @@ interface ChatMessage {
 export function CharacterChatTab({
     character,
 }: {
-    character: { name: string; description: string; tags: string[] };
+    character: {
+        id: number;
+        name: string;
+        description: string;
+        tags: string[];
+    };
 }) {
+    const { geminiModel, setGeminiModel } = useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        characterMessageOps.getByCharacter(character.id).then((saved) => {
+            setMessages(
+                saved.map((m) => ({ id: m.id, role: m.role, text: m.text })),
+            );
+        });
+    }, [character.id]);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: messages 변경 시 스크롤 트리거용 의존성
     useEffect(() => {
@@ -32,8 +52,13 @@ export function CharacterChatTab({
         const trimmed = input.trim();
         if (!trimmed || isLoading) return;
 
+        const savedId = await characterMessageOps.create(
+            character.id,
+            "user",
+            trimmed,
+        );
         const userMessage: ChatMessage = {
-            id: crypto.randomUUID(),
+            id: savedId,
             role: "user",
             text: trimmed,
         };
@@ -51,19 +76,30 @@ export function CharacterChatTab({
                     characterDescription: character.description,
                     characterTags: character.tags,
                     messages: updatedMessages,
+                    model: geminiModel,
                 }),
             });
-
+            if (!response.ok) throw new Error(await response.text());
             const data = await response.json();
+            const replyId = await characterMessageOps.create(
+                character.id,
+                "model",
+                data.reply,
+            );
             setMessages((prev) => [
                 ...prev,
-                { id: crypto.randomUUID(), role: "model", text: data.reply },
+                { id: replyId, role: "model", text: data.reply },
             ]);
         } catch {
+            const errId = await characterMessageOps.create(
+                character.id,
+                "model",
+                "응답을 생성하지 못했습니다.",
+            );
             setMessages((prev) => [
                 ...prev,
                 {
-                    id: crypto.randomUUID(),
+                    id: errId,
                     role: "model",
                     text: "응답을 생성하지 못했습니다.",
                 },
@@ -71,6 +107,11 @@ export function CharacterChatTab({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleClear = async () => {
+        await characterMessageOps.clearByCharacter(character.id);
+        setMessages([]);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -91,9 +132,9 @@ export function CharacterChatTab({
                         {character.name}에게 말을 걸어보세요
                     </p>
                 )}
-                {messages.map((msg) => (
+                {messages.map((msg, i) => (
                     <div
-                        key={msg.id}
+                        key={msg.id ?? i}
                         className={`rounded-lg px-3 py-2 text-sm ${
                             msg.role === "user"
                                 ? "ml-6 self-end bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
@@ -110,7 +151,32 @@ export function CharacterChatTab({
                 )}
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex items-center gap-1.5 pb-1">
+                <select
+                    value={geminiModel}
+                    onChange={(e) =>
+                        setGeminiModel(e.target.value as GeminiModelId)
+                    }
+                    className="rounded px-1.5 py-0.5 text-xs bg-zinc-100 text-zinc-600 outline-none cursor-pointer hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    title="AI 모델 선택"
+                >
+                    {GEMINI_MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                            {m.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={handleClear}
+                    disabled={messages.length === 0 || isLoading}
+                    className="rounded-lg border border-zinc-200 px-2.5 text-zinc-400 transition-colors hover:border-red-300 hover:text-red-400 disabled:opacity-30 dark:border-zinc-700 dark:hover:border-red-700 dark:hover:text-red-500"
+                    title="대화 초기화"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
                 <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}

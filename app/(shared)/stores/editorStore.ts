@@ -15,6 +15,11 @@ import {
     sceneOps,
     settingsOps,
 } from "../db/operations";
+import {
+    DEFAULT_GEMINI_MODEL,
+    GEMINI_MODELS,
+    type GeminiModelId,
+} from "../routes";
 import { initializeDemoData } from "../utils/demoData";
 
 export type DetailPanel =
@@ -39,9 +44,11 @@ interface EditorState {
     expandedChapterIds: Set<number>;
     isLoadingAI: boolean;
     isInitialized: boolean;
+    geminiModel: GeminiModelId;
 
     // Actions
     loadData: () => Promise<void>;
+    setGeminiModel: (model: GeminiModelId) => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setDetailPanel: (panel: DetailPanel | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
@@ -109,6 +116,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     expandedChapterIds: new Set<number>(),
     isLoadingAI: false,
     isInitialized: false,
+    geminiModel: DEFAULT_GEMINI_MODEL,
 
     // Actions
     loadData: async () => {
@@ -126,6 +134,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             novelTitle,
             savedCategories,
             savedCharGroups,
+            savedGeminiModel,
         ] = await Promise.all([
             chapterOps.getAll(),
             sceneOps.getAll(),
@@ -136,6 +145,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             settingsOps.get("novelTitle"),
             settingsOps.get("loreCategories"),
             settingsOps.get("characterGroups"),
+            settingsOps.get("geminiModel"),
         ]);
 
         const defaultCategories = ["세계관", "장소", "아이템"];
@@ -173,9 +183,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             synopsis: synopsis || "",
             novelTitle: novelTitle || "",
             isInitialized: true,
+            geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
+                ? (savedGeminiModel as GeminiModelId)
+                : DEFAULT_GEMINI_MODEL,
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
         });
+    },
+
+    setGeminiModel: async (geminiModel) => {
+        await settingsOps.set("geminiModel", geminiModel);
+        set({ geminiModel });
     },
 
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),

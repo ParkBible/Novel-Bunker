@@ -3,8 +3,13 @@ import { chatWithCharacter } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {
     try {
-        const { characterName, characterDescription, characterTags, messages } =
-            await request.json();
+        const {
+            characterName,
+            characterDescription,
+            characterTags,
+            messages,
+            model,
+        } = await request.json();
 
         if (!characterName || !messages) {
             return NextResponse.json(
@@ -18,6 +23,7 @@ export async function POST(request: NextRequest) {
             characterDescription || "",
             characterTags || [],
             messages,
+            model,
         );
 
         return NextResponse.json({ reply });

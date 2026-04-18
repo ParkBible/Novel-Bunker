@@ -3,7 +3,7 @@ import { generateFeedback } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {
     try {
-        const { sceneContent, synopsis, characters, prompt } =
+        const { sceneContent, synopsis, characters, prompt, model } =
             await request.json();
 
         if (!sceneContent) {
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
             synopsis || "",
             characters || [],
             prompt,
+            model,
         );
 
         return NextResponse.json({ feedback });

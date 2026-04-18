@@ -78,6 +78,14 @@ export interface Setting {
     value: string;
 }
 
+export interface CharacterMessage {
+    id?: number;
+    characterId: number;
+    role: "user" | "model";
+    text: string;
+    createdAt: Date;
+}
+
 // Database class
 class NovelBunkerDB extends Dexie {
     chapters!: EntityTable<Chapter, "id">;
@@ -88,6 +96,7 @@ class NovelBunkerDB extends Dexie {
     settings!: EntityTable<Setting, "key">;
     aiConversations!: EntityTable<AiConversation, "id">;
     aiMessages!: EntityTable<AiMessage, "id">;
+    characterMessages!: EntityTable<CharacterMessage, "id">;
 
     constructor() {
         super("NovelBunkerDB");
@@ -164,6 +173,18 @@ class NovelBunkerDB extends Dexie {
                     .toCollection()
                     .modify({ group: "주인공" });
             });
+
+        this.version(7).stores({
+            chapters: "++id, order, createdAt",
+            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+            characters: "++id, name, order, group",
+            characterRelationships: "++id, fromCharacterId, toCharacterId",
+            lores: "++id, category, createdAt",
+            settings: "key",
+            aiConversations: "++id, createdAt",
+            aiMessages: "++id, conversationId, createdAt",
+            characterMessages: "++id, characterId, createdAt",
+        });
     }
 }
 

@@ -3,7 +3,11 @@
 import { useState } from "react";
 import type { AiConversation, AiMessage } from "@/app/(shared)/db";
 import { aiConversationOps, aiMessageOps } from "@/app/(shared)/db/operations";
-import { apiRoutes } from "@/app/(shared)/routes";
+import {
+    apiRoutes,
+    DEFAULT_GEMINI_MODEL,
+    type GeminiModelId,
+} from "@/app/(shared)/routes";
 import type { AttachedContext } from "./types";
 
 interface Options {
@@ -17,6 +21,7 @@ interface Options {
     setInput: (val: string) => void;
     attachedCtxs: AttachedContext[];
     setAttachedCtxs: React.Dispatch<React.SetStateAction<AttachedContext[]>>;
+    geminiModel?: GeminiModelId;
 }
 
 export function useChat({
@@ -30,6 +35,7 @@ export function useChat({
     setInput,
     attachedCtxs,
     setAttachedCtxs,
+    geminiModel = DEFAULT_GEMINI_MODEL,
 }: Options) {
     const [isLoading, setIsLoading] = useState(false);
 
@@ -122,8 +128,10 @@ export function useChat({
                         text: m.text,
                     })),
                     context: ctxForApi,
+                    model: geminiModel,
                 }),
             });
+            if (!res.ok) throw new Error(await res.text());
             const data = await res.json();
 
             const modelMsgId = await aiMessageOps.create(
