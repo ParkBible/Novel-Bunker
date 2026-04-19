@@ -438,7 +438,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         reordered.splice(newIndex, 0, moved);
 
         await Promise.all(
-            reordered.map((c, i) => chapterOps.reorder(c.id!, i)),
+            reordered
+                .map((c, i) =>
+                    c.order !== i ? chapterOps.reorder(c.id!, i) : null,
+                )
+                .filter((p): p is Promise<void> => p !== null),
         );
 
         set({ chapters: reordered.map((c, i) => ({ ...c, order: i })) });

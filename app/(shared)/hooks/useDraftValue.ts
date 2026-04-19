@@ -27,7 +27,6 @@ export function useDraftValue(
 
     const handleBlur = () => {
         isFocusedRef.current = false;
-        setDraft(value);
     };
 
     return { draft, handleChange, handleFocus, handleBlur };
