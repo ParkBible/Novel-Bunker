@@ -82,6 +82,7 @@ interface EditorState {
     removeLoreCategory: (category: string) => Promise<void>;
 
     // Reorder actions
+    reorderChapters: (activeId: number, overId: number) => Promise<void>;
     reorderScenes: (
         chapterId: number,
         activeId: number,
@@ -403,6 +404,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     // Reorder actions
+    reorderChapters: async (activeId, overId) => {
+        const { chapters } = get();
+        const sorted = [...chapters].sort((a, b) => a.order - b.order);
+
+        const oldIndex = sorted.findIndex((c) => c.id === activeId);
+        const newIndex = sorted.findIndex((c) => c.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        await Promise.all(
+            reordered.map((c, i) => chapterOps.reorder(c.id!, i)),
+        );
+
+        set({ chapters: reordered.map((c, i) => ({ ...c, order: i })) });
+    },
+
     reorderScenes: async (chapterId, activeId, overId) => {
         const { scenes } = get();
         const chapterScenes = scenes
