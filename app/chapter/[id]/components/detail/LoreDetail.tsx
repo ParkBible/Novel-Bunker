@@ -21,12 +21,17 @@ function InlineInput({
     placeholder: string;
     onChange: (val: string) => void;
 }) {
-    const { draft, handleChange } = useDraftValue(value, onChange);
+    const { draft, handleChange, handleFocus, handleBlur } = useDraftValue(
+        value,
+        onChange,
+    );
     return (
         <input
             value={draft}
             placeholder={placeholder}
             onChange={(e) => handleChange(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             className={inlineInputClass}
         />
     );
@@ -41,7 +46,12 @@ function AutoResizeTextarea({
     placeholder: string;
     onChange: (val: string) => void;
 }) {
-    const { draft, handleChange: saveDraft } = useDraftValue(value, onChange);
+    const {
+        draft,
+        handleChange: saveDraft,
+        handleFocus,
+        handleBlur,
+    } = useDraftValue(value, onChange);
     const ref = useRef<HTMLTextAreaElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: draft를 의존성으로 등록하여 값 변경 시 높이 재계산 트리거
@@ -59,6 +69,8 @@ function AutoResizeTextarea({
             rows={4}
             placeholder={placeholder}
             onChange={(e) => saveDraft(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             className={inlineTextareaClass}
         />
     );
