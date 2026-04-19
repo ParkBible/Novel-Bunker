@@ -127,11 +127,12 @@ async function authFetch(
     url: string,
     options: RequestInit = {},
 ): Promise<Response> {
-    if (!accessToken) throw new Error("인증이 필요합니다.");
+    const token = getAccessToken();
+    if (!token) throw new Error("인증이 필요합니다.");
     const res = await fetch(url, {
         ...options,
         headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
             ...(options.headers ?? {}),
         },
     });
