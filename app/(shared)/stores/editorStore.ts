@@ -45,6 +45,7 @@ interface EditorState {
     isLoadingAI: boolean;
     isInitialized: boolean;
     geminiModel: GeminiModelId;
+    dataVersion: number;
 
     // Actions
     loadData: () => Promise<void>;
@@ -118,6 +119,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     isLoadingAI: false,
     isInitialized: false,
     geminiModel: DEFAULT_GEMINI_MODEL,
+    dataVersion: 0,
 
     // Actions
     loadData: async () => {
@@ -187,6 +189,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
                 ? (savedGeminiModel as GeminiModelId)
                 : DEFAULT_GEMINI_MODEL,
+            dataVersion: get().dataVersion + 1,
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
         });

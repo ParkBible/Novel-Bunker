@@ -26,19 +26,20 @@ export function CharacterChatTab({
         tags: string[];
     };
 }) {
-    const { geminiModel, setGeminiModel } = useEditorStore();
+    const { geminiModel, setGeminiModel, dataVersion } = useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: dataVersion은 Drive 다운로드 후 강제 리로드 트리거용
     useEffect(() => {
         characterMessageOps.getByCharacter(character.id).then((saved) => {
             setMessages(
                 saved.map((m) => ({ id: m.id, role: m.role, text: m.text })),
             );
         });
-    }, [character.id]);
+    }, [character.id, dataVersion]);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: messages 변경 시 스크롤 트리거용 의존성
     useEffect(() => {
