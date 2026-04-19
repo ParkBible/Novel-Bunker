@@ -13,9 +13,17 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
     SortableContext,
     sortableKeyboardCoordinates,
+    useSortable,
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { CSS } from "@dnd-kit/utilities";
+import {
+    ChevronDown,
+    ChevronRight,
+    GripVertical,
+    Pencil,
+    Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SceneItem } from "./SceneItem";
 
@@ -63,6 +71,20 @@ export function ChapterItem({
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(chapter.title);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: chapter.id ?? 0 });
+
+    const sortableStyle = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -112,8 +134,20 @@ export function ChapterItem({
     };
 
     return (
-        <div className="mb-1">
+        <div
+            ref={setNodeRef}
+            style={sortableStyle}
+            className={`mb-1 ${isDragging ? "opacity-50" : ""}`}
+        >
             <div className="group flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <button
+                    type="button"
+                    className="cursor-grab touch-none rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
+                    {...attributes}
+                    {...listeners}
+                >
+                    <GripVertical className="h-3.5 w-3.5 text-zinc-400" />
+                </button>
                 <button type="button" onClick={onToggle} className="p-0.5">
                     {isExpanded ? (
                         <ChevronDown className="h-4 w-4 text-zinc-500" />

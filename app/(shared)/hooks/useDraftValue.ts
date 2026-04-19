@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
 export function useDraftValue(
@@ -7,10 +7,13 @@ export function useDraftValue(
     delay = 300,
 ) {
     const [draft, setDraft] = useState(value);
+    const isFocusedRef = useRef(false);
     const debouncedSave = useDebouncedCallback(onChange, delay);
 
     useEffect(() => {
-        setDraft(value);
+        if (!isFocusedRef.current) {
+            setDraft(value);
+        }
     }, [value]);
 
     const handleChange = (val: string) => {
@@ -18,5 +21,13 @@ export function useDraftValue(
         debouncedSave(val);
     };
 
-    return { draft, handleChange };
+    const handleFocus = () => {
+        isFocusedRef.current = true;
+    };
+
+    const handleBlur = () => {
+        isFocusedRef.current = false;
+    };
+
+    return { draft, handleChange, handleFocus, handleBlur };
 }

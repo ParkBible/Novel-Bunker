@@ -75,19 +75,19 @@ const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
-// ── 토큰 (메모리에만 저장) ────────────────────────────────────
-let accessToken: string | null = null;
+// ── 토큰 (sessionStorage에 저장 — 탭을 닫으면 만료) ─────────────
+const TOKEN_KEY = "gdriveAccessToken";
 
 export function setAccessToken(token: string): void {
-    accessToken = token;
+    sessionStorage.setItem(TOKEN_KEY, token);
 }
 
 export function getAccessToken(): string | null {
-    return accessToken;
+    return sessionStorage.getItem(TOKEN_KEY);
 }
 
 export function clearAccessToken(): void {
-    accessToken = null;
+    sessionStorage.removeItem(TOKEN_KEY);
 }
 
 // ── OAuth ─────────────────────────────────────────────────────
@@ -127,11 +127,12 @@ async function authFetch(
     url: string,
     options: RequestInit = {},
 ): Promise<Response> {
-    if (!accessToken) throw new Error("인증이 필요합니다.");
+    const token = getAccessToken();
+    if (!token) throw new Error("인증이 필요합니다.");
     const res = await fetch(url, {
         ...options,
         headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
             ...(options.headers ?? {}),
         },
     });

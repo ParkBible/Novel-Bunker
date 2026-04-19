@@ -39,7 +39,10 @@ function AutoResizeTextarea({
     guideDescription: string;
     showGuide?: boolean;
 }) {
-    const { draft, handleChange } = useDraftValue(value, onChange);
+    const { draft, handleChange, handleFocus, handleBlur } = useDraftValue(
+        value,
+        onChange,
+    );
     const ref = useRef<HTMLTextAreaElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
@@ -88,6 +91,8 @@ function AutoResizeTextarea({
                 rows={3}
                 placeholder={placeholder}
                 onChange={(e) => handleChange(e.target.value)}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
                 className={`${inlineTextareaClass} field-sizing-content`}
             />
         </div>
@@ -105,13 +110,18 @@ function InlineInput({
     onChange: (val: string) => void;
     className?: string;
 }) {
-    const { draft, handleChange } = useDraftValue(value, onChange);
+    const { draft, handleChange, handleFocus, handleBlur } = useDraftValue(
+        value,
+        onChange,
+    );
 
     return (
         <input
             value={draft}
             placeholder={placeholder}
             onChange={(e) => handleChange(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             className={className ?? inlineInputClass}
         />
     );

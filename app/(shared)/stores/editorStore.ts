@@ -45,6 +45,7 @@ interface EditorState {
     isLoadingAI: boolean;
     isInitialized: boolean;
     geminiModel: GeminiModelId;
+    dataVersion: number;
 
     // Actions
     loadData: () => Promise<void>;
@@ -89,6 +90,7 @@ interface EditorState {
     removeLoreCategory: (category: string) => Promise<void>;
 
     // Reorder actions
+    reorderChapters: (activeId: number, overId: number) => Promise<void>;
     reorderScenes: (
         chapterId: number,
         activeId: number,
@@ -117,6 +119,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     isLoadingAI: false,
     isInitialized: false,
     geminiModel: DEFAULT_GEMINI_MODEL,
+    dataVersion: 0,
 
     // Actions
     loadData: async () => {
@@ -186,6 +189,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
                 ? (savedGeminiModel as GeminiModelId)
                 : DEFAULT_GEMINI_MODEL,
+            dataVersion: get().dataVersion + 1,
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
         });
@@ -421,6 +425,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     // Reorder actions
+    reorderChapters: async (activeId, overId) => {
+        const { chapters } = get();
+        const sorted = [...chapters].sort((a, b) => a.order - b.order);
+
+        const oldIndex = sorted.findIndex((c) => c.id === activeId);
+        const newIndex = sorted.findIndex((c) => c.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        await Promise.all(
+            reordered
+                .map((c, i) =>
+                    c.order !== i ? chapterOps.reorder(c.id!, i) : null,
+                )
+                .filter((p): p is Promise<void> => p !== null),
+        );
+
+        set({ chapters: reordered.map((c, i) => ({ ...c, order: i })) });
+    },
+
     reorderScenes: async (chapterId, activeId, overId) => {
         const { scenes } = get();
         const chapterScenes = scenes

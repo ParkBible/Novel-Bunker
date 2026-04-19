@@ -24,7 +24,12 @@ export function SceneCard({
         useEditorStore();
     const isSelected = selectedSceneId === scene.id;
 
-    const { draft: title, handleChange: handleTitleChange } = useDraftValue(
+    const {
+        draft: title,
+        handleChange: handleTitleChange,
+        handleFocus: handleTitleFocus,
+        handleBlur: handleTitleBlur,
+    } = useDraftValue(
         scene.title,
         async (val) => {
             if (scene.id !== undefined) {
@@ -82,6 +87,8 @@ export function SceneCard({
                     type="text"
                     value={title}
                     onChange={(e) => handleTitleChange(e.target.value)}
+                    onFocus={handleTitleFocus}
+                    onBlur={handleTitleBlur}
                     className="flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
                     placeholder="씬 제목"
                 />
