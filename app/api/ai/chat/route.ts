@@ -3,7 +3,7 @@ import { generateAiChatReply } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages, context } = await request.json();
+        const { messages, context, model } = await request.json();
 
         if (!messages || messages.length === 0) {
             return NextResponse.json(
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const reply = await generateAiChatReply(messages, context);
+        const reply = await generateAiChatReply(messages, context, model);
         return NextResponse.json({ reply });
     } catch (error) {
         console.error("AI chat API error:", error);

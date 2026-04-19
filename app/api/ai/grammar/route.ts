@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { checkGrammar } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {
     try {
-        const { content } = await request.json();
+        const { content, model } = await request.json();
 
         if (!content) {
             return NextResponse.json(
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const suggestions = await checkGrammar(content);
+        const suggestions = await checkGrammar(content, model);
 
         return NextResponse.json({ suggestions });
     } catch (error) {
