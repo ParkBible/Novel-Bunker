@@ -49,6 +49,7 @@ interface EditorState {
 
     // Actions
     loadData: () => Promise<void>;
+    addChapter: (title: string) => Promise<number>;
     setGeminiModel: (model: GeminiModelId) => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setDetailPanel: (panel: DetailPanel | null) => void;
@@ -193,6 +194,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
         });
+    },
+
+    addChapter: async (title) => {
+        const { chapters, expandedChapterIds } = get();
+        const id = await chapterOps.create(title);
+        const order =
+            chapters.length > 0
+                ? Math.max(...chapters.map((c) => c.order)) + 1
+                : 0;
+        const newChapter: Chapter = {
+            id,
+            title,
+            order,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+        const nextExpanded = new Set(expandedChapterIds);
+        nextExpanded.add(id);
+        set({
+            chapters: [...chapters, newChapter],
+            expandedChapterIds: nextExpanded,
+        });
+        return id;
     },
 
     setGeminiModel: async (geminiModel) => {

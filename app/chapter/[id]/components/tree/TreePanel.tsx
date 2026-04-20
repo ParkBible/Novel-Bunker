@@ -17,7 +17,6 @@ import {
 } from "@dnd-kit/sortable";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { chapterOps } from "@/app/(shared)/db/operations";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
@@ -44,6 +43,7 @@ export function TreePanel() {
         updateChapterTitle,
         reorderChapters,
         reorderScenes,
+        addChapter,
     } = useEditorStore();
 
     const chapterSensors = useSensors(
@@ -75,13 +75,8 @@ export function TreePanel() {
         : null;
 
     const handleAddChapter = async () => {
-        const newChapterId = await chapterOps.create(
-            `챕터 ${chapters.length + 1}`,
-        );
-
-        if (newChapterId) {
-            router.push(routes.chapter(newChapterId));
-        }
+        const newChapterId = await addChapter(`챕터 ${chapters.length + 1}`);
+        router.push(routes.chapter(newChapterId));
     };
 
     const handleChapterClick = (chapterId: number) => {
