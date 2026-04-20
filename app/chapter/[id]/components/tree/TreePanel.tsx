@@ -44,6 +44,7 @@ export function TreePanel() {
         updateChapterTitle,
         reorderChapters,
         reorderScenes,
+        loadData,
     } = useEditorStore();
 
     const chapterSensors = useSensors(
@@ -80,6 +81,7 @@ export function TreePanel() {
         );
 
         if (newChapterId) {
+            await loadData();
             router.push(routes.chapter(newChapterId));
         }
     };
