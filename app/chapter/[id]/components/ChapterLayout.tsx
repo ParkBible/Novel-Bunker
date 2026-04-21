@@ -24,7 +24,7 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
     return (
         <>
             {/* 데스크탑: 기존 3패널 */}
-            <div className="hidden h-screen bg-zinc-50 md:flex dark:bg-black">
+            <div className="hidden h-screen bg-zinc-50 lg:flex dark:bg-black">
                 <div className="w-[clamp(16rem,17vw,20rem)] flex-shrink-0">
                     <TreePanel />
                 </div>
@@ -36,8 +36,8 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
                 </div>
             </div>
 
-            {/* 모바일: 탭 전환 */}
-            <div className="flex h-screen flex-col bg-zinc-50 md:hidden dark:bg-black">
+            {/* 모바일/태블릿 세로: 탭 전환 */}
+            <div className="flex h-screen flex-col bg-zinc-50 lg:hidden dark:bg-black">
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {activeTab === "tree" && (
                         <div className="h-full overflow-y-auto">

@@ -111,7 +111,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
 
     if (!isInitialized) {
         return (
-            <div className="px-4 py-6 md:px-8 md:py-8">
+            <div className="px-4 py-6 lg:px-8 lg:py-8">
                 <div className="mx-auto max-w-3xl">
                     <div className="mb-6 h-8 w-32 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
                     <div className="space-y-4">
@@ -133,7 +133,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     }
 
     return (
-        <div className="px-4 py-6 md:px-8 md:py-8">
+        <div className="px-4 py-6 lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
                 <div className="mb-12">
                     <div className="group mb-6 flex items-center gap-2">
