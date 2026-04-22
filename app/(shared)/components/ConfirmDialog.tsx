@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 interface Props {
     message: string;
     onConfirm: () => void;
@@ -7,7 +9,7 @@ interface Props {
 }
 
 export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <button
                 type="button"
@@ -15,7 +17,13 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
                 onClick={onCancel}
                 aria-label="취소"
             />
-            <div className="relative z-10 w-72 rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <div
+                role="dialog"
+                aria-modal="true"
+                className="relative z-10 w-72 rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.key === "Escape" && onCancel()}
+            >
                 <p className="mb-5 text-sm text-zinc-700 dark:text-zinc-300">
                     {message}
                 </p>
@@ -36,6 +44,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
