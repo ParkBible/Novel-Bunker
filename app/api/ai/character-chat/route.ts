@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
             characterTags,
             messages,
             model,
+            apiKey,
         } = await request.json();
 
         if (!characterName || !messages) {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
             characterTags || [],
             messages,
             model,
+            apiKey,
         );
 
         return NextResponse.json({ reply });

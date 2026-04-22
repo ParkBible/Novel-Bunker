@@ -22,6 +22,7 @@ interface Options {
     attachedCtxs: AttachedContext[];
     setAttachedCtxs: React.Dispatch<React.SetStateAction<AttachedContext[]>>;
     geminiModel?: GeminiModelId;
+    geminiApiKey?: string;
 }
 
 export function useChat({
@@ -36,6 +37,7 @@ export function useChat({
     attachedCtxs,
     setAttachedCtxs,
     geminiModel = DEFAULT_GEMINI_MODEL,
+    geminiApiKey = "",
 }: Options) {
     const [isLoading, setIsLoading] = useState(false);
 
@@ -129,6 +131,7 @@ export function useChat({
                     })),
                     context: ctxForApi,
                     model: geminiModel,
+                    apiKey: geminiApiKey,
                 }),
             });
             if (!res.ok) throw new Error(await res.text());
