@@ -10,6 +10,7 @@ import {
 } from "d3-force";
 import { GitFork, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
 
@@ -24,6 +25,7 @@ interface GraphLink extends SimulationLinkDatum<GraphNode> {
 }
 
 export function RelationshipDiagram() {
+    const t = useTranslation();
     const { characters, relationships, addRelationship, removeRelationship } =
         useEditorStore();
 
@@ -88,12 +90,12 @@ export function RelationshipDiagram() {
     };
 
     return (
-        <DashboardCard title="등장인물 관계도" icon={GitFork}>
+        <DashboardCard title={t("relations_title")} icon={GitFork}>
             {nodes.length > 0 ? (
                 <svg
                     viewBox="0 0 400 300"
                     role="img"
-                    aria-label="등장인물 관계도"
+                    aria-label={t("relations_title")}
                     className="w-full rounded-md border border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
                 >
                     {links.map((link) => {
@@ -171,7 +173,7 @@ export function RelationshipDiagram() {
                 </svg>
             ) : (
                 <p className="py-4 text-center text-sm text-zinc-500">
-                    아직 등장인물 관계가 없습니다.
+                    {t("relations_empty")}
                 </p>
             )}
 
@@ -181,7 +183,7 @@ export function RelationshipDiagram() {
                     onChange={(e) => setFromId(e.target.value)}
                     className="rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
                 >
-                    <option value="">인물 선택</option>
+                    <option value="">{t("relations_selectCharacter")}</option>
                     {characters.map((c) => (
                         <option key={c.id} value={c.id}>
                             {c.name}
@@ -194,7 +196,7 @@ export function RelationshipDiagram() {
                     onChange={(e) => setToId(e.target.value)}
                     className="rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
                 >
-                    <option value="">인물 선택</option>
+                    <option value="">{t("relations_selectCharacter")}</option>
                     {characters.map((c) => (
                         <option key={c.id} value={c.id}>
                             {c.name}
@@ -205,7 +207,7 @@ export function RelationshipDiagram() {
                     type="text"
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
-                    placeholder="관계 라벨"
+                    placeholder={t("relations_labelPlaceholder")}
                     className="rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
                     onKeyDown={(e) => {
                         if (e.key === "Enter") handleAdd();
@@ -220,7 +222,7 @@ export function RelationshipDiagram() {
                     className="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
                     <Plus className="h-3 w-3" />
-                    추가
+                    {t("add")}
                 </button>
             </div>
         </DashboardCard>

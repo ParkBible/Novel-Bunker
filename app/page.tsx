@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "./(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "./(shared)/stores/editorStore";
 import { ChapterProgress } from "./components/dashboard/ChapterProgress";
 import { CharacterSummary } from "./components/dashboard/CharacterSummary";
@@ -11,6 +12,7 @@ import { WorkStatistics } from "./components/dashboard/WorkStatistics";
 
 export default function Home() {
     const { isInitialized, loadData } = useEditorStore();
+    const t = useTranslation();
 
     useEffect(() => {
         if (!isInitialized) {
@@ -21,7 +23,7 @@ export default function Home() {
     if (!isInitialized) {
         return (
             <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black">
-                <p className="text-zinc-500">로딩 중...</p>
+                <p className="text-zinc-500">{t("home_loading")}</p>
             </div>
         );
     }

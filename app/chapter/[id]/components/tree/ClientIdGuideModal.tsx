@@ -1,6 +1,8 @@
 "use client";
 
 import { ExternalLink, X } from "lucide-react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import type { TranslationKey } from "@/app/(shared)/i18n/translations";
 
 interface Step {
     title: string;
@@ -9,45 +11,50 @@ interface Step {
     highlight?: string;
 }
 
-function getSteps(origin: string): Step[] {
+type TFunction = (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+) => string;
+
+function getSteps(origin: string, t: TFunction): Step[] {
     return [
         {
-            title: "Google Cloud Console 접속",
-            desc: "Google 계정으로 로그인한 뒤 새 프로젝트를 만드세요.",
+            title: t("guide_step1Title"),
+            desc: t("guide_step1Desc"),
             link: {
-                label: "console.cloud.google.com 열기",
+                label: t("guide_step1Link"),
                 href: "https://console.cloud.google.com/",
             },
         },
         {
-            title: "Google Drive API 활성화",
-            desc: '좌측 메뉴에서 "API 및 서비스 → 라이브러리"를 열고 Google Drive API를 검색해 사용 설정하세요.',
+            title: t("guide_step2Title"),
+            desc: t("guide_step2Desc"),
             link: {
-                label: "Drive API 라이브러리 열기",
+                label: t("guide_step2Link"),
                 href: "https://console.cloud.google.com/apis/library/drive.googleapis.com",
             },
         },
         {
-            title: "OAuth 동의 화면 설정",
-            desc: '"API 및 서비스 → OAuth 동의 화면"에서 User Type을 외부로 선택하고 앱 이름과 이메일을 입력하세요. 테스트 사용자 섹션에 본인 구글 계정을 추가하세요.',
+            title: t("guide_step3Title"),
+            desc: t("guide_step3Desc"),
             link: {
-                label: "OAuth 동의 화면 열기",
+                label: t("guide_step3Link"),
                 href: "https://console.cloud.google.com/apis/credentials/consent",
             },
-            highlight: "앱을 게시하지 말고 테스트 모드를 유지하세요.",
+            highlight: t("guide_step3Warning"),
         },
         {
-            title: "OAuth 클라이언트 ID 발급",
-            desc: '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본에 아래 주소를 추가하세요.',
+            title: t("guide_step4Title"),
+            desc: t("guide_step4Desc"),
             link: {
-                label: "사용자 인증 정보 열기",
+                label: t("guide_step4Link"),
                 href: "https://console.cloud.google.com/apis/credentials",
             },
             highlight: origin,
         },
         {
-            title: "클라이언트 ID 복사 후 입력",
-            desc: '생성된 클라이언트 ID는 "xxxxx.apps.googleusercontent.com" 형태입니다. 복사해서 아래 입력란에 붙여넣으세요.',
+            title: t("guide_step5Title"),
+            desc: t("guide_step5Desc"),
         },
     ];
 }
@@ -57,7 +64,8 @@ interface Props {
 }
 
 export function ClientIdGuideModal({ onClose }: Props) {
-    const steps = getSteps(window.location.origin);
+    const t = useTranslation();
+    const steps = getSteps(window.location.origin, t);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -65,18 +73,17 @@ export function ClientIdGuideModal({ onClose }: Props) {
                 type="button"
                 className="absolute inset-0 bg-black/40"
                 onClick={onClose}
-                aria-label="모달 닫기"
+                aria-label={t("guide_closeLabel")}
             />
             <div className="relative z-10 flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                 {/* 헤더 */}
                 <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
                     <div>
                         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                            Google OAuth 클라이언트 ID 발급
+                            {t("guide_title")}
                         </h2>
                         <p className="mt-0.5 text-xs text-zinc-400">
-                            본인 구글 계정으로 직접 Drive 백업을 연동할 수
-                            있습니다
+                            {t("guide_subtitle")}
                         </p>
                     </div>
                     <button
@@ -130,7 +137,7 @@ export function ClientIdGuideModal({ onClose }: Props) {
                         onClick={onClose}
                         className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                     >
-                        닫기
+                        {t("close")}
                     </button>
                 </div>
             </div>

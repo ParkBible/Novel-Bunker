@@ -2,6 +2,7 @@
 
 import { History, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import type { SnapshotInfo } from "@/app/(shared)/utils/googleDrive";
 
 function formatDate(date: Date): string {
@@ -27,6 +28,7 @@ export function SnapshotModal({
     deleteSnapshot,
     onClose,
 }: Props) {
+    const t = useTranslation();
     const [snapshots, setSnapshots] = useState<SnapshotInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function SnapshotModal({
                 type="button"
                 className="absolute inset-0 bg-black/40"
                 onClick={onClose}
-                aria-label="모달 닫기"
+                aria-label={t("snapshot_closeLabel")}
             />
             <div className="relative z-10 flex max-h-[80vh] w-full max-w-sm flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                 {/* 헤더 */}
@@ -86,7 +88,7 @@ export function SnapshotModal({
                     <div className="flex items-center gap-2">
                         <History className="size-4 text-zinc-400" />
                         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                            버전 기록
+                            {t("snapshot_title")}
                         </h2>
                     </div>
                     <button
@@ -102,7 +104,7 @@ export function SnapshotModal({
                 <div className="flex-1 overflow-y-auto px-5 py-3">
                     {loading && (
                         <p className="py-6 text-center text-xs text-zinc-400">
-                            불러오는 중...
+                            {t("loading")}
                         </p>
                     )}
                     {!loading && error && (
@@ -112,9 +114,7 @@ export function SnapshotModal({
                     )}
                     {!loading && !error && snapshots.length === 0 && (
                         <p className="py-6 text-center text-xs text-zinc-400">
-                            저장된 버전이 없습니다.
-                            <br />
-                            업로드 시 자동으로 생성됩니다.
+                            {t("snapshot_empty")}
                         </p>
                     )}
                     {!loading && snapshots.length > 0 && (
@@ -124,8 +124,7 @@ export function SnapshotModal({
                                     {confirmRestoreId === snap.id ? (
                                         <div className="flex flex-col gap-2">
                                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                                이 버전으로 복원하면 현재 로컬
-                                                데이터를 덮어씁니다.
+                                                {t("snapshot_confirmRestore")}
                                             </p>
                                             <div className="flex gap-2">
                                                 <button
@@ -137,8 +136,8 @@ export function SnapshotModal({
                                                     className="flex-1 rounded bg-zinc-800 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
                                                 >
                                                     {restoringId === snap.id
-                                                        ? "복원 중..."
-                                                        : "확인"}
+                                                        ? t("restoring")
+                                                        : t("confirm")}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -150,7 +149,7 @@ export function SnapshotModal({
                                                     disabled={isBusy}
                                                     className="flex-1 rounded bg-zinc-100 px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                                                 >
-                                                    취소
+                                                    {t("cancel")}
                                                 </button>
                                             </div>
                                         </div>
@@ -165,8 +164,8 @@ export function SnapshotModal({
                                                     }`}
                                                 >
                                                     {snap.type === "manual"
-                                                        ? "수동"
-                                                        : "자동"}
+                                                        ? t("snapshot_manual")
+                                                        : t("snapshot_auto")}
                                                 </span>
                                                 <span className="text-xs text-zinc-600 dark:text-zinc-300">
                                                     {formatDate(snap.createdAt)}
@@ -181,11 +180,13 @@ export function SnapshotModal({
                                                         )
                                                     }
                                                     disabled={isBusy}
-                                                    title="이 버전으로 복원"
+                                                    title={t(
+                                                        "snapshot_restoreTitle",
+                                                    )}
                                                     className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                                                 >
                                                     <RotateCcw className="size-3" />
-                                                    복원
+                                                    {t("restore")}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -193,7 +194,9 @@ export function SnapshotModal({
                                                         handleDelete(snap.id)
                                                     }
                                                     disabled={isBusy}
-                                                    title="스냅샷 삭제"
+                                                    title={t(
+                                                        "snapshot_deleteTitle",
+                                                    )}
                                                     className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40 dark:hover:bg-red-950"
                                                 >
                                                     {deletingId === snap.id ? (
@@ -221,7 +224,7 @@ export function SnapshotModal({
                 {/* 푸터 */}
                 <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
                     <p className="text-center text-xs text-zinc-400">
-                        수동 최대 5개 · 자동 최대 30개 유지
+                        {t("snapshot_footer")}
                     </p>
                 </div>
             </div>

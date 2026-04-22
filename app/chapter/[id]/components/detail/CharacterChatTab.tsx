@@ -3,6 +3,7 @@
 import { SendHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { characterMessageOps } from "@/app/(shared)/db/operations";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import {
     apiRoutes,
     GEMINI_MODELS,
@@ -26,6 +27,7 @@ export function CharacterChatTab({
         tags: string[];
     };
 }) {
+    const t = useTranslation();
     const { geminiModel, setGeminiModel, dataVersion, geminiApiKey } =
         useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -94,17 +96,18 @@ export function CharacterChatTab({
                 { id: replyId, role: "model", text: data.reply },
             ]);
         } catch {
+            const errorText = t("characterChat_error");
             const errId = await characterMessageOps.create(
                 character.id,
                 "model",
-                "응답을 생성하지 못했습니다.",
+                errorText,
             );
             setMessages((prev) => [
                 ...prev,
                 {
                     id: errId,
                     role: "model",
-                    text: "응답을 생성하지 못했습니다.",
+                    text: errorText,
                 },
             ]);
         } finally {
@@ -132,7 +135,9 @@ export function CharacterChatTab({
             >
                 {messages.length === 0 && (
                     <p className="py-4 text-center text-xs text-zinc-400">
-                        {character.name}에게 말을 걸어보세요
+                        {t("characterChat_emptyState", {
+                            name: character.name,
+                        })}
                     </p>
                 )}
                 {messages.map((msg, i) => (
@@ -149,7 +154,7 @@ export function CharacterChatTab({
                 ))}
                 {isLoading && (
                     <div className="mr-6 self-start rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-400 dark:bg-zinc-800">
-                        입력 중...
+                        {t("characterChat_typing")}
                     </div>
                 )}
             </div>
@@ -161,7 +166,7 @@ export function CharacterChatTab({
                         setGeminiModel(e.target.value as GeminiModelId)
                     }
                     className="rounded px-1.5 py-0.5 text-xs bg-zinc-100 text-zinc-600 outline-none cursor-pointer hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    title="AI 모델 선택"
+                    title={t("chat_selectModel")}
                 >
                     {GEMINI_MODELS.map((m) => (
                         <option key={m.id} value={m.id}>
@@ -176,7 +181,7 @@ export function CharacterChatTab({
                     onClick={handleClear}
                     disabled={messages.length === 0 || isLoading}
                     className="rounded-lg border border-zinc-200 px-2.5 text-zinc-400 transition-colors hover:border-red-300 hover:text-red-400 disabled:opacity-30 dark:border-zinc-700 dark:hover:border-red-700 dark:hover:text-red-500"
-                    title="대화 초기화"
+                    title={t("characterChat_reset")}
                 >
                     <Trash2 className="h-4 w-4" />
                 </button>
@@ -184,7 +189,7 @@ export function CharacterChatTab({
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="메시지 입력..."
+                    placeholder={t("characterChat_inputPlaceholder")}
                     rows={1}
                     className="flex-1 resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:focus:border-zinc-500"
                 />

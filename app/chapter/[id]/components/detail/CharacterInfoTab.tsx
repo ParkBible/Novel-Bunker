@@ -4,18 +4,19 @@ import { HelpCircle, Lightbulb, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Character } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import {
     type GuideItem,
     LONG_FIELDS,
 } from "../../constants/characterGuideData";
 
-const SHORT_FIELDS: { key: keyof Character; label: string }[] = [
-    { key: "name", label: "이름" },
-    { key: "age", label: "나이" },
-    { key: "gender", label: "성별" },
-    { key: "role", label: "직업/역할" },
-    { key: "mbti", label: "MBTI" },
+const SHORT_FIELD_KEYS: { key: keyof Character; labelKey: string }[] = [
+    { key: "name", labelKey: "characterInfo_name" },
+    { key: "age", labelKey: "characterInfo_age" },
+    { key: "gender", labelKey: "characterInfo_gender" },
+    { key: "role", labelKey: "characterInfo_role" },
+    { key: "mbti", labelKey: "characterInfo_mbti" },
 ];
 
 const inlineInputClass =
@@ -39,6 +40,7 @@ function AutoResizeTextarea({
     guideDescription: string;
     showGuide?: boolean;
 }) {
+    const t = useTranslation();
     const { draft, handleChange, handleFocus, handleBlur } = useDraftValue(
         value,
         onChange,
@@ -60,7 +62,7 @@ function AutoResizeTextarea({
                     <div className="mb-2 flex items-center gap-1.5">
                         <Lightbulb className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
                         <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                            이렇게 작성해보세요!
+                            {t("characterInfo_writeGuide")}
                         </p>
                     </div>
                     {guideDescription && (
@@ -134,6 +136,7 @@ function TagEditor({
     tags: string[];
     onChange: (tags: string[]) => void;
 }) {
+    const t = useTranslation();
     const [input, setInput] = useState("");
 
     const addTag = () => {
@@ -144,7 +147,7 @@ function TagEditor({
     };
 
     const removeTag = (tag: string) => {
-        onChange(tags.filter((t) => t !== tag));
+        onChange(tags.filter((tagItem) => tagItem !== tag));
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -156,7 +159,9 @@ function TagEditor({
 
     return (
         <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-zinc-400">태그</span>
+            <span className="text-xs text-zinc-400">
+                {t("characterInfo_tags")}
+            </span>
             <div className="flex flex-wrap gap-1.5">
                 {tags.map((tag) => (
                     <span
@@ -174,7 +179,7 @@ function TagEditor({
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     onBlur={addTag}
-                    placeholder="+ 태그"
+                    placeholder={t("characterInfo_tagPlaceholder")}
                     className="rounded px-1 py-0.5 text-xs text-zinc-500 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 dark:text-zinc-400 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
                 />
             </div>
@@ -197,6 +202,7 @@ function LongField({
     character: Character;
     onSave: (updates: Partial<Character>) => void;
 }) {
+    const t = useTranslation();
     const [showGuide, setShowGuide] = useState(false);
 
     return (
@@ -215,7 +221,7 @@ function LongField({
             </div>
             <AutoResizeTextarea
                 value={(character[fieldKey] as string) ?? ""}
-                placeholder="내용을 입력하세요"
+                placeholder={t("characterInfo_contentPlaceholder")}
                 onChange={(val) => onSave({ [fieldKey]: val })}
                 guide={guide}
                 guideDescription={description}
@@ -234,27 +240,28 @@ export function CharacterInfoTab({
     onSave: (updates: Partial<Character>) => void;
     className?: string;
 }) {
+    const t = useTranslation();
     const { characterGroups } = useEditorStore();
 
     return (
         <div className={`space-y-4 overflow-x-hidden px-1 ${className ?? ""}`}>
             {/* 단답 필드 */}
             <div className="space-y-1.5">
-                {SHORT_FIELDS.map(({ key, label }) => (
+                {SHORT_FIELD_KEYS.map(({ key, labelKey }) => (
                     <div key={key} className="flex items-center gap-2">
                         <span className="w-20 shrink-0 text-xs text-zinc-400">
-                            {label}
+                            {t(labelKey as Parameters<typeof t>[0])}
                         </span>
                         <InlineInput
                             value={(character[key] as string) ?? ""}
-                            placeholder="—"
+                            placeholder={t("characterInfo_emptyPlaceholder")}
                             onChange={(val) => onSave({ [key]: val })}
                         />
                     </div>
                 ))}
                 <div className="flex items-center gap-2">
                     <span className="w-20 shrink-0 text-xs text-zinc-400">
-                        그룹
+                        {t("characterInfo_group")}
                     </span>
                     <select
                         value={character.group}

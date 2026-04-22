@@ -3,6 +3,7 @@
 import { FileText, Sparkles } from "lucide-react";
 import type { RefObject } from "react";
 import type { AiMessage } from "@/app/(shared)/db";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
 interface Props {
     messages: AiMessage[];
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function MessageList({ messages, isLoading, scrollRef }: Props) {
+    const t = useTranslation();
     return (
         <div
             ref={scrollRef}
@@ -23,7 +25,7 @@ export function MessageList({ messages, isLoading, scrollRef }: Props) {
                         <span className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-zinc-500 dark:bg-zinc-800">
                             @
                         </span>{" "}
-                        입력으로 씬·챕터를 참조할 수 있어요
+                        {t("chat_contextHint")}
                     </p>
                 </div>
             )}
@@ -71,7 +73,7 @@ export function MessageList({ messages, isLoading, scrollRef }: Props) {
             {isLoading && (
                 <div className="flex items-start">
                     <div className="rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-400 dark:bg-zinc-800">
-                        입력 중...
+                        {t("chat_typing")}
                     </div>
                 </div>
             )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
 interface Props {
     message: string;
@@ -9,13 +10,14 @@ interface Props {
 }
 
 export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
+    const t = useTranslation();
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <button
                 type="button"
                 className="absolute inset-0 bg-black/50"
                 onClick={onCancel}
-                aria-label="취소"
+                aria-label={t("cancel")}
             />
             <div
                 role="dialog"
@@ -33,14 +35,14 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
                         onClick={onCancel}
                         className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                     >
-                        취소
+                        {t("cancel")}
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
                         className="rounded-lg bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600"
                     >
-                        삭제
+                        {t("delete")}
                     </button>
                 </div>
             </div>

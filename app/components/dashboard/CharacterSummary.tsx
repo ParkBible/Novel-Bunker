@@ -29,10 +29,9 @@ import {
 import { useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Character } from "@/app/(shared)/db";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
-
-const DEFAULT_GROUPS = ["주인공", "조연", "기타"];
 
 function SortableCharacterItem({
     char,
@@ -43,6 +42,7 @@ function SortableCharacterItem({
     onSelect: () => void;
     onDelete: () => void;
 }) {
+    const t = useTranslation();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const {
         attributes,
@@ -102,7 +102,7 @@ function SortableCharacterItem({
             </button>
             {confirmDelete && (
                 <ConfirmDialog
-                    message={`"${char.name}" 캐릭터를 삭제할까요?`}
+                    message={t("confirm_deleteCharacter", { name: char.name })}
                     onConfirm={onDelete}
                     onCancel={() => setConfirmDelete(false)}
                 />
@@ -118,6 +118,7 @@ function CharacterGroupSection({
     group: string;
     isCustom: boolean;
 }) {
+    const t = useTranslation();
     const {
         characters,
         addCharacter,
@@ -279,7 +280,7 @@ function CharacterGroupSection({
 
                     {groupChars.length === 0 && !isAdding && (
                         <p className="px-2 text-xs text-zinc-400">
-                            항목이 없습니다
+                            {t("empty")}
                         </p>
                     )}
 
@@ -296,7 +297,9 @@ function CharacterGroupSection({
                                         setNewName("");
                                     }
                                 }}
-                                placeholder="이름 입력..."
+                                placeholder={t(
+                                    "characterSummary_namePlaceholder",
+                                )}
                                 className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
                                 // biome-ignore lint/a11y/noAutofocus: 인라인 입력 UX에 필요
                                 autoFocus
@@ -310,6 +313,12 @@ function CharacterGroupSection({
 }
 
 export function CharacterSummaryContent() {
+    const t = useTranslation();
+    const defaultGroups = [
+        t("characterSummary_groupProtagonist"),
+        t("characterSummary_groupSupporting"),
+        t("characterSummary_groupOther"),
+    ];
     const { characterGroups, addCharacterGroup } = useEditorStore();
     const [isAddingGroup, setIsAddingGroup] = useState(false);
     const [newGroup, setNewGroup] = useState("");
@@ -336,7 +345,7 @@ export function CharacterSummaryContent() {
                 <CharacterGroupSection
                     key={group}
                     group={group}
-                    isCustom={!DEFAULT_GROUPS.includes(group)}
+                    isCustom={!defaultGroups.includes(group)}
                 />
             ))}
 
@@ -353,7 +362,7 @@ export function CharacterSummaryContent() {
                                 setNewGroup("");
                             }
                         }}
-                        placeholder="그룹 이름..."
+                        placeholder={t("characterSummary_groupPlaceholder")}
                         className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
                         // biome-ignore lint/a11y/noAutofocus: 인라인 입력 UX에 필요
                         autoFocus
@@ -366,7 +375,7 @@ export function CharacterSummaryContent() {
                     onClick={() => setIsAddingGroup(true)}
                 >
                     <Plus className="h-3.5 w-3.5" />
-                    그룹 추가
+                    {t("characterSummary_addGroup")}
                 </button>
             )}
         </div>
@@ -374,8 +383,9 @@ export function CharacterSummaryContent() {
 }
 
 export function CharacterSummary() {
+    const t = useTranslation();
     return (
-        <DashboardCard title="등장인물 요약" icon={Users}>
+        <DashboardCard title={t("characterSummary_title")} icon={Users}>
             <CharacterSummaryContent />
         </DashboardCard>
     );

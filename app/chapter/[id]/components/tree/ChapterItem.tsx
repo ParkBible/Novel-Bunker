@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { SceneItem } from "./SceneItem";
 
 interface Scene {
@@ -73,6 +74,7 @@ export function ChapterItem({
     const [editedTitle, setEditedTitle] = useState(chapter.title);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const t = useTranslation();
 
     const {
         attributes,
@@ -193,7 +195,7 @@ export function ChapterItem({
                     type="button"
                     onClick={startEditing}
                     className="rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
-                    title="챕터 이름 편집"
+                    title={t("chapterItem_editTitle")}
                 >
                     <Pencil className="h-3.5 w-3.5 text-zinc-500" />
                 </button>
@@ -201,14 +203,16 @@ export function ChapterItem({
                     type="button"
                     onClick={() => setConfirmDelete(true)}
                     className="rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
-                    title="챕터 삭제"
+                    title={t("chapterItem_deleteTitle")}
                 >
                     <Trash2 className="h-3.5 w-3.5 text-zinc-500 hover:text-red-500" />
                 </button>
             </div>
             {confirmDelete && (
                 <ConfirmDialog
-                    message={`"${chapter.title}" 챕터와 포함된 씬을 모두 삭제할까요?`}
+                    message={t("confirm_deleteChapter", {
+                        name: chapter.title,
+                    })}
                     onConfirm={onDelete}
                     onCancel={() => setConfirmDelete(false)}
                 />

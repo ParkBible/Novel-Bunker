@@ -2,11 +2,13 @@
 
 import { List } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
 
 export function ChapterProgress() {
+    const t = useTranslation();
     const { chapters, scenes } = useEditorStore();
 
     const chapterStats = chapters
@@ -32,7 +34,7 @@ export function ChapterProgress() {
     const maxCharCount = Math.max(...chapterStats.map((c) => c.charCount), 1);
 
     return (
-        <DashboardCard title="챕터별 진행도" icon={List}>
+        <DashboardCard title={t("chapterProgress_title")} icon={List}>
             <div className="space-y-3">
                 {chapterStats.map((stat) => (
                     <Link
@@ -45,8 +47,10 @@ export function ChapterProgress() {
                                 {stat.title}
                             </span>
                             <span className="text-xs text-zinc-500">
-                                {stat.sceneCount}개 씬 ·{" "}
-                                {stat.charCount.toLocaleString()}자
+                                {t("chapterProgress_sceneCount", {
+                                    scenes: stat.sceneCount,
+                                    chars: stat.charCount.toLocaleString(),
+                                })}
                             </span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -61,7 +65,7 @@ export function ChapterProgress() {
                 ))}
                 {chapterStats.length === 0 && (
                     <p className="text-sm text-zinc-500">
-                        아직 챕터가 없습니다.
+                        {t("chapterProgress_empty")}
                     </p>
                 )}
             </div>

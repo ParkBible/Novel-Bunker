@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChatHeader } from "./ChatHeader";
 import { ChatInput } from "./ChatInput";
@@ -16,6 +17,7 @@ type ViewMode = "chat" | "conversations";
 export function AiChatPanel() {
     const { scenes, chapters, geminiModel, setGeminiModel, geminiApiKey } =
         useEditorStore();
+    const t = useTranslation();
     const [viewMode, setViewMode] = useState<ViewMode>("chat");
     const [input, setInput] = useState("");
     const [attachedCtxs, setAttachedCtxs] = useState<AttachedContext[]>([]);
@@ -105,7 +107,7 @@ export function AiChatPanel() {
     return (
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <ChatHeader
-                title={activeConv?.title ?? "AI 채팅"}
+                title={activeConv?.title ?? t("chat_aiFallback")}
                 geminiModel={geminiModel}
                 onModelChange={setGeminiModel}
                 onShowConversations={() => setViewMode("conversations")}

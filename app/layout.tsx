@@ -4,6 +4,7 @@ import "./globals.css";
 import { DevInspector } from "./(shared)/components/DevInspector";
 import { GoogleAuthScript } from "./(shared)/components/GoogleAuthScript";
 import { ThemeProvider } from "./(shared)/components/ThemeProvider";
+import { TranslationProvider } from "./(shared)/i18n/TranslationProvider";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
     title: "Novel Bunker",
-    description: "로컬 우선 소설 작성 에디터",
+    description: "Local-first novel writing editor",
 };
 
 export const viewport: Viewport = {
@@ -37,9 +38,11 @@ export default function RootLayout({
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
                 <ThemeProvider>
-                    <GoogleAuthScript />
-                    <DevInspector />
-                    {children}
+                    <TranslationProvider>
+                        <GoogleAuthScript />
+                        <DevInspector />
+                        {children}
+                    </TranslationProvider>
                 </ThemeProvider>
             </body>
         </html>

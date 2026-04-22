@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Fragment } from "react";
 import type { AiConversation } from "@/app/(shared)/db";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
 interface Props {
     conversations: AiConversation[];
@@ -19,25 +20,27 @@ export function ConversationListView({
     onSelect,
     onDelete,
 }: Props) {
+    const t = useTranslation();
     return (
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                    대화 목록
+                    {t("chat_conversationListTitle")}
                 </h2>
                 <button
                     type="button"
                     onClick={onNew}
                     className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                 >
-                    <Plus className="h-3.5 w-3.5" />새 대화
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("chat_newConversation")}
                 </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
                 {conversations.length === 0 ? (
                     <p className="py-8 text-center text-xs text-zinc-400">
-                        대화 내역이 없습니다
+                        {t("chat_noConversations")}
                     </p>
                 ) : (
                     conversations.map((conv) => (

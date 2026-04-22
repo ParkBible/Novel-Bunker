@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpen, FileText, Type, Users } from "lucide-react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 function StatCard({
@@ -29,6 +30,7 @@ function StatCard({
 }
 
 export function WorkStatistics() {
+    const t = useTranslation();
     const { chapters, scenes, characters } = useEditorStore();
 
     const { withSpaces, withoutSpaces } = scenes.reduce(
@@ -43,15 +45,27 @@ export function WorkStatistics() {
 
     return (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="총 챕터" value={chapters.length} icon={BookOpen} />
-            <StatCard label="총 씬" value={scenes.length} icon={FileText} />
             <StatCard
-                label="총 글자 수"
+                label={t("stats_totalChapters")}
+                value={chapters.length}
+                icon={BookOpen}
+            />
+            <StatCard
+                label={t("stats_totalScenes")}
+                value={scenes.length}
+                icon={FileText}
+            />
+            <StatCard
+                label={t("stats_totalChars")}
                 value={withoutSpaces}
-                sub={`공백 포함 ${withSpaces.toLocaleString()}자`}
+                sub={t("stats_withSpaces", { n: withSpaces.toLocaleString() })}
                 icon={Type}
             />
-            <StatCard label="등장인물" value={characters.length} icon={Users} />
+            <StatCard
+                label={t("stats_characters")}
+                value={characters.length}
+                icon={Users}
+            />
         </div>
     );
 }

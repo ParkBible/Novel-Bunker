@@ -5,6 +5,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, TextQuote } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
 interface SceneEditorProps {
     content: string;
@@ -19,6 +20,7 @@ export function SceneEditor({
     placeholder,
     onReady,
 }: SceneEditorProps) {
+    const t = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
     const mouseRef = useRef({ x: 0, y: 0 });
@@ -185,7 +187,7 @@ export function SceneEditor({
                                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                         }`}
-                        title="굵게 (Ctrl+B)"
+                        title={t("sceneEditor_bold")}
                     >
                         <Bold className="h-4 w-4" />
                     </button>
@@ -199,7 +201,7 @@ export function SceneEditor({
                                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                         }`}
-                        title="기울임 (Ctrl+I)"
+                        title={t("sceneEditor_italic")}
                     >
                         <Italic className="h-4 w-4" />
                     </button>
@@ -213,7 +215,7 @@ export function SceneEditor({
                                 ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                         }`}
-                        title="인용문"
+                        title={t("sceneEditor_quote")}
                     >
                         <TextQuote className="h-4 w-4" />
                     </button>
