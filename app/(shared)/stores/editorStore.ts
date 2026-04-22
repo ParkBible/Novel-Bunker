@@ -45,12 +45,14 @@ interface EditorState {
     isLoadingAI: boolean;
     isInitialized: boolean;
     geminiModel: GeminiModelId;
+    geminiApiKey: string;
     dataVersion: number;
 
     // Actions
     loadData: () => Promise<void>;
     addChapter: (title: string) => Promise<number>;
     setGeminiModel: (model: GeminiModelId) => Promise<void>;
+    setGeminiApiKey: (key: string) => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setDetailPanel: (panel: DetailPanel | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
@@ -120,6 +122,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     isLoadingAI: false,
     isInitialized: false,
     geminiModel: DEFAULT_GEMINI_MODEL,
+    geminiApiKey: "",
     dataVersion: 0,
 
     // Actions
@@ -139,6 +142,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             savedCategories,
             savedCharGroups,
             savedGeminiModel,
+            savedGeminiApiKey,
         ] = await Promise.all([
             chapterOps.getAll(),
             sceneOps.getAll(),
@@ -150,6 +154,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             settingsOps.get("loreCategories"),
             settingsOps.get("characterGroups"),
             settingsOps.get("geminiModel"),
+            settingsOps.get("geminiApiKey"),
         ]);
 
         const defaultCategories = ["세계관", "장소", "아이템"];
@@ -190,6 +195,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
                 ? (savedGeminiModel as GeminiModelId)
                 : DEFAULT_GEMINI_MODEL,
+            geminiApiKey: savedGeminiApiKey || "",
             dataVersion: get().dataVersion + 1,
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
@@ -222,6 +228,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     setGeminiModel: async (geminiModel) => {
         await settingsOps.set("geminiModel", geminiModel);
         set({ geminiModel });
+    },
+
+    setGeminiApiKey: async (geminiApiKey) => {
+        await settingsOps.set("geminiApiKey", geminiApiKey);
+        set({ geminiApiKey });
     },
 
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),

@@ -5,6 +5,7 @@ import { useEditorStore } from "./(shared)/stores/editorStore";
 import { ChapterProgress } from "./components/dashboard/ChapterProgress";
 import { CharacterSummary } from "./components/dashboard/CharacterSummary";
 import { DashboardHeader } from "./components/dashboard/DashboardHeader";
+import { GeminiKeyCard } from "./components/dashboard/GeminiKeyCard";
 import { RelationshipDiagram } from "./components/dashboard/RelationshipDiagram";
 import { WorkStatistics } from "./components/dashboard/WorkStatistics";
 
@@ -29,6 +30,7 @@ export default function Home() {
         <div className="min-h-screen bg-zinc-50 dark:bg-black">
             <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
                 <DashboardHeader />
+                <GeminiKeyCard />
                 <WorkStatistics />
                 <div className="grid gap-6 lg:grid-cols-2">
                     <ChapterProgress />

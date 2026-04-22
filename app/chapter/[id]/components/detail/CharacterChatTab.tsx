@@ -26,7 +26,8 @@ export function CharacterChatTab({
         tags: string[];
     };
 }) {
-    const { geminiModel, setGeminiModel, dataVersion } = useEditorStore();
+    const { geminiModel, setGeminiModel, dataVersion, geminiApiKey } =
+        useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +79,7 @@ export function CharacterChatTab({
                     characterTags: character.tags,
                     messages: updatedMessages,
                     model: geminiModel,
+                    apiKey: geminiApiKey,
                 }),
             });
             if (!response.ok) throw new Error(await response.text());

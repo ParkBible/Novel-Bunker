@@ -9,9 +9,10 @@ export async function POST(request: NextRequest) {
             characterTags,
             messages,
             model,
+            apiKey,
         } = await request.json();
 
-        if (!characterName || !messages) {
+        if (!characterName || !messages || messages.length === 0) {
             return NextResponse.json(
                 { error: "인물 정보와 메시지가 필요합니다." },
                 { status: 400 },
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
             characterTags || [],
             messages,
             model,
+            apiKey,
         );
 
         return NextResponse.json({ reply });

@@ -3,7 +3,7 @@ import { checkGrammar } from "@/app/(shared)/utils/gemini";
 
 export async function POST(request: NextRequest) {
     try {
-        const { content, model } = await request.json();
+        const { content, model, apiKey } = await request.json();
 
         if (!content) {
             return NextResponse.json(
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const suggestions = await checkGrammar(content, model);
+        const suggestions = await checkGrammar(content, model, apiKey);
 
         return NextResponse.json({ suggestions });
     } catch (error) {
