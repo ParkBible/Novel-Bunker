@@ -2,6 +2,7 @@
 
 import { BookOpen, FileText, SendHorizontal, X } from "lucide-react";
 import type { RefObject } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import type { AttachedContext, MentionItem } from "./types";
 
 interface Props {
@@ -33,6 +34,7 @@ export function ChatInput({
     onMentionSelect,
     onRemoveAttachedCtx,
 }: Props) {
+    const t = useTranslation();
     return (
         <div className="relative p-3 pt-2">
             {/* @ 멘션 드롭다운 */}
@@ -72,7 +74,9 @@ export function ChatInput({
                                     )}
                                 </div>
                                 <span className="ml-auto shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
-                                    {item.type === "chapter" ? "챕터" : "씬"}
+                                    {item.type === "chapter"
+                                        ? t("chat_chapterBadge")
+                                        : t("chat_sceneBadge")}
                                 </span>
                             </button>
                         );
@@ -115,7 +119,7 @@ export function ChatInput({
                     value={input}
                     onChange={onInputChange}
                     onKeyDown={onKeyDown}
-                    placeholder="메시지 입력... (@로 씬·챕터 참조)"
+                    placeholder={t("chat_inputPlaceholder")}
                     rows={1}
                     className="flex-1 resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:focus:border-zinc-500"
                 />

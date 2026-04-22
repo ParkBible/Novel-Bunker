@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
@@ -29,6 +30,7 @@ import { TreeSection } from "./TreeSection";
 export function TreePanel() {
     const router = useRouter();
     const params = useParams();
+    const t = useTranslation();
     const {
         chapters,
         scenes,
@@ -102,7 +104,7 @@ export function TreePanel() {
 
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
                 <TreeSection
-                    title="챕터"
+                    title={t("tree_chapters")}
                     className="flex flex-col gap-2 px-2 pb-2"
                 >
                     <DndContext
@@ -177,7 +179,7 @@ export function TreePanel() {
                 </TreeSection>
 
                 <TreeSection
-                    title="등장인물"
+                    title={t("tree_characters")}
                     className="px-2 pb-2 flex flex-col gap-2"
                 >
                     <div className="px-2 pt-1">
@@ -186,7 +188,7 @@ export function TreePanel() {
                 </TreeSection>
 
                 <TreeSection
-                    title="설정집"
+                    title={t("tree_lore")}
                     className="flex flex-col gap-2 px-2 pb-2"
                 >
                     <div className="px-2 pt-1">

@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Scene } from "@/app/(shared)/db";
 import { sceneOps } from "@/app/(shared)/db/operations";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { SceneEditor } from "./SceneEditor";
 
@@ -26,6 +27,7 @@ export function SceneCard({
         useEditorStore();
     const isSelected = selectedSceneId === scene.id;
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const t = useTranslation();
 
     const {
         draft: title,
@@ -93,7 +95,7 @@ export function SceneCard({
                     onFocus={handleTitleFocus}
                     onBlur={handleTitleBlur}
                     className="flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
-                    placeholder="씬 제목"
+                    placeholder={t("sceneCard_titlePlaceholder")}
                 />
                 <button
                     type="button"
@@ -102,13 +104,15 @@ export function SceneCard({
                         setConfirmDelete(true);
                     }}
                     className={`mr-3 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${isSelected ? "opacity-100" : "opacity-0 md:opacity-0"}`}
-                    title="씬 삭제"
+                    title={t("sceneCard_deleteTitle")}
                 >
                     <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
                 </button>
                 {confirmDelete && (
                     <ConfirmDialog
-                        message={`"${scene.title}" 씬을 삭제할까요?`}
+                        message={t("confirm_deleteScene", {
+                            name: scene.title,
+                        })}
                         onConfirm={() => {
                             if (scene.id) deleteScene(scene.id);
                         }}
@@ -121,7 +125,7 @@ export function SceneCard({
                 <SceneEditor
                     content={content}
                     onChange={handleContentChange}
-                    placeholder="씬 내용을 작성하세요..."
+                    placeholder={t("sceneCard_contentPlaceholder")}
                     onReady={onEditorReady}
                 />
             </div>

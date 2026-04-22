@@ -4,6 +4,7 @@ import { BookOpen } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Lore } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 const inlineInputClass =
@@ -77,13 +78,14 @@ function AutoResizeTextarea({
 }
 
 export function LoreDetail({ loreId }: { loreId: number }) {
+    const t = useTranslation();
     const { lores, loreCategories, updateLore } = useEditorStore();
     const lore = lores.find((l) => l.id === loreId);
 
     if (!lore) {
         return (
             <p className="p-4 text-sm text-zinc-500">
-                설정을 찾을 수 없습니다.
+                {t("loreDetail_notFound")}
             </p>
         );
     }
@@ -100,7 +102,7 @@ export function LoreDetail({ loreId }: { loreId: number }) {
                 <BookOpen className="h-4 w-4 shrink-0 text-zinc-400" />
                 <InlineInput
                     value={lore.name}
-                    placeholder="이름"
+                    placeholder={t("loreDetail_namePlaceholder")}
                     onChange={(name) => save({ name })}
                 />
             </div>
@@ -108,7 +110,7 @@ export function LoreDetail({ loreId }: { loreId: number }) {
             {/* 카테고리 */}
             <div className="flex items-center gap-2">
                 <span className="w-14 shrink-0 text-xs text-zinc-400">
-                    카테고리
+                    {t("loreDetail_category")}
                 </span>
                 <select
                     value={lore.category}
@@ -125,10 +127,12 @@ export function LoreDetail({ loreId }: { loreId: number }) {
 
             {/* 설명 */}
             <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-zinc-400">설명</span>
+                <span className="text-xs font-medium text-zinc-400">
+                    {t("loreDetail_description")}
+                </span>
                 <AutoResizeTextarea
                     value={lore.description}
-                    placeholder="설명을 입력하세요"
+                    placeholder={t("loreDetail_descriptionPlaceholder")}
                     onChange={(description) => save({ description })}
                 />
             </div>

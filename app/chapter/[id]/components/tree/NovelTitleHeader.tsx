@@ -4,6 +4,7 @@ import { LayoutDashboard, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 
 interface NovelTitleHeaderProps {
@@ -17,6 +18,7 @@ export function NovelTitleHeader({
     onTitleUpdate,
     onAddChapter,
 }: NovelTitleHeaderProps) {
+    const t = useTranslation();
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(title);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +80,7 @@ export function NovelTitleHeader({
                             type="button"
                             onClick={() => setIsEditing(true)}
                             className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100 dark:hover:bg-zinc-800"
-                            title="제목 편집"
+                            title={t("novelTitle_editTitle")}
                         >
                             <Pencil className="h-3 w-3 text-zinc-500" />
                         </button>
@@ -90,7 +92,7 @@ export function NovelTitleHeader({
                 <Link
                     href={routes.dashboard}
                     className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    title="대시보드"
+                    title={t("novelTitle_dashboard")}
                 >
                     <LayoutDashboard className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
                 </Link>
@@ -98,7 +100,7 @@ export function NovelTitleHeader({
                     type="button"
                     onClick={onAddChapter}
                     className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    title="챕터 추가"
+                    title={t("novelTitle_addChapter")}
                 >
                     <Plus className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
                 </button>

@@ -3,6 +3,7 @@
 import { Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sceneOps } from "@/app/(shared)/db/operations";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { AddSceneButton } from "./scene/AddSceneButton";
 import { SceneCard } from "./scene/SceneCard";
@@ -20,6 +21,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         updateChapterTitle,
         selectedSceneId,
     } = useEditorStore();
+    const t = useTranslation();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState("");
@@ -101,7 +103,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     };
 
     const handleAddScene = async (chapterId: number, order: number) => {
-        await sceneOps.create(chapterId, "새 씬", order);
+        await sceneOps.create(chapterId, t("chapterContent_newScene"), order);
         await loadData();
     };
 
@@ -127,7 +129,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     if (!currentChapter) {
         return (
             <div className="flex h-full items-center justify-center">
-                <p className="text-zinc-500">챕터를 찾을 수 없습니다.</p>
+                <p className="text-zinc-500">{t("chapterContent_notFound")}</p>
             </div>
         );
     }

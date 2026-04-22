@@ -1,12 +1,14 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterDetail } from "../detail/CharacterDetail";
 import { LoreDetail } from "../detail/LoreDetail";
 import { AiChatPanel } from "./AiChatPanel";
 
 export function ContextPanel() {
+    const t = useTranslation();
     const { detailPanel, setDetailPanel, characters, lores } = useEditorStore();
 
     if (detailPanel?.type === "character") {
@@ -24,10 +26,10 @@ export function ContextPanel() {
                         <ArrowLeft className="h-4 w-4 text-zinc-500" />
                     </button>
                     <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                        등장인물
+                        {t("contextPanel_character")}
                     </span>
                     <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                        {character?.name ?? "인물 상세"}
+                        {character?.name ?? t("contextPanel_characterDetail")}
                     </h2>
                 </div>
                 <div className="flex flex-1 flex-col overflow-hidden p-4">
@@ -50,10 +52,10 @@ export function ContextPanel() {
                         <ArrowLeft className="h-4 w-4 text-zinc-500" />
                     </button>
                     <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                        설정집
+                        {t("contextPanel_lore")}
                     </span>
                     <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                        {lore?.name ?? "설정 상세"}
+                        {lore?.name ?? t("contextPanel_loreDetail")}
                     </h2>
                 </div>
                 <div className="flex flex-1 flex-col overflow-hidden p-4">

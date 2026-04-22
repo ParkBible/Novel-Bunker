@@ -3,19 +3,26 @@
 import { AlertTriangle, Download, History, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useGoogleDrive } from "@/app/(shared)/hooks/useGoogleDrive";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import type { TranslationKey } from "@/app/(shared)/i18n/translations";
 import { isLocalDataEmpty } from "@/app/(shared)/utils/googleDrive";
 import { ClientIdGuideModal } from "./ClientIdGuideModal";
 import { SnapshotModal } from "./SnapshotModal";
 
 const SETTINGS_KEY = "googleClientId";
 
-function formatRelativeTime(date: Date): string {
+type TFunction = (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+) => string;
+
+function formatRelativeTime(date: Date, t: TFunction): string {
     const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
     const diffHour = Math.floor(diffMin / 60);
-    if (diffMin < 1) return "방금 전";
-    if (diffMin < 60) return `${diffMin}분 전`;
-    if (diffHour < 24) return `${diffHour}시간 전`;
-    return `${Math.floor(diffHour / 24)}일 전`;
+    if (diffMin < 1) return t("drive_timeJustNow");
+    if (diffMin < 60) return t("drive_timeMinutes", { n: diffMin });
+    if (diffHour < 24) return t("drive_timeHours", { n: diffHour });
+    return t("drive_timeDays", { n: Math.floor(diffHour / 24) });
 }
 
 type ConfirmKind = "upload" | "download" | null;
@@ -26,6 +33,7 @@ interface UploadConfirmState {
 }
 
 export function DriveSync() {
+    const t = useTranslation();
     const [clientId, setClientId] = useState<string | null>(null);
     const [isEditingClientId, setIsEditingClientId] = useState(false);
     const [inputValue, setInputValue] = useState("");
@@ -118,16 +126,16 @@ export function DriveSync() {
                 <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
                     <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                            Google Drive 백업
+                            {t("drive_title")}
                         </span>
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
                                 onClick={() => setShowGuide(true)}
                                 className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                                title="발급 방법 안내"
+                                title={t("drive_howToGetTitle")}
                             >
-                                발급 방법
+                                {t("drive_howToGet")}
                             </button>
                             {isEditingClientId && (
                                 <button
@@ -138,14 +146,13 @@ export function DriveSync() {
                                     }}
                                     className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                                 >
-                                    취소
+                                    {t("cancel")}
                                 </button>
                             )}
                         </div>
                     </div>
                     <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-500">
-                        Google Cloud Console에서 발급한 OAuth 2.0 클라이언트
-                        ID를 입력하세요.
+                        {t("drive_clientIdHelp")}
                     </p>
                     <input
                         ref={inputRef}
@@ -155,7 +162,7 @@ export function DriveSync() {
                         onKeyDown={(e) =>
                             e.key === "Enter" && handleSaveClientId()
                         }
-                        placeholder="xxxxx.apps.googleusercontent.com"
+                        placeholder={t("drive_clientIdPlaceholder")}
                         className="mb-1.5 w-full rounded border border-zinc-200 bg-transparent px-2 py-1 text-xs text-zinc-700 placeholder-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:placeholder-zinc-600"
                     />
                     <button
@@ -164,7 +171,7 @@ export function DriveSync() {
                         disabled={!inputValue.trim()}
                         className="w-full rounded bg-zinc-100 px-2 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                     >
-                        저장
+                        {t("save")}
                     </button>
                 </div>
                 {showGuide && (
@@ -179,7 +186,7 @@ export function DriveSync() {
             <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
                 <div className="mb-1.5 flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        Google Drive 백업
+                        {t("drive_title")}
                     </span>
                     <div className="flex gap-2">
                         {isConnected && (
@@ -188,7 +195,7 @@ export function DriveSync() {
                                 onClick={disconnect}
                                 className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                             >
-                                연결 해제
+                                {t("disconnect")}
                             </button>
                         )}
                         <button
@@ -199,7 +206,7 @@ export function DriveSync() {
                             }}
                             className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                         >
-                            설정
+                            {t("settings")}
                         </button>
                     </div>
                 </div>
@@ -210,27 +217,27 @@ export function DriveSync() {
                         onClick={openUploadConfirm}
                         disabled={isSyncing}
                         className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        title="로컬 데이터를 Drive에 업로드"
+                        title={t("drive_uploadTitle")}
                     >
                         <Upload className="size-3.5" />
-                        업로드
+                        {t("upload")}
                     </button>
                     <button
                         type="button"
                         onClick={openDownloadConfirm}
                         disabled={isSyncing}
                         className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        title="Drive에서 로컬로 다운로드"
+                        title={t("drive_downloadTitle")}
                     >
                         <Download className="size-3.5" />
-                        다운로드
+                        {t("download")}
                     </button>
                     <button
                         type="button"
                         onClick={() => setShowSnapshots(true)}
                         disabled={isSyncing}
                         className="flex items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        title="버전 기록"
+                        title={t("drive_versionHistory")}
                     >
                         <History className="size-3.5" />
                     </button>
@@ -238,7 +245,7 @@ export function DriveSync() {
 
                 {!isConnected && lastSyncedAt && !isSyncing && (
                     <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
-                        자동 저장 일시정지 · 업로드로 재연결
+                        {t("drive_paused")}
                     </p>
                 )}
                 {isConnected &&
@@ -246,17 +253,19 @@ export function DriveSync() {
                     !isSyncing &&
                     syncStatus !== "success" && (
                         <p className="mt-1 text-center text-xs text-zinc-400 dark:text-zinc-500">
-                            마지막 동기화: {formatRelativeTime(lastSyncedAt)}
+                            {t("drive_lastSync", {
+                                time: formatRelativeTime(lastSyncedAt, t),
+                            })}
                         </p>
                     )}
                 {isSyncing && (
                     <p className="mt-1 text-center text-xs text-zinc-400">
-                        동기화 중...
+                        {t("syncing")}
                     </p>
                 )}
                 {syncStatus === "success" && (
                     <p className="mt-1 text-center text-xs text-emerald-500">
-                        완료되었습니다
+                        {t("drive_complete")}
                     </p>
                 )}
                 {syncStatus === "error" && errorMessage && (
@@ -276,25 +285,23 @@ export function DriveSync() {
                         type="button"
                         className="absolute inset-0 bg-black/40"
                         onClick={() => setConfirmKind(null)}
-                        aria-label="모달 닫기"
+                        aria-label={t("snapshot_closeLabel")}
                     />
                     <div className="relative z-10 w-full max-w-xs rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                         <h2 className="mb-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                            Drive에 업로드
+                            {t("drive_uploadModalTitle")}
                         </h2>
 
                         {!uploadConfirm.checked ? (
                             <p className="mb-4 text-xs text-zinc-400">
-                                확인 중...
+                                {t("checking")}
                             </p>
                         ) : uploadConfirm.isEmpty ? (
                             <>
                                 <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-950">
                                     <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-red-500" />
                                     <p className="text-xs leading-relaxed text-red-600 dark:text-red-400">
-                                        로컬에 데이터가 없습니다. 업로드하면
-                                        Drive의 기존 백업이 빈 데이터로
-                                        덮어써집니다.
+                                        {t("drive_emptyWarning")}
                                     </p>
                                 </div>
                                 <button
@@ -302,14 +309,13 @@ export function DriveSync() {
                                     onClick={() => setConfirmKind(null)}
                                     className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                                 >
-                                    취소
+                                    {t("cancel")}
                                 </button>
                             </>
                         ) : (
                             <>
                                 <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                                    현재 Drive 데이터는 스냅샷으로 저장된 뒤
-                                    로컬 데이터로 덮어써집니다.
+                                    {t("drive_uploadConfirm")}
                                 </p>
                                 <div className="flex gap-2">
                                     <button
@@ -317,14 +323,14 @@ export function DriveSync() {
                                         onClick={handleConfirmUpload}
                                         className="flex-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
                                     >
-                                        업로드
+                                        {t("upload")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setConfirmKind(null)}
                                         className="flex-1 rounded-lg bg-zinc-100 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                                     >
-                                        취소
+                                        {t("cancel")}
                                     </button>
                                 </div>
                             </>
@@ -340,15 +346,14 @@ export function DriveSync() {
                         type="button"
                         className="absolute inset-0 bg-black/40"
                         onClick={() => setConfirmKind(null)}
-                        aria-label="모달 닫기"
+                        aria-label={t("snapshot_closeLabel")}
                     />
                     <div className="relative z-10 w-full max-w-xs rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                         <h2 className="mb-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                            Drive에서 다운로드
+                            {t("drive_downloadModalTitle")}
                         </h2>
                         <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                            Drive 데이터를 로컬에 복원합니다. 현재 로컬 데이터는
-                            덮어써집니다.
+                            {t("drive_downloadConfirm")}
                         </p>
                         <div className="flex gap-2">
                             <button
@@ -356,14 +361,14 @@ export function DriveSync() {
                                 onClick={handleConfirmDownload}
                                 className="flex-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
                             >
-                                다운로드
+                                {t("download")}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setConfirmKind(null)}
                                 className="flex-1 rounded-lg bg-zinc-100 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                             >
-                                취소
+                                {t("cancel")}
                             </button>
                         </div>
                     </div>

@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 function LoreCategoryGroup({
@@ -12,6 +13,7 @@ function LoreCategoryGroup({
     category: string;
     isCustom: boolean;
 }) {
+    const t = useTranslation();
     const { lores, addLore, deleteLore, removeLoreCategory, setDetailPanel } =
         useEditorStore();
     const [isExpanded, setIsExpanded] = useState(false);
@@ -131,7 +133,9 @@ function LoreCategoryGroup({
                             );
                             return lore ? (
                                 <ConfirmDialog
-                                    message={`"${lore.name}" 세계관 항목을 삭제할까요?`}
+                                    message={t("confirm_deleteLore", {
+                                        name: lore.name,
+                                    })}
                                     onConfirm={() => {
                                         deleteLore(confirmDeleteId);
                                         setConfirmDeleteId(null);
@@ -154,7 +158,7 @@ function LoreCategoryGroup({
                                         setNewName("");
                                     }
                                 }}
-                                placeholder="이름 입력..."
+                                placeholder={t("loreSection_namePlaceholder")}
                                 className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
                                 // biome-ignore lint/a11y/noAutofocus: 인라인 입력 UX에 필요
                                 autoFocus
@@ -164,7 +168,7 @@ function LoreCategoryGroup({
 
                     {categoryLores.length === 0 && !isAdding && (
                         <p className="px-2 text-xs text-zinc-400">
-                            항목이 없습니다
+                            {t("loreSection_empty")}
                         </p>
                     )}
                 </div>
@@ -176,6 +180,7 @@ function LoreCategoryGroup({
 const DEFAULT_CATEGORIES = ["세계관", "장소", "아이템"];
 
 export function LoreSection() {
+    const t = useTranslation();
     const { loreCategories, addLoreCategory } = useEditorStore();
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategory, setNewCategory] = useState("");
@@ -219,7 +224,7 @@ export function LoreSection() {
                                 setNewCategory("");
                             }
                         }}
-                        placeholder="카테고리 이름..."
+                        placeholder={t("loreSection_categoryPlaceholder")}
                         className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
                         // biome-ignore lint/a11y/noAutofocus: 인라인 입력 UX에 필요
                         autoFocus
@@ -232,7 +237,7 @@ export function LoreSection() {
                     onClick={() => setIsAddingCategory(true)}
                 >
                     <Plus className="h-3.5 w-3.5" />
-                    카테고리 추가
+                    {t("loreSection_addCategory")}
                 </button>
             )}
         </div>

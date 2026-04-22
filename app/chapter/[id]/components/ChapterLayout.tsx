@@ -2,6 +2,7 @@
 
 import { BookOpen, MessageSquare, Pencil } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { ChapterContent } from "./ChapterContent";
 import { ContextPanel } from "./context/ContextPanel";
 import { TreePanel } from "./tree/TreePanel";
@@ -12,18 +13,19 @@ interface ChapterLayoutProps {
     chapterId: number;
 }
 
-const TABS: { id: MobileTab; label: string; Icon: React.ElementType }[] = [
-    { id: "tree", label: "목차", Icon: BookOpen },
-    { id: "editor", label: "편집", Icon: Pencil },
-    { id: "context", label: "AI", Icon: MessageSquare },
-];
-
 export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
+    const t = useTranslation();
     const [activeTab, setActiveTab] = useState<MobileTab>("editor");
+
+    const TABS: { id: MobileTab; label: string; Icon: React.ElementType }[] = [
+        { id: "tree", label: t("chapterLayout_toc"), Icon: BookOpen },
+        { id: "editor", label: t("chapterLayout_edit"), Icon: Pencil },
+        { id: "context", label: t("layout_ai"), Icon: MessageSquare },
+    ];
 
     return (
         <>
-            {/* 데스크탑: 기존 3패널 */}
+            {/* Desktop: 3-panel layout */}
             <div className="hidden h-screen bg-zinc-50 lg:flex dark:bg-black">
                 <div className="w-[clamp(16rem,17vw,20rem)] flex-shrink-0">
                     <TreePanel />
@@ -36,7 +38,7 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
                 </div>
             </div>
 
-            {/* 모바일/태블릿 세로: 탭 전환 */}
+            {/* Mobile/tablet: tab switching */}
             <div className="flex h-screen flex-col bg-zinc-50 lg:hidden dark:bg-black">
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {activeTab === "tree" && (
@@ -56,7 +58,6 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
                     )}
                 </div>
 
-                {/* 하단 탭바 */}
                 <nav className="flex border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
                     {TABS.map(({ id, label, Icon }) => (
                         <button
