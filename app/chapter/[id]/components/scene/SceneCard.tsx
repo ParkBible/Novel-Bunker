@@ -1,6 +1,8 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Scene } from "@/app/(shared)/db";
 import { sceneOps } from "@/app/(shared)/db/operations";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
@@ -23,6 +25,7 @@ export function SceneCard({
     const { selectedSceneId, setSelectedSceneId, deleteScene } =
         useEditorStore();
     const isSelected = selectedSceneId === scene.id;
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     const {
         draft: title,
@@ -96,13 +99,22 @@ export function SceneCard({
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (scene.id) deleteScene(scene.id);
+                        setConfirmDelete(true);
                     }}
                     className={`mr-3 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${isSelected ? "opacity-100" : "opacity-0 md:opacity-0"}`}
                     title="씬 삭제"
                 >
                     <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
                 </button>
+                {confirmDelete && (
+                    <ConfirmDialog
+                        message={`"${scene.title}" 씬을 삭제할까요?`}
+                        onConfirm={() => {
+                            if (scene.id) deleteScene(scene.id);
+                        }}
+                        onCancel={() => setConfirmDelete(false)}
+                    />
+                )}
             </div>
 
             <div className="min-h-50">
