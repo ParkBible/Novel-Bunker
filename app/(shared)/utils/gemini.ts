@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { DEFAULT_GEMINI_MODEL } from "@/app/(shared)/routes";
 
 function getGenAI(apiKey?: string) {
-    const key = apiKey || process.env.GEMINI_API_KEY;
+    const key = apiKey?.trim() || process.env.GEMINI_API_KEY;
     if (!key) throw new Error("Gemini API 키가 설정되지 않았습니다.");
     return new GoogleGenerativeAI(key);
 }
@@ -11,7 +12,7 @@ export async function generateFeedback(
     synopsis: string,
     characters: string[],
     customPrompt?: string,
-    modelId = "gemini-2.5-flash",
+    modelId = DEFAULT_GEMINI_MODEL,
     apiKey?: string,
 ): Promise<string> {
     const model = getGenAI(apiKey).getGenerativeModel({ model: modelId });
@@ -54,7 +55,7 @@ export async function chatWithCharacter(
     characterDescription: string,
     characterTags: string[],
     messages: { role: "user" | "model"; text: string }[],
-    modelId = "gemini-2.5-flash",
+    modelId = DEFAULT_GEMINI_MODEL,
     apiKey?: string,
 ): Promise<string> {
     const model = getGenAI(apiKey).getGenerativeModel({
@@ -94,7 +95,7 @@ export async function generateAiChatReply(
         title: string;
         content: string;
     },
-    modelId = "gemini-2.5-flash",
+    modelId = DEFAULT_GEMINI_MODEL,
     apiKey?: string,
 ): Promise<string> {
     const model = getGenAI(apiKey).getGenerativeModel({
@@ -129,7 +130,7 @@ export async function generateAiChatReply(
 
 export async function checkGrammar(
     content: string,
-    modelId = "gemini-2.5-flash",
+    modelId = DEFAULT_GEMINI_MODEL,
     apiKey?: string,
 ): Promise<string> {
     const model = getGenAI(apiKey).getGenerativeModel({ model: modelId });
