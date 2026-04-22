@@ -3,6 +3,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FileText, GripVertical, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 
 interface SceneItemProps {
     scene: {
@@ -21,6 +23,7 @@ export function SceneItem({
     onSelect,
     onDelete,
 }: SceneItemProps) {
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const {
         attributes,
         listeners,
@@ -71,12 +74,19 @@ export function SceneItem({
             </button>
             <button
                 type="button"
-                onClick={onDelete}
+                onClick={() => setConfirmDelete(true)}
                 className="rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-300 group-hover:opacity-100 dark:hover:bg-zinc-700"
                 title="씬 삭제"
             >
                 <Trash2 className="h-3 w-3 text-zinc-500 hover:text-red-500" />
             </button>
+            {confirmDelete && (
+                <ConfirmDialog
+                    message={`"${scene.title}" 씬을 삭제할까요?`}
+                    onConfirm={onDelete}
+                    onCancel={() => setConfirmDelete(false)}
+                />
+            )}
         </div>
     );
 }

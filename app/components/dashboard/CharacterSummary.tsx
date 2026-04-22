@@ -27,6 +27,7 @@ import {
     X,
 } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Character } from "@/app/(shared)/db";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
@@ -42,6 +43,7 @@ function SortableCharacterItem({
     onSelect: () => void;
     onDelete: () => void;
 }) {
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const {
         attributes,
         listeners,
@@ -93,11 +95,18 @@ function SortableCharacterItem({
                 className="rounded p-0.5 opacity-0 hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDelete();
+                    setConfirmDelete(true);
                 }}
             >
                 <Trash2 className="h-3 w-3 text-zinc-400" />
             </button>
+            {confirmDelete && (
+                <ConfirmDialog
+                    message={`"${char.name}" 캐릭터를 삭제할까요?`}
+                    onConfirm={onDelete}
+                    onCancel={() => setConfirmDelete(false)}
+                />
+            )}
         </div>
     );
 }

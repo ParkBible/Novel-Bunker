@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 function LoreCategoryGroup({
@@ -16,6 +17,7 @@ function LoreCategoryGroup({
     const [isExpanded, setIsExpanded] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState("");
+    const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
     const categoryLores = lores.filter((l) => l.category === category);
 
@@ -115,13 +117,29 @@ function LoreCategoryGroup({
                                 className="rounded p-0.5 opacity-0 hover:bg-zinc-200 group-hover/item:opacity-100 dark:hover:bg-zinc-700"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (lore.id) deleteLore(lore.id);
+                                    if (lore.id) setConfirmDeleteId(lore.id);
                                 }}
                             >
                                 <Trash2 className="h-3 w-3 text-zinc-400" />
                             </button>
                         </div>
                     ))}
+                    {confirmDeleteId !== null &&
+                        (() => {
+                            const lore = categoryLores.find(
+                                (l) => l.id === confirmDeleteId,
+                            );
+                            return lore ? (
+                                <ConfirmDialog
+                                    message={`"${lore.name}" 세계관 항목을 삭제할까요?`}
+                                    onConfirm={() => {
+                                        deleteLore(confirmDeleteId);
+                                        setConfirmDeleteId(null);
+                                    }}
+                                    onCancel={() => setConfirmDeleteId(null)}
+                                />
+                            ) : null;
+                        })()}
 
                     {isAdding && (
                         <div className="px-2">
