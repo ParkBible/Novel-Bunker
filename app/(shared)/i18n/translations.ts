@@ -246,7 +246,7 @@ export const ko = {
     guide_step3Warning: "앱을 게시하지 말고 테스트 모드를 유지하세요.",
     guide_step4Title: "OAuth 클라이언트 ID 발급",
     guide_step4Desc:
-        '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본에 아래 주소를 추가하세요.',
+        '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본과 승인된 리디렉션 URI에 아래 두 주소를 각각 추가하세요.',
     guide_step4Link: "사용자 인증 정보 열기",
     guide_step5Title: "클라이언트 ID 복사 후 입력",
     guide_step5Desc:
@@ -521,7 +521,7 @@ export const en = {
     guide_step3Warning: "Keep the app in testing mode — do not publish.",
     guide_step4Title: "Create OAuth Client ID",
     guide_step4Desc:
-        'Go to "APIs & Services → Credentials → Create Credentials → OAuth client ID". Select Web application as the type and add your domain to Authorized JavaScript origins.',
+        'Go to "APIs & Services → Credentials → Create Credentials → OAuth client ID". Select Web application, then add both addresses below — one to Authorized JavaScript origins and one to Authorized redirect URIs.',
     guide_step4Link: "Open Credentials",
     guide_step5Title: "Copy and paste your Client ID",
     guide_step5Desc:

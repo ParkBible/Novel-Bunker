@@ -5,7 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { useGoogleDrive } from "@/app/(shared)/hooks/useGoogleDrive";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import type { TranslationKey } from "@/app/(shared)/i18n/translations";
-import { isLocalDataEmpty } from "@/app/(shared)/utils/googleDrive";
+import {
+    getAccessToken,
+    isLocalDataEmpty,
+    redirectToAuth,
+    savePendingAction,
+} from "@/app/(shared)/utils/googleDrive";
 import { ClientIdGuideModal } from "./ClientIdGuideModal";
 import { SnapshotModal } from "./SnapshotModal";
 
@@ -37,7 +42,6 @@ export function DriveSync() {
     const [clientId, setClientId] = useState<string | null>(null);
     const [isEditingClientId, setIsEditingClientId] = useState(false);
     const [inputValue, setInputValue] = useState("");
-    const [gisReady, setGisReady] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [showSnapshots, setShowSnapshots] = useState(false);
     const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
@@ -46,16 +50,6 @@ export function DriveSync() {
         checked: false,
     });
     const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (window.google) {
-            setGisReady(true);
-            return;
-        }
-        const handler = () => setGisReady(true);
-        window.addEventListener("gis-loaded", handler);
-        return () => window.removeEventListener("gis-loaded", handler);
-    }, []);
 
     useEffect(() => {
         const saved = localStorage.getItem(SETTINGS_KEY);
@@ -110,15 +104,23 @@ export function DriveSync() {
 
     const handleConfirmUpload = () => {
         setConfirmKind(null);
+        if (!getAccessToken()) {
+            savePendingAction("upload");
+            redirectToAuth(clientId ?? "");
+            return;
+        }
         upload();
     };
 
     const handleConfirmDownload = () => {
         setConfirmKind(null);
+        if (!getAccessToken()) {
+            savePendingAction("download");
+            redirectToAuth(clientId ?? "");
+            return;
+        }
         download();
     };
-
-    if (!gisReady) return null;
 
     if (!clientId || isEditingClientId) {
         return (
@@ -234,7 +236,13 @@ export function DriveSync() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setShowSnapshots(true)}
+                        onClick={() => {
+                            if (!getAccessToken()) {
+                                redirectToAuth(clientId ?? "");
+                                return;
+                            }
+                            setShowSnapshots(true);
+                        }}
                         disabled={isSyncing}
                         className="flex items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
                         title={t("drive_versionHistory")}
