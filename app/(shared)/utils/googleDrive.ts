@@ -84,20 +84,78 @@ const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
 // ── 토큰 (sessionStorage에 저장 — 탭을 닫으면 만료) ─────────────
 const TOKEN_KEY = "gdriveAccessToken";
+const TOKEN_TS_KEY = "gdriveAccessTokenTs";
+const TOKEN_TTL_MS = 55 * 60 * 1000; // GIS 토큰 수명 1시간 기준 55분
 
 export function setAccessToken(token: string): void {
     sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_TS_KEY, Date.now().toString());
 }
 
 export function getAccessToken(): string | null {
-    return sessionStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+    const ts = sessionStorage.getItem(TOKEN_TS_KEY);
+    if (ts && Date.now() - Number(ts) > TOKEN_TTL_MS) {
+        clearAccessToken();
+        return null;
+    }
+    return token;
 }
 
 export function clearAccessToken(): void {
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_TS_KEY);
 }
 
-// ── OAuth ─────────────────────────────────────────────────────
+// ── OAuth redirect flow ───────────────────────────────────────
+const PENDING_ACTION_KEY = "drivePendingAction";
+const AUTH_RETURN_PATH_KEY = "driveAuthReturnPath";
+
+export function savePendingAction(action: "upload" | "download"): void {
+    sessionStorage.setItem(PENDING_ACTION_KEY, action);
+}
+
+export function getPendingAction(): "upload" | "download" | null {
+    return sessionStorage.getItem(PENDING_ACTION_KEY) as
+        | "upload"
+        | "download"
+        | null;
+}
+
+export function clearPendingAction(): void {
+    sessionStorage.removeItem(PENDING_ACTION_KEY);
+}
+
+export function redirectToAuth(clientId: string): void {
+    sessionStorage.setItem(AUTH_RETURN_PATH_KEY, window.location.pathname);
+    const redirectUri = `${window.location.origin}/auth`;
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "token",
+        scope: DRIVE_SCOPE,
+        include_granted_scopes: "true",
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+export function parseTokenFromHash(): string | null {
+    if (typeof window === "undefined") return null;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return null;
+    return new URLSearchParams(hash).get("access_token");
+}
+
+export function getAuthReturnPath(): string {
+    return sessionStorage.getItem(AUTH_RETURN_PATH_KEY) || "/";
+}
+
+export function clearAuthReturnPath(): void {
+    sessionStorage.removeItem(AUTH_RETURN_PATH_KEY);
+}
+
+// ── OAuth popup (legacy, kept for reference) ──────────────────
 export function requestToken(clientId: string): Promise<string> {
     return new Promise((resolve, reject) => {
         if (!window.google) {

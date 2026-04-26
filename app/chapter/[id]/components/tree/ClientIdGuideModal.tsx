@@ -8,7 +8,7 @@ interface Step {
     title: string;
     desc: string;
     link?: { label: string; href: string };
-    highlight?: string;
+    highlights?: string[];
 }
 
 type TFunction = (
@@ -41,7 +41,7 @@ function getSteps(origin: string, t: TFunction): Step[] {
                 label: t("guide_step3Link"),
                 href: "https://console.cloud.google.com/apis/credentials/consent",
             },
-            highlight: t("guide_step3Warning"),
+            highlights: [t("guide_step3Warning")],
         },
         {
             title: t("guide_step4Title"),
@@ -50,7 +50,7 @@ function getSteps(origin: string, t: TFunction): Step[] {
                 label: t("guide_step4Link"),
                 href: "https://console.cloud.google.com/apis/credentials",
             },
-            highlight: origin,
+            highlights: [origin, `${origin}/auth`],
         },
         {
             title: t("guide_step5Title"),
@@ -109,11 +109,14 @@ export function ClientIdGuideModal({ onClose }: Props) {
                                 <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                                     {step.desc}
                                 </p>
-                                {step.highlight && (
-                                    <code className="w-fit rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                        {step.highlight}
+                                {step.highlights?.map((h) => (
+                                    <code
+                                        key={h}
+                                        className="w-fit rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                    >
+                                        {h}
                                     </code>
-                                )}
+                                ))}
                                 {step.link && (
                                     <a
                                         href={step.link.href}

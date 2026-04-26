@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditorStore } from "../stores/editorStore";
 import {
     clearAccessToken,
+    clearPendingAction,
     createAutoSnapshot,
     DriveAuthError,
     deleteSnapshot as deleteSnapshotFn,
@@ -11,19 +12,18 @@ import {
     exportToDriveWithSnapshot,
     getAccessToken,
     getLastSyncedAt,
+    getPendingAction,
     importFromDrive,
     listSnapshots as listSnapshotsFn,
-    requestToken,
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
     saveLastSyncedAt,
-    setAccessToken,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
-export function useGoogleDrive(clientId: string) {
+export function useGoogleDrive(_clientId?: string) {
     const [isConnected, setIsConnected] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -35,13 +35,12 @@ export function useGoogleDrive(clientId: string) {
         setLastSyncedAt(getLastSyncedAt());
     }, []);
 
-    // 수동 동기화용 — 팝업 띄워서 토큰 획득
+    // redirect 인증 완료 후 토큰이 sessionStorage에 있으면 연결 상태 갱신
     const ensureAuth = useCallback(async (): Promise<void> => {
-        if (getAccessToken()) return;
-        const token = await requestToken(clientId);
-        setAccessToken(token);
-        setIsConnected(true);
-    }, [clientId]);
+        if (!getAccessToken()) {
+            throw new DriveAuthError("인증이 필요합니다. 다시 시도해 주세요.");
+        }
+    }, []);
 
     const withSync = useCallback(
         async (action: () => Promise<void>) => {
@@ -53,14 +52,10 @@ export function useGoogleDrive(clientId: string) {
                     await action();
                 } catch (e) {
                     if (e instanceof DriveAuthError) {
-                        // 토큰 만료 — 재인증 후 1회 재시도
                         clearAccessToken();
                         setIsConnected(false);
-                        await ensureAuth();
-                        await action();
-                    } else {
-                        throw e;
                     }
+                    throw e;
                 }
                 setSyncStatus("success");
                 const now = new Date();
@@ -93,6 +88,22 @@ export function useGoogleDrive(clientId: string) {
         [withSync, loadData],
     );
 
+    // redirect 복귀 후 pending action 실행 — stale closure 방지를 위해 ref 사용
+    const uploadRef = useRef(upload);
+    const downloadRef = useRef(download);
+    uploadRef.current = upload;
+    downloadRef.current = download;
+
+    useEffect(() => {
+        if (!getAccessToken()) return;
+        const pending = getPendingAction();
+        if (!pending) return;
+        clearPendingAction();
+        setIsConnected(true);
+        if (pending === "upload") uploadRef.current();
+        else if (pending === "download") downloadRef.current();
+    }, []); // mount 시 1회만 실행
+
     const disconnect = useCallback(() => {
         clearAccessToken();
         setIsConnected(false);
@@ -122,9 +133,9 @@ export function useGoogleDrive(clientId: string) {
         [ensureAuth],
     );
 
-    // 자동 업로드 — 이미 토큰이 있을 때만 실행 (팝업 없이)
+    // 자동 업로드 — 토큰이 있을 때만 실행
     const autoUploadCore = useCallback(async () => {
-        if (!getAccessToken()) return; // 미인증 상태면 스킵
+        if (!getAccessToken()) return;
         try {
             await createAutoSnapshot();
             await exportToDrive();
@@ -141,7 +152,6 @@ export function useGoogleDrive(clientId: string) {
 
     const autoUpload = useDebouncedCallback(autoUploadCore, 30_000);
 
-    // editorStore 데이터 변경 감지 → autoUpload 트리거
     useEffect(() => {
         const unsubscribe = useEditorStore.subscribe((state, prevState) => {
             const changed =

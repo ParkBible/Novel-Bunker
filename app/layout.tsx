@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DevInspector } from "./(shared)/components/DevInspector";
-import { GoogleAuthScript } from "./(shared)/components/GoogleAuthScript";
 import { ThemeProvider } from "./(shared)/components/ThemeProvider";
 import { TranslationProvider } from "./(shared)/i18n/TranslationProvider";
 
@@ -39,7 +38,6 @@ export default function RootLayout({
             >
                 <ThemeProvider>
                     <TranslationProvider>
-                        <GoogleAuthScript />
                         <DevInspector />
                         {children}
                     </TranslationProvider>
