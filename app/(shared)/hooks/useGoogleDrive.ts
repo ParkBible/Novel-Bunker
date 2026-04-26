@@ -5,6 +5,7 @@ import { useEditorStore } from "../stores/editorStore";
 import {
     clearAccessToken,
     createAutoSnapshot,
+    DriveAuthError,
     deleteSnapshot as deleteSnapshotFn,
     exportToDrive,
     exportToDriveWithSnapshot,
@@ -51,8 +52,7 @@ export function useGoogleDrive(clientId: string) {
                 try {
                     await action();
                 } catch (e) {
-                    const msg = e instanceof Error ? e.message : "";
-                    if (msg.includes("401") || msg.includes("인증")) {
+                    if (e instanceof DriveAuthError) {
                         // 토큰 만료 — 재인증 후 1회 재시도
                         clearAccessToken();
                         setIsConnected(false);
@@ -70,7 +70,7 @@ export function useGoogleDrive(clientId: string) {
                 const msg = e instanceof Error ? e.message : "알 수 없는 오류";
                 setErrorMessage(msg);
                 setSyncStatus("error");
-                if (msg.includes("401") || msg.includes("인증")) {
+                if (e instanceof DriveAuthError) {
                     clearAccessToken();
                     setIsConnected(false);
                 }
@@ -132,8 +132,7 @@ export function useGoogleDrive(clientId: string) {
             saveLastSyncedAt(now);
             setLastSyncedAt(now);
         } catch (e) {
-            const msg = e instanceof Error ? e.message : "";
-            if (msg.includes("401") || msg.includes("인증")) {
+            if (e instanceof DriveAuthError) {
                 clearAccessToken();
                 setIsConnected(false);
             }
