@@ -84,17 +84,28 @@ const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
 // ── 토큰 (sessionStorage에 저장 — 탭을 닫으면 만료) ─────────────
 const TOKEN_KEY = "gdriveAccessToken";
+const TOKEN_TS_KEY = "gdriveAccessTokenTs";
+const TOKEN_TTL_MS = 55 * 60 * 1000; // GIS 토큰 수명 1시간 기준 55분
 
 export function setAccessToken(token: string): void {
     sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_TS_KEY, Date.now().toString());
 }
 
 export function getAccessToken(): string | null {
-    return sessionStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+    const ts = sessionStorage.getItem(TOKEN_TS_KEY);
+    if (ts && Date.now() - Number(ts) > TOKEN_TTL_MS) {
+        clearAccessToken();
+        return null;
+    }
+    return token;
 }
 
 export function clearAccessToken(): void {
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_TS_KEY);
 }
 
 // ── OAuth ─────────────────────────────────────────────────────

@@ -53,14 +53,11 @@ export function useGoogleDrive(clientId: string) {
                     await action();
                 } catch (e) {
                     if (e instanceof DriveAuthError) {
-                        // 토큰 만료 — 재인증 후 1회 재시도
+                        // 토큰 만료 — 정리 후 에러 표시 (다음 클릭 시 재인증)
                         clearAccessToken();
                         setIsConnected(false);
-                        await ensureAuth();
-                        await action();
-                    } else {
-                        throw e;
                     }
+                    throw e;
                 }
                 setSyncStatus("success");
                 const now = new Date();
