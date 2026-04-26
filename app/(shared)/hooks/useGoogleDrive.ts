@@ -24,7 +24,7 @@ import { useDebouncedCallback } from "./useDebouncedCallback";
 
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
-export function useGoogleDrive(clientId: string) {
+export function useGoogleDrive(_clientId?: string) {
     const [isConnected, setIsConnected] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
