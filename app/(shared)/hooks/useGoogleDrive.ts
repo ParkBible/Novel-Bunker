@@ -18,7 +18,6 @@ import {
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
     saveLastSyncedAt,
-    setAccessToken,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
