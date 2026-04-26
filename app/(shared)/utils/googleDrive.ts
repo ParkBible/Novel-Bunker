@@ -19,6 +19,13 @@ import {
     settingsOps,
 } from "../db/operations";
 
+export class DriveAuthError extends Error {
+    constructor(msg: string) {
+        super(msg);
+        this.name = "DriveAuthError";
+    }
+}
+
 // ── GIS 타입 선언 ──────────────────────────────────────────────
 declare global {
     interface Window {
@@ -138,6 +145,8 @@ async function authFetch(
     });
     if (!res.ok) {
         const text = await res.text();
+        if (res.status === 401)
+            throw new DriveAuthError(`Drive API 인증 오류: ${text}`);
         throw new Error(`Drive API 오류 (${res.status}): ${text}`);
     }
     return res;
