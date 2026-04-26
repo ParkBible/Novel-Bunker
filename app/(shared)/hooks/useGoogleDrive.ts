@@ -48,7 +48,20 @@ export function useGoogleDrive(clientId: string) {
             setErrorMessage(null);
             try {
                 await ensureAuth();
-                await action();
+                try {
+                    await action();
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : "";
+                    if (msg.includes("401") || msg.includes("인증")) {
+                        // 토큰 만료 — 재인증 후 1회 재시도
+                        clearAccessToken();
+                        setIsConnected(false);
+                        await ensureAuth();
+                        await action();
+                    } else {
+                        throw e;
+                    }
+                }
                 setSyncStatus("success");
                 const now = new Date();
                 saveLastSyncedAt(now);
