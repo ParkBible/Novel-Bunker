@@ -14,10 +14,12 @@ import {
     getLastSyncedAt,
     getPendingAction,
     importFromDrive,
+    listenForAuthToken,
     listSnapshots as listSnapshotsFn,
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
     saveLastSyncedAt,
+    setAccessToken,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
@@ -103,6 +105,19 @@ export function useGoogleDrive(_clientId?: string) {
         if (pending === "upload") uploadRef.current();
         else if (pending === "download") downloadRef.current();
     }, []); // mount 시 1회만 실행
+
+    // 팝업 인증 완료 시 BroadcastChannel로 토큰 수신
+    useEffect(() => {
+        return listenForAuthToken((token) => {
+            setAccessToken(token);
+            setIsConnected(true);
+            const pending = getPendingAction();
+            if (!pending) return;
+            clearPendingAction();
+            if (pending === "upload") uploadRef.current();
+            else if (pending === "download") downloadRef.current();
+        });
+    }, []);
 
     const disconnect = useCallback(() => {
         clearAccessToken();

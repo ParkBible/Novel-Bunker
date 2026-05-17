@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import {
+    broadcastAuthToken,
     clearAuthReturnPath,
     getAuthReturnPath,
     parseTokenFromHash,
@@ -14,9 +15,17 @@ export default function AuthCallback() {
 
     useEffect(() => {
         const token = parseTokenFromHash();
-        if (token) {
-            setAccessToken(token);
+
+        // 팝업으로 열린 경우: 토큰을 원래 탭에 broadcast하고 창 닫기
+        const isPopup = window.opener !== null && window.opener !== window;
+        if (isPopup) {
+            if (token) broadcastAuthToken(token);
+            window.close();
+            return;
         }
+
+        // redirect 방식: 토큰 저장 후 원래 페이지로 복귀
+        if (token) setAccessToken(token);
         const returnPath = getAuthReturnPath();
         clearAuthReturnPath();
         router.replace(returnPath);
