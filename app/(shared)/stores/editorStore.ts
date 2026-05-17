@@ -91,6 +91,11 @@ interface EditorState {
     deleteLore: (id: number) => Promise<void>;
     addLoreCategory: (category: string) => Promise<void>;
     removeLoreCategory: (category: string) => Promise<void>;
+    reorderLores: (
+        category: string,
+        activeId: number,
+        overId: number,
+    ) => Promise<void>;
 
     // Reorder actions
     reorderChapters: (activeId: number, overId: number) => Promise<void>;
@@ -421,12 +426,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     // Lore actions
     addLore: async (name, category) => {
-        const id = await loreOps.create(name, category);
+        const { id, order } = await loreOps.create(name, category);
         const newLore = {
             id,
             name,
             category,
             description: "",
+            order,
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -457,6 +463,38 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const categories = get().loreCategories.filter((c) => c !== category);
         await settingsOps.set("loreCategories", JSON.stringify(categories));
         set({ loreCategories: categories });
+    },
+
+    reorderLores: async (category, activeId, overId) => {
+        const { lores } = get();
+        const categoryLores = lores
+            .filter((l) => l.category === category)
+            .sort((a, b) => a.order - b.order);
+
+        const oldIndex = categoryLores.findIndex((l) => l.id === activeId);
+        const newIndex = categoryLores.findIndex((l) => l.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = [...categoryLores];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        await Promise.all(
+            reordered
+                .map((l, i) =>
+                    l.order !== i ? loreOps.reorder(l.id!, i) : null,
+                )
+                .filter((p): p is Promise<void> => p !== null),
+        );
+
+        const updatedMap = new Map(reordered.map((l, i) => [l.id, i]));
+        set({
+            lores: lores.map((l) =>
+                updatedMap.has(l.id)
+                    ? { ...l, order: updatedMap.get(l.id)! }
+                    : l,
+            ),
+        });
     },
 
     // Reorder actions

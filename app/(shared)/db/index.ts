@@ -69,6 +69,7 @@ export interface Lore {
     name: string;
     category: string;
     description: string;
+    order: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -185,6 +186,30 @@ class NovelBunkerDB extends Dexie {
             aiMessages: "++id, conversationId, createdAt",
             characterMessages: "++id, characterId, createdAt",
         });
+
+        this.version(8)
+            .stores({
+                chapters: "++id, order, createdAt",
+                scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+                characters: "++id, name, order, group",
+                characterRelationships: "++id, fromCharacterId, toCharacterId",
+                lores: "++id, category, order, createdAt",
+                settings: "key",
+                aiConversations: "++id, createdAt",
+                aiMessages: "++id, conversationId, createdAt",
+                characterMessages: "++id, characterId, createdAt",
+            })
+            .upgrade(async (tx) => {
+                const lores = await tx
+                    .table("lores")
+                    .orderBy("createdAt")
+                    .toArray();
+                await Promise.all(
+                    lores.map((l, i) =>
+                        tx.table("lores").update(l.id, { order: i }),
+                    ),
+                );
+            });
     }
 }
 
