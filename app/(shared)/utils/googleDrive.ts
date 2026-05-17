@@ -127,6 +127,34 @@ export function clearPendingAction(): void {
     sessionStorage.removeItem(PENDING_ACTION_KEY);
 }
 
+const AUTH_CHANNEL = "novelbunker_drive_auth";
+
+export function broadcastAuthToken(token: string): void {
+    try {
+        const bc = new BroadcastChannel(AUTH_CHANNEL);
+        bc.postMessage({ type: "auth_complete", token });
+        bc.close();
+    } catch {
+        // BroadcastChannel 미지원 환경 무시
+    }
+}
+
+export function listenForAuthToken(
+    callback: (token: string) => void,
+): () => void {
+    try {
+        const bc = new BroadcastChannel(AUTH_CHANNEL);
+        bc.onmessage = (e: MessageEvent) => {
+            if (e.data?.type === "auth_complete" && e.data.token) {
+                callback(e.data.token as string);
+            }
+        };
+        return () => bc.close();
+    } catch {
+        return () => {};
+    }
+}
+
 export function redirectToAuth(clientId: string): void {
     sessionStorage.setItem(AUTH_RETURN_PATH_KEY, window.location.pathname);
     const redirectUri = `${window.location.origin}/auth`;
@@ -137,7 +165,16 @@ export function redirectToAuth(clientId: string): void {
         scope: DRIVE_SCOPE,
         include_granted_scopes: "true",
     });
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    // 새 창으로 열어 Turbopack HMR WebSocket 연결 유지 (팝업 차단 시 redirect 폴백)
+    const popup = window.open(
+        authUrl,
+        "driveAuth",
+        "width=520,height=650,left=100,top=100",
+    );
+    if (!popup) {
+        window.location.href = authUrl;
+    }
 }
 
 export function parseTokenFromHash(): string | null {

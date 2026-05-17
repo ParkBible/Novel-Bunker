@@ -263,26 +263,29 @@ export const relationshipOps = {
 // Lore Operations
 export const loreOps = {
     async getAll(): Promise<Lore[]> {
-        return db.lores.orderBy("createdAt").toArray();
+        return db.lores.orderBy("order").toArray();
     },
 
     async getByCategory(category: string): Promise<Lore[]> {
-        return db.lores.where("category").equals(category).toArray();
+        return db.lores.where("category").equals(category).sortBy("order");
     },
 
     async create(
         name: string,
         category: string,
         description = "",
-    ): Promise<number> {
+    ): Promise<{ id: number; order: number }> {
+        const last = await db.lores.orderBy("order").last();
+        const order = last ? last.order + 1 : 0;
         const id = await db.lores.add({
             name,
             category,
             description,
+            order,
             createdAt: new Date(),
             updatedAt: new Date(),
         });
-        return id as number;
+        return { id: id as number, order };
     },
 
     async update(id: number, updates: Partial<Lore>): Promise<void> {
@@ -291,6 +294,10 @@ export const loreOps = {
 
     async delete(id: number): Promise<void> {
         await db.lores.delete(id);
+    },
+
+    async reorder(id: number, newOrder: number): Promise<void> {
+        await db.lores.update(id, { order: newOrder });
     },
 };
 
