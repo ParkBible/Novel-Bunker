@@ -86,6 +86,42 @@ const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 const TOKEN_KEY = "gdriveAccessToken";
 const TOKEN_TS_KEY = "gdriveAccessTokenTs";
 const TOKEN_TTL_MS = 55 * 60 * 1000; // GIS 토큰 수명 1시간 기준 55분
+const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // 만료 5분 전에 갱신
+
+// 다음 무음 갱신까지 대기해야 할 ms 반환 (이미 만료 시 0)
+export function getTokenRefreshDelayMs(): number {
+    const ts = sessionStorage.getItem(TOKEN_TS_KEY);
+    if (!ts) return 0;
+    const elapsed = Date.now() - Number(ts);
+    return Math.max(0, TOKEN_TTL_MS - TOKEN_REFRESH_MARGIN_MS - elapsed);
+}
+
+// GIS를 이용한 무음 토큰 갱신 (UI 없음). 성공 시 새 토큰, 실패 시 null.
+export function tryRefreshTokenSilently(
+    clientId: string,
+): Promise<string | null> {
+    return new Promise((resolve) => {
+        if (!window.google?.accounts?.oauth2) {
+            resolve(null);
+            return;
+        }
+        try {
+            const client = window.google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: DRIVE_SCOPE,
+                prompt: "", // 기존 Google 세션 재사용 — UI 없이 갱신
+                callback: (response) => {
+                    resolve(
+                        response.error ? null : (response.access_token ?? null),
+                    );
+                },
+            });
+            client.requestAccessToken();
+        } catch {
+            resolve(null);
+        }
+    });
+}
 
 export function setAccessToken(token: string): void {
     sessionStorage.setItem(TOKEN_KEY, token);
