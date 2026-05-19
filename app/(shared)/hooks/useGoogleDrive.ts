@@ -13,6 +13,7 @@ import {
     getAccessToken,
     getLastSyncedAt,
     getPendingAction,
+    getTokenRefreshDelayMs,
     importFromDrive,
     listenForAuthToken,
     listSnapshots as listSnapshotsFn,
@@ -20,22 +21,53 @@ import {
     type SnapshotInfo,
     saveLastSyncedAt,
     setAccessToken,
+    tryRefreshTokenSilently,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
-export function useGoogleDrive(_clientId?: string) {
+export function useGoogleDrive(clientId?: string) {
     const [isConnected, setIsConnected] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
     const { loadData } = useEditorStore();
 
+    // 토큰 자동 갱신 타이머
+    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const clientIdRef = useRef(clientId);
+    clientIdRef.current = clientId;
+
+    const scheduleTokenRefresh = useCallback(() => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        const delay = getTokenRefreshDelayMs();
+        if (delay === 0) return;
+
+        refreshTimerRef.current = setTimeout(async () => {
+            if (!clientIdRef.current) return;
+            const newToken = await tryRefreshTokenSilently(clientIdRef.current);
+            if (newToken) {
+                setAccessToken(newToken);
+                setIsConnected(true);
+                scheduleTokenRefresh(); // 다음 갱신 재예약
+            }
+            // 실패 시: 토큰 만료 후 자연스럽게 연결 끊김 처리됨
+        }, delay);
+    }, []); // refs만 사용하므로 deps 없음
+
     useEffect(() => {
-        setIsConnected(!!getAccessToken());
-        setLastSyncedAt(getLastSyncedAt());
+        return () => {
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        };
     }, []);
+
+    useEffect(() => {
+        const connected = !!getAccessToken();
+        setIsConnected(connected);
+        setLastSyncedAt(getLastSyncedAt());
+        if (connected) scheduleTokenRefresh();
+    }, [scheduleTokenRefresh]);
 
     // redirect 인증 완료 후 토큰이 sessionStorage에 있으면 연결 상태 갱신
     const ensureAuth = useCallback(async (): Promise<void> => {
@@ -102,24 +134,27 @@ export function useGoogleDrive(_clientId?: string) {
         if (!pending) return;
         clearPendingAction();
         setIsConnected(true);
+        scheduleTokenRefresh(); // redirect 복귀 후 자동 갱신 시작
         if (pending === "upload") uploadRef.current();
         else if (pending === "download") downloadRef.current();
-    }, []); // mount 시 1회만 실행
+    }, [scheduleTokenRefresh]); // mount 시 1회만 실행
 
     // 팝업 인증 완료 시 BroadcastChannel로 토큰 수신
     useEffect(() => {
         return listenForAuthToken((token) => {
             setAccessToken(token);
             setIsConnected(true);
+            scheduleTokenRefresh(); // 인증 완료 후 자동 갱신 시작
             const pending = getPendingAction();
             if (!pending) return;
             clearPendingAction();
             if (pending === "upload") uploadRef.current();
             else if (pending === "download") downloadRef.current();
         });
-    }, []);
+    }, [scheduleTokenRefresh]);
 
     const disconnect = useCallback(() => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         clearAccessToken();
         setIsConnected(false);
         setSyncStatus("idle");

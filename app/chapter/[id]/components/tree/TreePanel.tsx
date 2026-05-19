@@ -27,7 +27,11 @@ import { LoreSection } from "./LoreSection";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 import { TreeSection } from "./TreeSection";
 
-export function TreePanel() {
+interface TreePanelProps {
+    onSceneSelect?: () => void;
+}
+
+export function TreePanel({ onSceneSelect }: TreePanelProps) {
     const router = useRouter();
     const params = useParams();
     const t = useTranslation();
@@ -88,6 +92,7 @@ export function TreePanel() {
 
     const handleSceneClick = (sceneId: number, chapterId: number) => {
         setSelectedSceneId(sceneId);
+        onSceneSelect?.();
 
         if (currentChapterId !== chapterId) {
             router.push(routes.chapter(chapterId));

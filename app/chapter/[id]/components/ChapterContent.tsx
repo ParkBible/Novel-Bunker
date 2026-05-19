@@ -1,7 +1,13 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from "react";
 import { sceneOps } from "@/app/(shared)/db/operations";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -39,9 +45,10 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const needsScrollAfterLoadRef = useRef(false);
     const editorReadyCountRef = useRef(0);
 
-    // 다른 챕터로 이동 시: 에디터 로드 후 스크롤 필요 표시
+    // 챕터 변경 또는 마운트 시: 에디터 로드 전 스크롤 플래그를 먼저 세팅
+    // useLayoutEffect를 사용해 TipTap의 useEffect(onCreate)보다 먼저 실행되도록 보장
     // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (selectedSceneId) {
             needsScrollAfterLoadRef.current = true;
             editorReadyCountRef.current = 0;
