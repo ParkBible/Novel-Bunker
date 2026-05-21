@@ -43,7 +43,9 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {activeTab === "tree" && (
                         <div className="h-full overflow-y-auto">
-                            <TreePanel />
+                            <TreePanel
+                                onSceneSelect={() => setActiveTab("editor")}
+                            />
                         </div>
                     )}
                     {activeTab === "editor" && (
