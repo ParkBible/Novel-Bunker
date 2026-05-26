@@ -109,7 +109,7 @@ export function tryRefreshTokenSilently(
             const client = window.google.accounts.oauth2.initTokenClient({
                 client_id: clientId,
                 scope: DRIVE_SCOPE,
-                prompt: "", // 기존 Google 세션 재사용 — UI 없이 갱신
+                prompt: "none", // 팝업/리다이렉트 없이 완전 무음 갱신
                 callback: (response) => {
                     resolve(
                         response.error ? null : (response.access_token ?? null),

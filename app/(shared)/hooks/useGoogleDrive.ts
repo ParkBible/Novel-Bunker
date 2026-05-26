@@ -41,8 +41,10 @@ export function useGoogleDrive(clientId?: string) {
 
     const scheduleTokenRefresh = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        // 토큰이 없으면 스케줄링 불필요
+        if (!getAccessToken()) return;
+        // delay=0이면 즉시 갱신 (50분 창을 이미 지난 경우)
         const delay = getTokenRefreshDelayMs();
-        if (delay === 0) return;
 
         refreshTimerRef.current = setTimeout(async () => {
             if (!clientIdRef.current) return;
