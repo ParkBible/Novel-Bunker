@@ -68,15 +68,22 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         }
     }, [selectedSceneId]);
 
-    // 다른 챕터 이동: 모든 에디터 초기화 완료 후 스크롤
+    // 다른 챕터 이동 / 모바일 탭 전환으로 인한 재마운트: 모든 에디터 초기화 완료 후 스크롤
     const handleEditorReady = useCallback(() => {
         if (!needsScrollAfterLoadRef.current) return;
         editorReadyCountRef.current += 1;
         if (editorReadyCountRef.current < chapterScenes.length) return;
         needsScrollAfterLoadRef.current = false;
         if (!selectedSceneId) return;
-        const el = document.getElementById(`scene-${selectedSceneId}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        // 갓 마운트된 스크롤 컨테이너에 즉시 smooth 스크롤을 호출하면
+        // 레이아웃/페인트가 안정되기 전이라 모바일 브라우저가 무시함.
+        // 두 번의 rAF로 레이아웃이 확정된 뒤 스크롤하도록 보장.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const el = document.getElementById(`scene-${selectedSceneId}`);
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+        });
     }, [chapterScenes.length, selectedSceneId]);
 
     useEffect(() => {

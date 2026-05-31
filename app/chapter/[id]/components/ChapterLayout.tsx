@@ -1,8 +1,9 @@
 "use client";
 
 import { BookOpen, MessageSquare, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterContent } from "./ChapterContent";
 import { ContextPanel } from "./context/ContextPanel";
 import { TreePanel } from "./tree/TreePanel";
@@ -16,6 +17,13 @@ interface ChapterLayoutProps {
 export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<MobileTab>("editor");
+    const detailPanel = useEditorStore((s) => s.detailPanel);
+
+    // 설정집/캐릭터 상세가 열리면 모바일에서 자동으로 컨텍스트 탭으로 전환
+    // (씬 클릭 시 편집 탭으로 이동하는 것과 동일한 일관성 제공)
+    useEffect(() => {
+        if (detailPanel) setActiveTab("context");
+    }, [detailPanel]);
 
     const TABS: { id: MobileTab; label: string; Icon: React.ElementType }[] = [
         { id: "tree", label: t("chapterLayout_toc"), Icon: BookOpen },
@@ -39,7 +47,7 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
             </div>
 
             {/* Mobile/tablet: tab switching */}
-            <div className="flex h-screen flex-col bg-zinc-50 lg:hidden dark:bg-black">
+            <div className="flex h-[100dvh] flex-col bg-zinc-50 lg:hidden dark:bg-black">
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {activeTab === "tree" && (
                         <div className="h-full overflow-y-auto">
