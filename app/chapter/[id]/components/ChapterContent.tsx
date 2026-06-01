@@ -43,6 +43,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
 
     const needsScrollAfterLoadRef = useRef(false);
+    const scrollRafRef = useRef<number | null>(null);
 
     // 챕터 변경 또는 마운트 시: 진입 직후 선택된 씬으로 정렬해야 함을 표시
     // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
@@ -57,6 +58,10 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const scrollToSelectedScene = useCallback(() => {
         const id = selectedSceneId;
         if (!id) return;
+        // 진행 중인 이전 루프가 있으면 취소 (씬 연타 시 충돌 방지)
+        if (scrollRafRef.current !== null) {
+            cancelAnimationFrame(scrollRafRef.current);
+        }
         let frame = 0;
         const step = () => {
             const el = document.getElementById(`scene-${id}`);
@@ -64,29 +69,38 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
                 el.scrollIntoView({ behavior: "auto", block: "start" });
             }
             frame += 1;
-            if (frame < 10) requestAnimationFrame(step);
+            scrollRafRef.current =
+                frame < 10 ? requestAnimationFrame(step) : null;
         };
-        requestAnimationFrame(step);
+        scrollRafRef.current = requestAnimationFrame(step);
     }, [selectedSceneId]);
 
     useEffect(() => {
         if (!selectedSceneId) return;
 
-        // 마운트 / 챕터 진입 / 모바일 탭 전환 재마운트: 선택 씬을 맨 위로 정렬
         if (needsScrollAfterLoadRef.current) {
+            // 마운트 / 챕터 진입 / 모바일 탭 전환 재마운트: 선택 씬을 맨 위로 정렬
             needsScrollAfterLoadRef.current = false;
             scrollToSelectedScene();
-            return;
+        } else {
+            // 같은 화면 내 씬 변경: 화면 밖일 때만 부드럽게 스크롤
+            const el = document.getElementById(`scene-${selectedSceneId}`);
+            if (el) {
+                const { top, bottom } = el.getBoundingClientRect();
+                const isVisible = top < window.innerHeight && bottom > 0;
+                if (!isVisible) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }
         }
 
-        // 같은 화면 내 씬 변경: 화면 밖일 때만 부드럽게 스크롤
-        const el = document.getElementById(`scene-${selectedSceneId}`);
-        if (!el) return;
-        const { top, bottom } = el.getBoundingClientRect();
-        const isVisible = top < window.innerHeight && bottom > 0;
-        if (!isVisible) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
+        // 씬 변경/언마운트 시 진행 중인 재시도 루프 정리
+        return () => {
+            if (scrollRafRef.current !== null) {
+                cancelAnimationFrame(scrollRafRef.current);
+                scrollRafRef.current = null;
+            }
+        };
     }, [selectedSceneId, scrollToSelectedScene]);
 
     useEffect(() => {
