@@ -96,6 +96,31 @@ export function getTokenRefreshDelayMs(): number {
     return Math.max(0, TOKEN_TTL_MS - TOKEN_REFRESH_MARGIN_MS - elapsed);
 }
 
+// GIS 스크립트(accounts.google.com/gsi/client)가 준비될 때까지 대기.
+// GoogleAuthScript가 로드 완료 시 "gis-loaded" 이벤트를 발생시킴.
+export function whenGisReady(timeoutMs = 10_000): Promise<boolean> {
+    return new Promise((resolve) => {
+        if (typeof window === "undefined") {
+            resolve(false);
+            return;
+        }
+        if (window.google?.accounts?.oauth2) {
+            resolve(true);
+            return;
+        }
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            window.removeEventListener("gis-loaded", finish);
+            resolve(!!window.google?.accounts?.oauth2);
+        };
+        const timer = setTimeout(finish, timeoutMs);
+        window.addEventListener("gis-loaded", finish);
+    });
+}
+
 // GIS를 이용한 무음 토큰 갱신 (UI 없음). 성공 시 새 토큰, 실패 시 null.
 export function tryRefreshTokenSilently(
     clientId: string,
@@ -123,9 +148,39 @@ export function tryRefreshTokenSilently(
     });
 }
 
+// ── 자동 로그인 플래그 (localStorage) ──────────────────────────
+// 한 번이라도 연결에 성공하면 표시 → 다음 방문 시 무음 재연결 시도 대상.
+// 사용자가 명시적으로 "연결 해제"하면 초기화.
+const PREV_CONNECTED_KEY = "gdrivePrevConnected";
+
+export function markConnected(): void {
+    try {
+        localStorage.setItem(PREV_CONNECTED_KEY, "1");
+    } catch {
+        // private browsing 등에서 무시
+    }
+}
+
+export function wasConnectedBefore(): boolean {
+    try {
+        return localStorage.getItem(PREV_CONNECTED_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
+
+export function clearConnectedFlag(): void {
+    try {
+        localStorage.removeItem(PREV_CONNECTED_KEY);
+    } catch {
+        // ignore
+    }
+}
+
 export function setAccessToken(token: string): void {
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(TOKEN_TS_KEY, Date.now().toString());
+    markConnected();
 }
 
 export function getAccessToken(): string | null {
