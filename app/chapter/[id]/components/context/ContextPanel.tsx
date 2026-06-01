@@ -32,7 +32,7 @@ export function ContextPanel() {
                         {character?.name ?? t("contextPanel_characterDetail")}
                     </h2>
                 </div>
-                <div className="flex flex-1 flex-col overflow-hidden p-4">
+                <div className="flex flex-1 flex-col overflow-y-auto p-4 pb-40">
                     <CharacterDetail characterId={detailPanel.characterId} />
                 </div>
             </div>
@@ -58,7 +58,7 @@ export function ContextPanel() {
                         {lore?.name ?? t("contextPanel_loreDetail")}
                     </h2>
                 </div>
-                <div className="flex flex-1 flex-col overflow-hidden p-4">
+                <div className="flex flex-1 flex-col overflow-y-auto p-4 pb-40">
                     <LoreDetail loreId={detailPanel.loreId} />
                 </div>
             </div>

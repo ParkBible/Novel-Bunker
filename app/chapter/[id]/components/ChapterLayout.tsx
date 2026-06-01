@@ -47,7 +47,7 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
             </div>
 
             {/* Mobile/tablet: tab switching */}
-            <div className="flex h-[100dvh] flex-col bg-zinc-50 lg:hidden dark:bg-black">
+            <div className="flex h-screen flex-col bg-zinc-50 lg:hidden dark:bg-black">
                 <div className="min-h-0 flex-1 overflow-hidden">
                     {activeTab === "tree" && (
                         <div className="h-full overflow-y-auto">

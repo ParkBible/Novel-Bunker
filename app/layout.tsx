@@ -24,9 +24,6 @@ export const viewport: Viewport = {
     width: "device-width",
     initialScale: 1,
     maximumScale: 1,
-    // 키보드가 올라오면 레이아웃 뷰포트(100dvh)도 함께 줄여서
-    // 하단 입력칸/탭이 키보드 뒤로 가려지지 않도록 함
-    interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
