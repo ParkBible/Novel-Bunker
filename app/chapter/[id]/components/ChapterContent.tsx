@@ -43,48 +43,65 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
 
     const needsScrollAfterLoadRef = useRef(false);
-    const editorReadyCountRef = useRef(0);
+    const scrollRafRef = useRef<number | null>(null);
 
-    // 챕터 변경 또는 마운트 시: 에디터 로드 전 스크롤 플래그를 먼저 세팅
-    // useLayoutEffect를 사용해 TipTap의 useEffect(onCreate)보다 먼저 실행되도록 보장
+    // 챕터 변경 또는 마운트 시: 진입 직후 선택된 씬으로 정렬해야 함을 표시
     // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
     useLayoutEffect(() => {
-        if (selectedSceneId) {
-            needsScrollAfterLoadRef.current = true;
-            editorReadyCountRef.current = 0;
-        }
+        needsScrollAfterLoadRef.current = !!selectedSceneId;
     }, [chapterId]);
 
-    // 같은 챕터 내 씬 이동: 에디터 이미 초기화됨, 뷰포트 밖일 때만 스크롤
-    useEffect(() => {
-        if (needsScrollAfterLoadRef.current) return;
-        if (!selectedSceneId) return;
-        const el = document.getElementById(`scene-${selectedSceneId}`);
-        if (!el) return;
-        const { top, bottom } = el.getBoundingClientRect();
-        const isVisible = top < window.innerHeight && bottom > 0;
-        if (!isVisible) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // 선택된 씬으로 스크롤.
+    // TipTap 에디터 콘텐츠가 한 박자 늦게 펼쳐지면서 씬 위치가 밀리므로,
+    // 여러 프레임에 걸쳐 재시도해 레이아웃이 확정된 최종 위치로 보정한다.
+    // (특히 모바일에서 목차 탭 → 편집 탭 전환으로 재마운트될 때 필수)
+    const scrollToSelectedScene = useCallback(() => {
+        const id = selectedSceneId;
+        if (!id) return;
+        // 진행 중인 이전 루프가 있으면 취소 (씬 연타 시 충돌 방지)
+        if (scrollRafRef.current !== null) {
+            cancelAnimationFrame(scrollRafRef.current);
         }
+        let frame = 0;
+        const step = () => {
+            const el = document.getElementById(`scene-${id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: "auto", block: "start" });
+            }
+            frame += 1;
+            scrollRafRef.current =
+                frame < 10 ? requestAnimationFrame(step) : null;
+        };
+        scrollRafRef.current = requestAnimationFrame(step);
     }, [selectedSceneId]);
 
-    // 다른 챕터 이동 / 모바일 탭 전환으로 인한 재마운트: 모든 에디터 초기화 완료 후 스크롤
-    const handleEditorReady = useCallback(() => {
-        if (!needsScrollAfterLoadRef.current) return;
-        editorReadyCountRef.current += 1;
-        if (editorReadyCountRef.current < chapterScenes.length) return;
-        needsScrollAfterLoadRef.current = false;
+    useEffect(() => {
         if (!selectedSceneId) return;
-        // 갓 마운트된 스크롤 컨테이너에 즉시 smooth 스크롤을 호출하면
-        // 레이아웃/페인트가 안정되기 전이라 모바일 브라우저가 무시함.
-        // 두 번의 rAF로 레이아웃이 확정된 뒤 스크롤하도록 보장.
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                const el = document.getElementById(`scene-${selectedSceneId}`);
-                el?.scrollIntoView({ behavior: "smooth", block: "start" });
-            });
-        });
-    }, [chapterScenes.length, selectedSceneId]);
+
+        if (needsScrollAfterLoadRef.current) {
+            // 마운트 / 챕터 진입 / 모바일 탭 전환 재마운트: 선택 씬을 맨 위로 정렬
+            needsScrollAfterLoadRef.current = false;
+            scrollToSelectedScene();
+        } else {
+            // 같은 화면 내 씬 변경: 화면 밖일 때만 부드럽게 스크롤
+            const el = document.getElementById(`scene-${selectedSceneId}`);
+            if (el) {
+                const { top, bottom } = el.getBoundingClientRect();
+                const isVisible = top < window.innerHeight && bottom > 0;
+                if (!isVisible) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }
+        }
+
+        // 씬 변경/언마운트 시 진행 중인 재시도 루프 정리
+        return () => {
+            if (scrollRafRef.current !== null) {
+                cancelAnimationFrame(scrollRafRef.current);
+                scrollRafRef.current = null;
+            }
+        };
+    }, [selectedSceneId, scrollToSelectedScene]);
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
@@ -195,7 +212,6 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
                                 scene={scene}
                                 sceneIndex={index + 1}
                                 onUpdate={handleSceneUpdate}
-                                onEditorReady={handleEditorReady}
                             />
                         </div>
                     ))}
