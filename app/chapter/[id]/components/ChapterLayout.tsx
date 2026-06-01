@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, MessageSquare, Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterContent } from "./ChapterContent";
@@ -18,11 +18,16 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
     const t = useTranslation();
     const [activeTab, setActiveTab] = useState<MobileTab>("editor");
     const detailPanel = useEditorStore((s) => s.detailPanel);
+    const prevDetailPanelRef = useRef(detailPanel);
 
-    // 설정집/캐릭터 상세가 열리면 모바일에서 자동으로 컨텍스트 탭으로 전환
-    // (씬 클릭 시 편집 탭으로 이동하는 것과 동일한 일관성 제공)
+    // 설정집/캐릭터 상세가 "새로 열릴 때"만 모바일에서 컨텍스트 탭으로 전환.
+    // detailPanel은 닫기 전까지 스토어에 남아있으므로, 단순히 truthy 여부로
+    // 전환하면 (다른 챕터 씬 클릭 등으로) 재마운트될 때 잔존 값 때문에
+    // 의도치 않게 AI 탭으로 튀는 문제가 생긴다 → 실제 전환(open)만 감지.
     useEffect(() => {
-        if (detailPanel) setActiveTab("context");
+        const prev = prevDetailPanelRef.current;
+        prevDetailPanelRef.current = detailPanel;
+        if (detailPanel && detailPanel !== prev) setActiveTab("context");
     }, [detailPanel]);
 
     const TABS: { id: MobileTab; label: string; Icon: React.ElementType }[] = [
