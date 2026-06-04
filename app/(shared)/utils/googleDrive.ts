@@ -96,91 +96,28 @@ export function getTokenRefreshDelayMs(): number {
     return Math.max(0, TOKEN_TTL_MS - TOKEN_REFRESH_MARGIN_MS - elapsed);
 }
 
-// GIS 스크립트(accounts.google.com/gsi/client)가 준비될 때까지 대기.
-// GoogleAuthScript가 로드 완료 시 "gis-loaded" 이벤트를 발생시킴.
-export function whenGisReady(timeoutMs = 10_000): Promise<boolean> {
-    return new Promise((resolve) => {
-        if (typeof window === "undefined") {
-            resolve(false);
-            return;
-        }
-        if (window.google?.accounts?.oauth2) {
-            resolve(true);
-            return;
-        }
-        let done = false;
-        const finish = () => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            window.removeEventListener("gis-loaded", finish);
-            resolve(!!window.google?.accounts?.oauth2);
-        };
-        const timer = setTimeout(finish, timeoutMs);
-        window.addEventListener("gis-loaded", finish);
-    });
-}
-
-// GIS를 이용한 무음 토큰 갱신 (UI 없음). 성공 시 새 토큰, 실패 시 null.
-export function tryRefreshTokenSilently(
+// 서버 API를 통한 토큰 자동 갱신 (refresh_token은 httpOnly 쿠키에 보관).
+// 성공 시 새 access_token, 실패(쿠키 없음/만료 등) 시 null.
+export async function tryRefreshTokenSilently(
     clientId: string,
 ): Promise<string | null> {
-    return new Promise((resolve) => {
-        if (!window.google?.accounts?.oauth2) {
-            resolve(null);
-            return;
-        }
-        try {
-            const client = window.google.accounts.oauth2.initTokenClient({
-                client_id: clientId,
-                scope: DRIVE_SCOPE,
-                prompt: "none", // 팝업/리다이렉트 없이 완전 무음 갱신
-                callback: (response) => {
-                    resolve(
-                        response.error ? null : (response.access_token ?? null),
-                    );
-                },
-            });
-            client.requestAccessToken();
-        } catch {
-            resolve(null);
-        }
-    });
-}
-
-// ── 자동 로그인 플래그 (localStorage) ──────────────────────────
-// 한 번이라도 연결에 성공하면 표시 → 다음 방문 시 무음 재연결 시도 대상.
-// 사용자가 명시적으로 "연결 해제"하면 초기화.
-const PREV_CONNECTED_KEY = "gdrivePrevConnected";
-
-export function markConnected(): void {
     try {
-        localStorage.setItem(PREV_CONNECTED_KEY, "1");
+        const res = await fetch("/api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data.access_token as string) ?? null;
     } catch {
-        // private browsing 등에서 무시
-    }
-}
-
-export function wasConnectedBefore(): boolean {
-    try {
-        return localStorage.getItem(PREV_CONNECTED_KEY) === "1";
-    } catch {
-        return false;
-    }
-}
-
-export function clearConnectedFlag(): void {
-    try {
-        localStorage.removeItem(PREV_CONNECTED_KEY);
-    } catch {
-        // ignore
+        return null;
     }
 }
 
 export function setAccessToken(token: string): void {
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(TOKEN_TS_KEY, Date.now().toString());
-    markConnected();
 }
 
 export function getAccessToken(): string | null {
@@ -246,33 +183,75 @@ export function listenForAuthToken(
     }
 }
 
-export function redirectToAuth(clientId: string): void {
+// ── PKCE 헬퍼 ────────────────────────────────────────────────
+const PKCE_VERIFIER_KEY = "driveCodeVerifier";
+
+function base64UrlEncode(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+}
+
+function generateCodeVerifier(): string {
+    const buf = new Uint8Array(32);
+    crypto.getRandomValues(buf);
+    return base64UrlEncode(buf);
+}
+
+async function generateCodeChallenge(verifier: string): Promise<string> {
+    const hash = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier),
+    );
+    return base64UrlEncode(new Uint8Array(hash));
+}
+
+// Authorization Code + PKCE flow → 서버가 refresh_token을 httpOnly 쿠키에 저장.
+export async function redirectToAuth(clientId: string): Promise<void> {
     sessionStorage.setItem(AUTH_RETURN_PATH_KEY, window.location.pathname);
     const redirectUri = `${window.location.origin}/auth`;
-    const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: "token",
-        scope: DRIVE_SCOPE,
-        include_granted_scopes: "true",
-    });
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-    // 새 창으로 열어 Turbopack HMR WebSocket 연결 유지 (팝업 차단 시 redirect 폴백)
+
+    // 팝업 차단 방지: 사용자 제스처 컨텍스트에서 먼저 빈 팝업을 연 뒤,
+    // 비동기 PKCE 계산이 끝나면 인증 URL로 이동시킨다.
     const popup = window.open(
-        authUrl,
+        "",
         "driveAuth",
         "width=520,height=650,left=100,top=100",
     );
-    if (!popup) {
+
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    // 팝업과 메인 창이 localStorage를 공유하므로 여기에 보관
+    localStorage.setItem(PKCE_VERIFIER_KEY, codeVerifier);
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: DRIVE_SCOPE,
+        access_type: "offline",
+        prompt: "consent", // refresh_token 항상 발급
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+        include_granted_scopes: "true",
+    });
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+    if (popup) {
+        popup.location.href = authUrl;
+    } else {
+        // 팝업 차단 시 전체 페이지 리다이렉트 폴백
         window.location.href = authUrl;
     }
 }
 
-export function parseTokenFromHash(): string | null {
-    if (typeof window === "undefined") return null;
-    const hash = window.location.hash.slice(1);
-    if (!hash) return null;
-    return new URLSearchParams(hash).get("access_token");
+export function getPkceVerifier(): string | null {
+    return localStorage.getItem(PKCE_VERIFIER_KEY);
+}
+
+export function clearPkceVerifier(): void {
+    localStorage.removeItem(PKCE_VERIFIER_KEY);
 }
 
 export function getAuthReturnPath(): string {
