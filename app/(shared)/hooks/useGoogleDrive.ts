@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditorStore } from "../stores/editorStore";
 import {
     clearAccessToken,
-    clearConnectedFlag,
     clearPendingAction,
     createAutoSnapshot,
     DriveAuthError,
@@ -23,8 +22,6 @@ import {
     saveLastSyncedAt,
     setAccessToken,
     tryRefreshTokenSilently,
-    wasConnectedBefore,
-    whenGisReady,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
@@ -144,20 +141,16 @@ export function useGoogleDrive(clientId?: string) {
         else if (pending === "download") downloadRef.current();
     }, [scheduleTokenRefresh]); // mount 시 1회만 실행
 
-    // 자동 로그인: clientId가 준비되고 이전에 연결한 적 있으면
-    // 앱 시작 시 무음 토큰 갱신을 시도해 UI 없이 재연결한다.
+    // 자동 로그인: access_token이 없으면 서버의 refresh_token 쿠키로
+    // 새 토큰을 받아 UI 없이 재연결한다. (탭/브라우저 종료 후 재방문 시에도 유지)
     useEffect(() => {
         if (!clientId) return;
         if (getAccessToken()) return; // 이미 토큰 있음
-        if (!wasConnectedBefore()) return; // 한 번도 연결한 적 없으면 시도 안 함
 
         let cancelled = false;
         (async () => {
-            const ready = await whenGisReady();
-            if (cancelled || !ready) return;
-            if (getAccessToken()) return; // 대기 중 다른 경로로 연결됨
             const token = await tryRefreshTokenSilently(clientId);
-            if (cancelled || !token) return; // 무음 갱신 실패 → 수동 로그인 필요
+            if (cancelled || !token) return; // 쿠키 없음/만료 → 수동 로그인 필요
             setAccessToken(token);
             setIsConnected(true);
             scheduleTokenRefresh();
@@ -190,7 +183,8 @@ export function useGoogleDrive(clientId?: string) {
     const disconnect = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         clearAccessToken();
-        clearConnectedFlag(); // 명시적 연결 해제 시 자동 재연결 비활성화
+        // 서버의 refresh_token 쿠키 삭제 → 자동 재연결 방지 (연결 해제가 유지됨)
+        void fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         setIsConnected(false);
         setSyncStatus("idle");
         setErrorMessage(null);

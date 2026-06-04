@@ -5,8 +5,9 @@ import { useEffect } from "react";
 import {
     broadcastAuthToken,
     clearAuthReturnPath,
+    clearPkceVerifier,
     getAuthReturnPath,
-    parseTokenFromHash,
+    getPkceVerifier,
     setAccessToken,
 } from "@/app/(shared)/utils/googleDrive";
 
@@ -14,21 +15,46 @@ export default function AuthCallback() {
     const router = useRouter();
 
     useEffect(() => {
-        const token = parseTokenFromHash();
-
-        // 팝업으로 열린 경우: 토큰을 원래 탭에 broadcast하고 창 닫기
+        const code = new URLSearchParams(window.location.search).get("code");
         const isPopup = window.opener !== null && window.opener !== window;
-        if (isPopup) {
-            if (token) broadcastAuthToken(token);
-            window.close();
+
+        const finish = (token?: string) => {
+            if (isPopup) {
+                if (token) broadcastAuthToken(token);
+                window.close();
+            } else {
+                if (token) setAccessToken(token);
+                const returnPath = getAuthReturnPath();
+                clearAuthReturnPath();
+                router.replace(returnPath);
+            }
+        };
+
+        if (!code) {
+            finish();
             return;
         }
 
-        // redirect 방식: 토큰 저장 후 원래 페이지로 복귀
-        if (token) setAccessToken(token);
-        const returnPath = getAuthReturnPath();
-        clearAuthReturnPath();
-        router.replace(returnPath);
+        const codeVerifier = getPkceVerifier();
+        const clientId = localStorage.getItem("googleClientId");
+        const redirectUri = `${window.location.origin}/auth`;
+
+        if (!codeVerifier || !clientId) {
+            finish();
+            return;
+        }
+
+        clearPkceVerifier();
+
+        // code → token 교환 (서버가 refresh_token을 httpOnly 쿠키에 저장)
+        fetch("/api/auth/callback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, codeVerifier, clientId, redirectUri }),
+        })
+            .then((res) => res.json())
+            .then((data) => finish(data.access_token ?? undefined))
+            .catch(() => finish());
     }, [router]);
 
     return (

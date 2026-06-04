@@ -102,21 +102,21 @@ export function DriveSync() {
         setConfirmKind("download");
     };
 
-    const handleConfirmUpload = () => {
+    const handleConfirmUpload = async () => {
         setConfirmKind(null);
         if (!getAccessToken()) {
             savePendingAction("upload");
-            redirectToAuth(clientId ?? "");
+            await redirectToAuth(clientId ?? "");
             return;
         }
         upload();
     };
 
-    const handleConfirmDownload = () => {
+    const handleConfirmDownload = async () => {
         setConfirmKind(null);
         if (!getAccessToken()) {
             savePendingAction("download");
-            redirectToAuth(clientId ?? "");
+            await redirectToAuth(clientId ?? "");
             return;
         }
         download();
@@ -236,9 +236,9 @@ export function DriveSync() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                             if (!getAccessToken()) {
-                                redirectToAuth(clientId ?? "");
+                                await redirectToAuth(clientId ?? "");
                                 return;
                             }
                             setShowSnapshots(true);
