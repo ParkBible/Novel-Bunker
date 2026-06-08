@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { Lore } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -11,7 +11,7 @@ const inlineInputClass =
     "w-full bg-transparent text-sm text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
 const inlineTextareaClass =
-    "w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
+    "w-full resize-none bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
 function InlineInput({
     value,
@@ -55,9 +55,9 @@ function AutoResizeTextarea({
     } = useDraftValue(value, onChange);
     const ref = useRef<HTMLTextAreaElement>(null);
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: draft를 의존성으로 등록하여 값 변경 시 높이 재계산 트리거
-    useEffect(() => {
-        if (ref.current) {
+    // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
+    useLayoutEffect(() => {
+        if (ref.current && !CSS.supports("field-sizing", "content")) {
             ref.current.style.height = "auto";
             ref.current.style.height = `${ref.current.scrollHeight}px`;
         }
@@ -72,7 +72,7 @@ function AutoResizeTextarea({
             onChange={(e) => saveDraft(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className={inlineTextareaClass}
+            className={`${inlineTextareaClass} field-sizing-content`}
         />
     );
 }
