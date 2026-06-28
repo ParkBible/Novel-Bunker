@@ -70,6 +70,26 @@ export function saveLastSyncedAt(date: Date): void {
     }
 }
 
+// ── 마지막으로 동기화한 원격 버전 (Drive modifiedTime) ────────
+// 벽시계 비교 대신 Drive가 부여한 modifiedTime 자체를 저장해 시계 오차를 방지한다.
+const LAST_SYNCED_MODIFIED_KEY = "novelbunker_drive_last_synced_modified";
+
+function getLastSyncedModified(): string | null {
+    try {
+        return localStorage.getItem(LAST_SYNCED_MODIFIED_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function saveLastSyncedModified(modifiedTime: string): void {
+    try {
+        localStorage.setItem(LAST_SYNCED_MODIFIED_KEY, modifiedTime);
+    } catch {
+        // ignore
+    }
+}
+
 // ── 상수 ──────────────────────────────────────────────────────
 const DRIVE_FILE_NAME = "novelbunker-data.json";
 const MANUAL_SNAPSHOT_PREFIX = "novelbunker-snapshot-manual-";
@@ -326,6 +346,42 @@ export async function findBackupFile(): Promise<string | null> {
     return (data.files as { id: string }[] | undefined)?.[0]?.id ?? null;
 }
 
+// ── Drive 백업 파일 메타데이터 (id + 수정 시각) ───────────────
+async function getRemoteFileMeta(): Promise<{
+    id: string;
+    modifiedTime: string;
+} | null> {
+    const res = await authFetch(
+        `${DRIVE_API}/files?spaces=appDataFolder&q=name%3D'${DRIVE_FILE_NAME}'&fields=files(id,modifiedTime)`,
+    );
+    const data = await res.json();
+    const file = (
+        data.files as { id: string; modifiedTime: string }[] | undefined
+    )?.[0];
+    return file ?? null;
+}
+
+// 현재 Drive 파일의 modifiedTime을 "마지막 동기화 버전"으로 기록한다.
+async function recordSyncedModified(): Promise<void> {
+    const meta = await getRemoteFileMeta();
+    if (meta) saveLastSyncedModified(meta.modifiedTime);
+}
+
+// ── 원격이 로컬보다 최신인지 확인 ────────────────────────────
+// 다른 기기에서 이 기기가 마지막으로 동기화한 이후에 업로드했으면 true.
+export async function checkRemoteNewer(): Promise<{
+    stale: boolean;
+    modifiedTime: Date | null;
+}> {
+    const meta = await getRemoteFileMeta();
+    if (!meta) return { stale: false, modifiedTime: null };
+    const lastSynced = getLastSyncedModified();
+    const modifiedTime = new Date(meta.modifiedTime);
+    // 한 번도 동기화한 적이 없는데 Drive에 백업이 있으면 stale로 간주
+    const stale = lastSynced === null || meta.modifiedTime !== lastSynced;
+    return { stale, modifiedTime };
+}
+
 // ── 스냅샷 목록 조회 ──────────────────────────────────────────
 export interface SnapshotInfo {
     id: string;
@@ -525,6 +581,8 @@ export async function exportToDrive(): Promise<void> {
     } else {
         await uploadNewFile(DRIVE_FILE_NAME, json);
     }
+    // 방금 올린 버전을 "마지막 동기화 버전"으로 기록 → stale 오탐 방지
+    await recordSyncedModified();
 }
 
 // ── 수동 스냅샷 생성 후 업로드 ───────────────────────────────
@@ -541,6 +599,8 @@ export async function importFromDrive(): Promise<void> {
     const res = await authFetch(`${DRIVE_API}/files/${fileId}?alt=media`);
     const data: BackupData = await res.json();
     await applyImportedData(data);
+    // 방금 받은 버전을 "마지막 동기화 버전"으로 기록
+    await recordSyncedModified();
 }
 
 // ── 데이터 복원 ───────────────────────────────────────────────

@@ -74,8 +74,11 @@ export function DriveSync() {
         syncStatus,
         errorMessage,
         lastSyncedAt,
+        isRemoteStale,
+        remoteModifiedAt,
         upload,
         download,
+        keepLocal,
         disconnect,
         loadSnapshots,
         restoreSnapshot,
@@ -120,6 +123,15 @@ export function DriveSync() {
             return;
         }
         download();
+    };
+
+    const handleKeepLocal = async () => {
+        if (!getAccessToken()) {
+            savePendingAction("upload");
+            await redirectToAuth(clientId ?? "");
+            return;
+        }
+        keepLocal();
     };
 
     if (!clientId || isEditingClientId) {
@@ -251,6 +263,39 @@ export function DriveSync() {
                     </button>
                 </div>
 
+                {isRemoteStale && !isSyncing && (
+                    <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 dark:border-amber-800 dark:bg-amber-950">
+                        <div className="mb-2 flex items-start gap-1.5">
+                            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
+                            <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+                                {remoteModifiedAt
+                                    ? t("drive_staleWarningTime", {
+                                          time: formatRelativeTime(
+                                              remoteModifiedAt,
+                                              t,
+                                          ),
+                                      })
+                                    : t("drive_staleWarning")}
+                            </p>
+                        </div>
+                        <div className="flex gap-1.5">
+                            <button
+                                type="button"
+                                onClick={openDownloadConfirm}
+                                className="flex-1 rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-600"
+                            >
+                                {t("drive_staleDownload")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleKeepLocal}
+                                className="flex-1 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
+                            >
+                                {t("drive_staleKeepLocal")}
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {!isConnected && lastSyncedAt && !isSyncing && (
                     <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
                         {t("drive_paused")}
