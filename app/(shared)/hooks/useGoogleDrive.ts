@@ -38,15 +38,27 @@ export function useGoogleDrive(clientId?: string) {
     const [remoteModifiedAt, setRemoteModifiedAt] = useState<Date | null>(null);
     const { loadData } = useEditorStore();
 
+    // 언마운트 후 setState 방지용 플래그
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
     // autoUpload 가드용 — stale일 때 자동 업로드로 원격 최신본을 덮어쓰지 않도록
     const isRemoteStaleRef = useRef(false);
-    isRemoteStaleRef.current = isRemoteStale;
+    useEffect(() => {
+        isRemoteStaleRef.current = isRemoteStale;
+    }, [isRemoteStale]);
 
     // 원격이 로컬보다 최신인지 확인 (토큰이 있을 때만)
     const checkStale = useCallback(async () => {
         if (!getAccessToken()) return;
         try {
             const { stale, modifiedTime } = await checkRemoteNewer();
+            if (!isMountedRef.current) return;
             setIsRemoteStale(stale);
             setRemoteModifiedAt(modifiedTime);
         } catch {
@@ -90,7 +102,9 @@ export function useGoogleDrive(clientId?: string) {
         setLastSyncedAt(getLastSyncedAt());
         if (connected) {
             scheduleTokenRefresh();
-            checkStale();
+            // 보류 액션이 있으면 곧 업로드/다운로드로 상태가 갱신되므로 stale 확인을 건너뛴다
+            // (병렬 실행 시 checkStale이 뒤늦게 끝나 stale을 잘못 되살리는 경쟁 상태 방지)
+            if (!getPendingAction()) checkStale();
         }
     }, [scheduleTokenRefresh, checkStale]);
 
@@ -180,10 +194,12 @@ export function useGoogleDrive(clientId?: string) {
             setAccessToken(token);
             setIsConnected(true);
             scheduleTokenRefresh();
-            checkStale(); // 자동 재연결 시에도 원격 최신본 확인
-            // 보류 중인 동작이 있으면 이어서 실행
+            // 보류 중인 동작이 있으면 이어서 실행 (그 경우 stale 확인은 건너뜀)
             const pending = getPendingAction();
-            if (!pending) return;
+            if (!pending) {
+                checkStale(); // 자동 재연결 시에도 원격 최신본 확인
+                return;
+            }
             clearPendingAction();
             if (pending === "upload") uploadRef.current();
             else if (pending === "download") downloadRef.current();
