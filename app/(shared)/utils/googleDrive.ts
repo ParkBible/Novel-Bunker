@@ -70,6 +70,26 @@ export function saveLastSyncedAt(date: Date): void {
     }
 }
 
+// ── 마지막으로 동기화한 원격 버전 (Drive modifiedTime) ────────
+// 벽시계 비교 대신 Drive가 부여한 modifiedTime 자체를 저장해 시계 오차를 방지한다.
+const LAST_SYNCED_MODIFIED_KEY = "novelbunker_drive_last_synced_modified";
+
+function getLastSyncedModified(): string | null {
+    try {
+        return localStorage.getItem(LAST_SYNCED_MODIFIED_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function saveLastSyncedModified(modifiedTime: string): void {
+    try {
+        localStorage.setItem(LAST_SYNCED_MODIFIED_KEY, modifiedTime);
+    } catch {
+        // ignore
+    }
+}
+
 // ── 상수 ──────────────────────────────────────────────────────
 const DRIVE_FILE_NAME = "novelbunker-data.json";
 const MANUAL_SNAPSHOT_PREFIX = "novelbunker-snapshot-manual-";
@@ -317,13 +337,35 @@ async function authFetch(
     return res;
 }
 
-// ── Drive 파일 탐색 ───────────────────────────────────────────
-export async function findBackupFile(): Promise<string | null> {
+// ── Drive 파일 탐색 (id + 수정 시각) ──────────────────────────
+export async function findBackupFile(): Promise<{
+    id: string;
+    modifiedTime: string;
+} | null> {
     const res = await authFetch(
-        `${DRIVE_API}/files?spaces=appDataFolder&q=name%3D'${DRIVE_FILE_NAME}'&fields=files(id)`,
+        `${DRIVE_API}/files?spaces=appDataFolder&q=name%3D'${DRIVE_FILE_NAME}'&fields=files(id,modifiedTime)`,
     );
     const data = await res.json();
-    return (data.files as { id: string }[] | undefined)?.[0]?.id ?? null;
+    return (
+        (
+            data.files as { id: string; modifiedTime: string }[] | undefined
+        )?.[0] ?? null
+    );
+}
+
+// ── 원격이 로컬보다 최신인지 확인 ────────────────────────────
+// 다른 기기에서 이 기기가 마지막으로 동기화한 이후에 업로드했으면 true.
+export async function checkRemoteNewer(): Promise<{
+    stale: boolean;
+    modifiedTime: Date | null;
+}> {
+    const file = await findBackupFile();
+    if (!file) return { stale: false, modifiedTime: null };
+    const lastSynced = getLastSyncedModified();
+    const modifiedTime = new Date(file.modifiedTime);
+    // 한 번도 동기화한 적이 없는데 Drive에 백업이 있으면 stale로 간주
+    const stale = lastSynced === null || file.modifiedTime !== lastSynced;
+    return { stale, modifiedTime };
 }
 
 // ── 스냅샷 목록 조회 ──────────────────────────────────────────
@@ -363,19 +405,29 @@ async function downloadFileText(fileId: string): Promise<string> {
     return res.text();
 }
 
-// ── 스냅샷 파일 업로드 (multipart) ───────────────────────────
-async function uploadNewFile(name: string, json: string): Promise<void> {
+// ── 새 파일 업로드 (multipart) — 응답에서 modifiedTime 반환 ───
+async function uploadNewFile(
+    name: string,
+    json: string,
+): Promise<string | null> {
     const metadata = JSON.stringify({ name, parents: ["appDataFolder"] });
     const boundary = "novelbunker_boundary";
     const body =
         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n` +
         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n` +
         `--${boundary}--`;
-    await authFetch(`${UPLOAD_API}/files?uploadType=multipart`, {
-        method: "POST",
-        headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-        body,
-    });
+    const res = await authFetch(
+        `${UPLOAD_API}/files?uploadType=multipart&fields=modifiedTime`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": `multipart/related; boundary=${boundary}`,
+            },
+            body,
+        },
+    );
+    const data = await res.json();
+    return (data.modifiedTime as string | undefined) ?? null;
 }
 
 // ── 타입별 오래된 스냅샷 정리 ────────────────────────────────
@@ -403,10 +455,10 @@ async function copyFile(fileId: string, name: string): Promise<void> {
 
 // ── 수동 스냅샷 생성 ──────────────────────────────────────────
 export async function createManualSnapshot(): Promise<void> {
-    const fileId = await findBackupFile();
-    if (!fileId) return;
+    const file = await findBackupFile();
+    if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await copyFile(fileId, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
+    await copyFile(file.id, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(MANUAL_SNAPSHOT_PREFIX, MAX_MANUAL_SNAPSHOTS);
 }
 
@@ -421,10 +473,10 @@ export async function createAutoSnapshot(): Promise<void> {
     } catch {
         // ignore
     }
-    const fileId = await findBackupFile();
-    if (!fileId) return;
+    const file = await findBackupFile();
+    if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await copyFile(fileId, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
+    await copyFile(file.id, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(AUTO_SNAPSHOT_PREFIX, MAX_AUTO_SNAPSHOTS);
     try {
         localStorage.setItem(LAST_AUTO_SNAPSHOT_KEY, new Date().toISOString());
@@ -514,17 +566,26 @@ export async function collectLocalData(): Promise<BackupData> {
 export async function exportToDrive(): Promise<void> {
     const data = await collectLocalData();
     const json = JSON.stringify(data);
-    const fileId = await findBackupFile();
+    const file = await findBackupFile();
 
-    if (fileId) {
-        await authFetch(`${UPLOAD_API}/files/${fileId}?uploadType=media`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: json,
-        });
+    // 업로드 응답에서 새 modifiedTime을 직접 받아 추가 조회 없이 기록한다.
+    let modifiedTime: string | null = null;
+    if (file) {
+        const res = await authFetch(
+            `${UPLOAD_API}/files/${file.id}?uploadType=media&fields=modifiedTime`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: json,
+            },
+        );
+        const meta = await res.json();
+        modifiedTime = (meta.modifiedTime as string | undefined) ?? null;
     } else {
-        await uploadNewFile(DRIVE_FILE_NAME, json);
+        modifiedTime = await uploadNewFile(DRIVE_FILE_NAME, json);
     }
+    // 방금 올린 버전을 "마지막 동기화 버전"으로 기록 → stale 오탐 방지
+    if (modifiedTime) saveLastSyncedModified(modifiedTime);
 }
 
 // ── 수동 스냅샷 생성 후 업로드 ───────────────────────────────
@@ -535,12 +596,14 @@ export async function exportToDriveWithSnapshot(): Promise<void> {
 
 // ── Drive에서 다운로드 ────────────────────────────────────────
 export async function importFromDrive(): Promise<void> {
-    const fileId = await findBackupFile();
-    if (!fileId) throw new Error("Drive에 저장된 백업이 없습니다.");
+    const file = await findBackupFile();
+    if (!file) throw new Error("Drive에 저장된 백업이 없습니다.");
 
-    const res = await authFetch(`${DRIVE_API}/files/${fileId}?alt=media`);
+    const res = await authFetch(`${DRIVE_API}/files/${file.id}?alt=media`);
     const data: BackupData = await res.json();
     await applyImportedData(data);
+    // 방금 받은 버전을 "마지막 동기화 버전"으로 기록 (추가 조회 불필요)
+    saveLastSyncedModified(file.modifiedTime);
 }
 
 // ── 데이터 복원 ───────────────────────────────────────────────
