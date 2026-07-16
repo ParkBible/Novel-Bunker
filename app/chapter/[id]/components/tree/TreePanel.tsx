@@ -15,8 +15,9 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { History } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -26,6 +27,7 @@ import { DriveSync } from "./DriveSync";
 import { LoreSection } from "./LoreSection";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 import { TreeSection } from "./TreeSection";
+import { VersionHistoryModal } from "./VersionHistoryModal";
 
 interface TreePanelProps {
     onSceneSelect?: () => void;
@@ -51,6 +53,8 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
         reorderScenes,
         addChapter,
     } = useEditorStore();
+
+    const [showVersions, setShowVersions] = useState(false);
 
     const chapterSensors = useSensors(
         useSensor(PointerSensor, {
@@ -202,7 +206,23 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
                 </TreeSection>
             </div>
 
+            <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
+                <button
+                    type="button"
+                    onClick={() => setShowVersions(true)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    title={t("version_title")}
+                >
+                    <History className="size-3.5" />
+                    {t("version_open")}
+                </button>
+            </div>
+
             <DriveSync />
+
+            {showVersions && (
+                <VersionHistoryModal onClose={() => setShowVersions(false)} />
+            )}
         </div>
     );
 }

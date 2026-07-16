@@ -45,7 +45,12 @@ export function SceneCard({
         500,
     );
 
-    const { draft: content, handleChange: handleContentChange } = useDraftValue(
+    const {
+        draft: content,
+        handleChange: handleContentChange,
+        handleFocus: handleContentFocus,
+        handleBlur: handleContentBlur,
+    } = useDraftValue(
         scene.content,
         async (val) => {
             if (scene.id !== undefined) {
@@ -127,6 +132,8 @@ export function SceneCard({
                     onChange={handleContentChange}
                     placeholder={t("sceneCard_contentPlaceholder")}
                     onReady={onEditorReady}
+                    onFocus={handleContentFocus}
+                    onBlur={handleContentBlur}
                 />
             </div>
         </div>

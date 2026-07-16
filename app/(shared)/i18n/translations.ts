@@ -234,6 +234,30 @@ export const ko = {
     snapshot_deleteTitle: "스냅샷 삭제",
     snapshot_footer: "수동 최대 5개 · 자동 최대 30개 유지",
 
+    // Local version history (compare/diff)
+    version_open: "버전 기록",
+    version_title: "버전 기록",
+    version_empty: "저장된 버전이 없습니다. 편집하면 자동으로 쌓입니다.",
+    version_saveNow: "지금 버전 저장",
+    version_saving: "저장 중...",
+    version_selectTwo: "비교할 두 버전을 선택하세요",
+    version_selectedCount: "{n}개 선택됨",
+    version_compare: "비교",
+    version_back: "← 목록",
+    version_restoreThis: "이 버전으로 복원",
+    version_confirmRestore:
+        "이 버전으로 복원하면 현재 내용을 덮어씁니다. 계속할까요?",
+    version_noChanges: "두 버전 사이에 바뀐 씬이 없습니다.",
+    version_changedScenes: "바뀐 씬 {n}개",
+    version_sceneNew: "새 씬",
+    version_sceneDeleted: "삭제됨",
+    version_older: "이전",
+    version_newer: "이후",
+    version_footer:
+        "로컬에 자동 저장 · 최근 건 촘촘히, 오래된 건 듬성하게 보관",
+    version_loadError: "불러오기 실패",
+    version_restoreError: "복원 실패",
+
     // Client ID guide modal
     guide_closeLabel: "모달 닫기",
     guide_title: "Google OAuth 클라이언트 ID 발급",
@@ -513,6 +537,30 @@ export const en = {
     snapshot_restoreTitle: "Restore this version",
     snapshot_deleteTitle: "Delete snapshot",
     snapshot_footer: "Up to 5 manual · 30 auto versions kept",
+
+    // Local version history (compare/diff)
+    version_open: "Version history",
+    version_title: "Version History",
+    version_empty: "No saved versions yet. They accumulate as you edit.",
+    version_saveNow: "Save version now",
+    version_saving: "Saving...",
+    version_selectTwo: "Select two versions to compare",
+    version_selectedCount: "{n} selected",
+    version_compare: "Compare",
+    version_back: "← Back",
+    version_restoreThis: "Restore this version",
+    version_confirmRestore:
+        "Restoring this version will overwrite your current content. Continue?",
+    version_noChanges: "No scenes changed between these two versions.",
+    version_changedScenes: "{n} changed scene(s)",
+    version_sceneNew: "New scene",
+    version_sceneDeleted: "Deleted",
+    version_older: "Older",
+    version_newer: "Newer",
+    version_footer:
+        "Auto-saved locally · recent kept densely, older thinned out",
+    version_loadError: "Failed to load",
+    version_restoreError: "Failed to restore",
 
     // Client ID guide modal
     guide_closeLabel: "Close modal",

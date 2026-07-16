@@ -274,7 +274,10 @@ export function useGoogleDrive(clientId?: string) {
         }
     }, []);
 
-    const autoUpload = useDebouncedCallback(autoUploadCore, 30_000);
+    // 언마운트 시 자동 업로드 flush는 하지 않음 (teardown 중 예기치 않은 업로드 방지)
+    const autoUpload = useDebouncedCallback(autoUploadCore, 30_000, {
+        flushOnUnmount: false,
+    });
 
     useEffect(() => {
         const unsubscribe = useEditorStore.subscribe((state, prevState) => {
