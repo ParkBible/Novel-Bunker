@@ -1,23 +1,9 @@
-import type {
-    AiConversation,
-    AiMessage,
-    Chapter,
-    Character,
-    CharacterRelationship,
-    Lore,
-    Scene,
-    Setting,
-} from "../db";
-import { db } from "../db";
 import {
-    aiConversationOps,
-    chapterOps,
-    characterOps,
-    loreOps,
-    relationshipOps,
-    sceneOps,
-    settingsOps,
-} from "../db/operations";
+    applyImportedData,
+    type BackupData,
+    collectLocalData,
+} from "../db/backup";
+import { chapterOps, characterOps, loreOps, sceneOps } from "../db/operations";
 
 export class DriveAuthError extends Error {
     constructor(msg: string) {
@@ -513,55 +499,6 @@ export async function isLocalDataEmpty(): Promise<boolean> {
     );
 }
 
-// ── 로컬 데이터 수집 ──────────────────────────────────────────
-interface BackupData {
-    version: number;
-    exportedAt: string;
-    chapters: Chapter[];
-    scenes: Scene[];
-    characters: Character[];
-    characterRelationships: CharacterRelationship[];
-    lores: Lore[];
-    settings: Setting[];
-    aiConversations: AiConversation[];
-    aiMessages: AiMessage[];
-}
-
-export async function collectLocalData(): Promise<BackupData> {
-    const [
-        chapters,
-        scenes,
-        characters,
-        characterRelationships,
-        lores,
-        settings,
-        aiConversations,
-        aiMessages,
-    ] = await Promise.all([
-        chapterOps.getAll(),
-        sceneOps.getAll(),
-        characterOps.getAll(),
-        relationshipOps.getAll(),
-        loreOps.getAll(),
-        settingsOps.getAll(),
-        aiConversationOps.getAll(),
-        db.aiMessages.toArray(),
-    ]);
-
-    return {
-        version: 2,
-        exportedAt: new Date().toISOString(),
-        chapters,
-        scenes,
-        characters,
-        characterRelationships,
-        lores,
-        settings,
-        aiConversations,
-        aiMessages,
-    };
-}
-
 // ── Drive에 업로드 ────────────────────────────────────────────
 export async function exportToDrive(): Promise<void> {
     const data = await collectLocalData();
@@ -604,72 +541,4 @@ export async function importFromDrive(): Promise<void> {
     await applyImportedData(data);
     // 방금 받은 버전을 "마지막 동기화 버전"으로 기록 (추가 조회 불필요)
     saveLastSyncedModified(file.modifiedTime);
-}
-
-// ── 데이터 복원 ───────────────────────────────────────────────
-async function applyImportedData(data: BackupData): Promise<void> {
-    const toDate = (v: unknown): Date =>
-        v instanceof Date ? v : new Date(v as string);
-
-    const chapters = data.chapters.map((c) => ({
-        ...c,
-        createdAt: toDate(c.createdAt),
-        updatedAt: toDate(c.updatedAt),
-    }));
-    const scenes = data.scenes.map((s) => ({
-        ...s,
-        createdAt: toDate(s.createdAt),
-        updatedAt: toDate(s.updatedAt),
-    }));
-    const lores = data.lores.map((l) => ({
-        ...l,
-        createdAt: toDate(l.createdAt),
-        updatedAt: toDate(l.updatedAt),
-    }));
-
-    const aiConversations = (data.aiConversations ?? []).map((c) => ({
-        ...c,
-        createdAt: toDate(c.createdAt),
-        updatedAt: toDate(c.updatedAt),
-    }));
-    const aiMessages = (data.aiMessages ?? []).map((m) => ({
-        ...m,
-        createdAt: toDate(m.createdAt),
-    }));
-
-    await db.transaction(
-        "rw",
-        [
-            db.chapters,
-            db.scenes,
-            db.characters,
-            db.characterRelationships,
-            db.lores,
-            db.settings,
-            db.aiConversations,
-            db.aiMessages,
-        ],
-        async () => {
-            await db.chapters.clear();
-            await db.scenes.clear();
-            await db.characters.clear();
-            await db.characterRelationships.clear();
-            await db.lores.clear();
-            await db.settings.clear();
-            await db.aiConversations.clear();
-            await db.aiMessages.clear();
-
-            await db.chapters.bulkAdd(chapters);
-            await db.scenes.bulkAdd(scenes);
-            await db.characters.bulkAdd(data.characters);
-            await db.characterRelationships.bulkAdd(
-                data.characterRelationships,
-            );
-            await db.lores.bulkAdd(lores);
-            await db.settings.bulkAdd(data.settings);
-            if (aiConversations.length > 0)
-                await db.aiConversations.bulkAdd(aiConversations);
-            if (aiMessages.length > 0) await db.aiMessages.bulkAdd(aiMessages);
-        },
-    );
 }

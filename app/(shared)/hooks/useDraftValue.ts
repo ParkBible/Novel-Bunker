@@ -16,6 +16,22 @@ export function useDraftValue(
         }
     }, [value]);
 
+    // 탭 숨김/페이지 이탈 시 대기 중이던 저장을 즉시 커밋 → 마지막 입력 유실 방지
+    useEffect(() => {
+        const flush = () => debouncedSave.flush();
+        const handleVisibility = () => {
+            if (document.visibilityState === "hidden") flush();
+        };
+        window.addEventListener("beforeunload", flush);
+        window.addEventListener("pagehide", flush);
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => {
+            window.removeEventListener("beforeunload", flush);
+            window.removeEventListener("pagehide", flush);
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
+    }, [debouncedSave]);
+
     const handleChange = (val: string) => {
         setDraft(val);
         debouncedSave(val);
@@ -27,6 +43,8 @@ export function useDraftValue(
 
     const handleBlur = () => {
         isFocusedRef.current = false;
+        // 포커스를 잃으면 대기 중이던 저장을 즉시 커밋
+        debouncedSave.flush();
     };
 
     return { draft, handleChange, handleFocus, handleBlur };

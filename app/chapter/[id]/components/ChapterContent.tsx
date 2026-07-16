@@ -9,6 +9,7 @@ import {
     useState,
 } from "react";
 import { sceneOps } from "@/app/(shared)/db/operations";
+import { useLocalSnapshots } from "@/app/(shared)/hooks/useLocalSnapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { AddSceneButton } from "./scene/AddSceneButton";
@@ -28,6 +29,9 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         selectedSceneId,
     } = useEditorStore();
     const t = useTranslation();
+
+    // 로컬 버전 히스토리 자동 스냅샷
+    useLocalSnapshots();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState("");

@@ -87,6 +87,16 @@ export interface CharacterMessage {
     createdAt: Date;
 }
 
+// 로컬 버전 히스토리 스냅샷 (프로젝트 전체를 JSON 문자열로 보관)
+export interface Snapshot {
+    id?: number;
+    createdAt: Date;
+    type: "manual" | "auto";
+    label?: string;
+    // JSON.stringify(BackupData) — 용량/직렬화 단순화를 위해 문자열로 저장
+    data: string;
+}
+
 // Database class
 class NovelBunkerDB extends Dexie {
     chapters!: EntityTable<Chapter, "id">;
@@ -98,6 +108,7 @@ class NovelBunkerDB extends Dexie {
     aiConversations!: EntityTable<AiConversation, "id">;
     aiMessages!: EntityTable<AiMessage, "id">;
     characterMessages!: EntityTable<CharacterMessage, "id">;
+    snapshots!: EntityTable<Snapshot, "id">;
 
     constructor() {
         super("NovelBunkerDB");
@@ -210,6 +221,19 @@ class NovelBunkerDB extends Dexie {
                     ),
                 );
             });
+
+        this.version(9).stores({
+            chapters: "++id, order, createdAt",
+            scenes: "++id, chapterId, order, [chapterId+order], createdAt",
+            characters: "++id, name, order, group",
+            characterRelationships: "++id, fromCharacterId, toCharacterId",
+            lores: "++id, category, order, createdAt",
+            settings: "key",
+            aiConversations: "++id, createdAt",
+            aiMessages: "++id, conversationId, createdAt",
+            characterMessages: "++id, characterId, createdAt",
+            snapshots: "++id, createdAt, type",
+        });
     }
 }
 

@@ -12,6 +12,8 @@ interface SceneEditorProps {
     onChange: (content: string) => void;
     placeholder?: string;
     onReady?: () => void;
+    onFocus?: () => void;
+    onBlur?: () => void;
 }
 
 export function SceneEditor({
@@ -19,6 +21,8 @@ export function SceneEditor({
     onChange,
     placeholder,
     onReady,
+    onFocus,
+    onBlur,
 }: SceneEditorProps) {
     const t = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -26,6 +30,11 @@ export function SceneEditor({
     const mouseRef = useRef({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
     const isToolbarActionRef = useRef(false);
+    // 이벤트 재구독 없이 최신 콜백을 참조하기 위한 ref
+    const onFocusRef = useRef(onFocus);
+    onFocusRef.current = onFocus;
+    const onBlurRef = useRef(onBlur);
+    onBlurRef.current = onBlur;
     const [bubbleMenu, setBubbleMenu] = useState<{
         top: number;
         left: number;
@@ -139,15 +148,22 @@ export function SceneEditor({
         const handleMouseUp = () => {
             isDraggingRef.current = false;
         };
+        const handleFocusEv = () => onFocusRef.current?.();
+        const handleBlurEv = () => {
+            setBubbleMenu(null);
+            onBlurRef.current?.();
+        };
 
         editor.on("selectionUpdate", handleSelectionUpdate);
-        editor.on("blur", () => setBubbleMenu(null));
+        editor.on("focus", handleFocusEv);
+        editor.on("blur", handleBlurEv);
         document.addEventListener("mousedown", handleMouseDown);
         document.addEventListener("mouseup", handleMouseUp);
 
         return () => {
             editor.off("selectionUpdate", handleSelectionUpdate);
-            editor.off("blur", () => setBubbleMenu(null));
+            editor.off("focus", handleFocusEv);
+            editor.off("blur", handleBlurEv);
             document.removeEventListener("mousedown", handleMouseDown);
             document.removeEventListener("mouseup", handleMouseUp);
         };
