@@ -74,7 +74,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
 
         const container = getScrollContainer();
         const content = contentRootRef.current;
-        if (!container) return;
+        if (!container || !content) return;
 
         const align = () => {
             const target = document.getElementById(`scene-${id}`);
@@ -88,14 +88,15 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         align(); // 즉시 1회
 
         // 콘텐츠 높이가 바뀔 때마다(에디터 펼침 등) 재정렬
-        const observer = content ? new ResizeObserver(align) : null;
-        observer?.observe(content as Element);
+        // container가 존재하면 content(contentRootRef.current)도 항상 non-null
+        const observer = new ResizeObserver(align);
+        observer.observe(content);
 
         let cleaned = false;
         const cleanup = () => {
             if (cleaned) return;
             cleaned = true;
-            observer?.disconnect();
+            observer.disconnect();
             container.removeEventListener("wheel", cleanup);
             container.removeEventListener("touchmove", cleanup);
             clearTimeout(timer);
