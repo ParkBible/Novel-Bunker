@@ -46,8 +46,20 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const currentChapter = chapters.find((c) => c.id === chapterId);
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
 
+    const contentRootRef = useRef<HTMLDivElement>(null);
     const needsScrollAfterLoadRef = useRef(false);
-    const scrollRafRef = useRef<number | null>(null);
+    // 진행 중인 정렬 작업(옵저버/리스너)을 취소하는 함수
+    const scrollCleanupRef = useRef<(() => void) | null>(null);
+
+    // ChapterContent를 감싼 실제 스크롤 컨테이너(.editor-scroll)를 찾는다.
+    // (데스크톱/모바일 모두 동일 클래스를 사용 — scrollIntoView의 조상 탐색 대신
+    //  이 컨테이너의 scrollTop을 직접 제어해 중첩 스크롤 오작동을 피한다)
+    const getScrollContainer = useCallback(
+        () =>
+            contentRootRef.current?.closest<HTMLElement>(".editor-scroll") ??
+            null,
+        [],
+    );
 
     // 챕터 변경 또는 마운트 시: 진입 직후 선택된 씬으로 정렬해야 함을 표시
     // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
@@ -55,57 +67,93 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         needsScrollAfterLoadRef.current = !!selectedSceneId;
     }, [chapterId]);
 
-    // 선택된 씬으로 스크롤.
-    // TipTap 에디터 콘텐츠가 한 박자 늦게 펼쳐지면서 씬 위치가 밀리므로,
-    // 여러 프레임에 걸쳐 재시도해 레이아웃이 확정된 최종 위치로 보정한다.
-    // (특히 모바일에서 목차 탭 → 편집 탭 전환으로 재마운트될 때 필수)
-    const scrollToSelectedScene = useCallback(() => {
+    // 선택된 씬을 스크롤 컨테이너 최상단으로 정렬.
+    // TipTap 에디터/폰트가 뒤늦게 펼쳐지며 높이가 바뀌므로, 고정 프레임 반복 대신
+    // ResizeObserver로 "레이아웃이 안정될 때까지" 재정렬한다. 사용자가 직접
+    // 스크롤하면 즉시 중단. (특히 모바일 탭 전환 재마운트 시 필수)
+    const alignSelectedSceneToTop = useCallback(() => {
         const id = selectedSceneId;
         if (!id) return;
-        // 진행 중인 이전 루프가 있으면 취소 (씬 연타 시 충돌 방지)
-        if (scrollRafRef.current !== null) {
-            cancelAnimationFrame(scrollRafRef.current);
-        }
-        let frame = 0;
-        const step = () => {
-            const el = document.getElementById(`scene-${id}`);
-            if (el) {
-                el.scrollIntoView({ behavior: "auto", block: "start" });
-            }
-            frame += 1;
-            scrollRafRef.current =
-                frame < 10 ? requestAnimationFrame(step) : null;
-        };
-        scrollRafRef.current = requestAnimationFrame(step);
-    }, [selectedSceneId]);
+        scrollCleanupRef.current?.(); // 이전 정렬 작업 취소
 
+        const container = getScrollContainer();
+        const content = contentRootRef.current;
+        if (!container || !content) return;
+
+        const align = () => {
+            const target = document.getElementById(`scene-${id}`);
+            if (!target) return;
+            const delta =
+                target.getBoundingClientRect().top -
+                container.getBoundingClientRect().top;
+            if (Math.abs(delta) > 1) container.scrollTop += delta;
+        };
+
+        align(); // 즉시 1회
+
+        // 콘텐츠 높이가 바뀔 때마다(에디터 펼침 등) 재정렬
+        // container가 존재하면 content(contentRootRef.current)도 항상 non-null
+        const observer = new ResizeObserver(align);
+        observer.observe(content);
+
+        let cleaned = false;
+        const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            observer.disconnect();
+            container.removeEventListener("wheel", cleanup);
+            container.removeEventListener("touchmove", cleanup);
+            clearTimeout(timer);
+            scrollCleanupRef.current = null;
+        };
+        // 사용자가 직접 스크롤하면 자동 정렬 중단
+        container.addEventListener("wheel", cleanup, { passive: true });
+        container.addEventListener("touchmove", cleanup, { passive: true });
+        // 안전 상한: 레이아웃이 그 안에 안정된다고 보고 관찰 종료
+        const timer = setTimeout(cleanup, 1500);
+        scrollCleanupRef.current = cleanup;
+    }, [selectedSceneId, getScrollContainer]);
+
+    // isInitialized는 로딩 완료(스크롤 컨테이너 마운트) 시 재실행하기 위한 의도적 의존성
+    // biome-ignore lint/correctness/useExhaustiveDependencies: isInitialized는 재실행 트리거용
     useEffect(() => {
         if (!selectedSceneId) return;
+        const container = getScrollContainer();
+        // 아직 콘텐츠(스크롤 컨테이너)가 마운트되지 않음 — 로딩 완료 시 재실행됨
+        // (needsScrollAfterLoad 플래그를 소비하지 않고 그대로 둔다)
+        if (!container) return;
 
         if (needsScrollAfterLoadRef.current) {
             // 마운트 / 챕터 진입 / 모바일 탭 전환 재마운트: 선택 씬을 맨 위로 정렬
             needsScrollAfterLoadRef.current = false;
-            scrollToSelectedScene();
+            alignSelectedSceneToTop();
         } else {
-            // 같은 화면 내 씬 변경: 화면 밖일 때만 부드럽게 스크롤
+            // 같은 화면 내 씬 변경: 컨테이너 밖일 때만 부드럽게 스크롤
             const el = document.getElementById(`scene-${selectedSceneId}`);
             if (el) {
-                const { top, bottom } = el.getBoundingClientRect();
-                const isVisible = top < window.innerHeight && bottom > 0;
+                const cRect = container.getBoundingClientRect();
+                const eRect = el.getBoundingClientRect();
+                const isVisible =
+                    eRect.top < cRect.bottom && eRect.bottom > cRect.top;
                 if (!isVisible) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    container.scrollTo({
+                        top: container.scrollTop + (eRect.top - cRect.top),
+                        behavior: "smooth",
+                    });
                 }
             }
         }
 
-        // 씬 변경/언마운트 시 진행 중인 재시도 루프 정리
+        // 씬 변경/언마운트 시 진행 중인 정렬 작업 정리
         return () => {
-            if (scrollRafRef.current !== null) {
-                cancelAnimationFrame(scrollRafRef.current);
-                scrollRafRef.current = null;
-            }
+            scrollCleanupRef.current?.();
         };
-    }, [selectedSceneId, scrollToSelectedScene]);
+    }, [
+        selectedSceneId,
+        isInitialized,
+        alignSelectedSceneToTop,
+        getScrollContainer,
+    ]);
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
@@ -170,7 +218,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     }
 
     return (
-        <div className="px-4 py-6 lg:px-8 lg:py-8">
+        <div ref={contentRootRef} className="px-4 py-6 lg:px-8 lg:py-8">
             <div className="mx-auto max-w-3xl">
                 <div className="mb-12">
                     <div className="group mb-6 flex items-center gap-2">
