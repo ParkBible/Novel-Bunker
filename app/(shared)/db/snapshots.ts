@@ -52,7 +52,14 @@ export const snapshotOps = {
             .orderBy("createdAt")
             .reverse()
             .first();
-        if (latest && latest.data === json) return null; // 변경 없음
+        if (latest) {
+            const latestData = JSON.parse(latest.data) as BackupData;
+            // exportedAt은 수집 시각이라 매번 달라지므로 비교에서 제외
+            const hasChanged =
+                JSON.stringify({ ...data, exportedAt: "" }) !==
+                JSON.stringify({ ...latestData, exportedAt: "" });
+            if (!hasChanged) return null; // 변경 없음
+        }
         const id = await db.snapshots.add({
             createdAt: new Date(),
             type: "auto",

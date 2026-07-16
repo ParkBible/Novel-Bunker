@@ -3,6 +3,7 @@ import type {
     AiMessage,
     Chapter,
     Character,
+    CharacterMessage,
     CharacterRelationship,
     Lore,
     Scene,
@@ -31,6 +32,8 @@ export interface BackupData {
     settings: Setting[];
     aiConversations: AiConversation[];
     aiMessages: AiMessage[];
+    // 하위 호환: 구버전 백업에는 없을 수 있어 선택적 필드
+    characterMessages?: CharacterMessage[];
 }
 
 // ── 로컬 데이터 전체 수집 ─────────────────────────────────────
@@ -44,6 +47,7 @@ export async function collectLocalData(): Promise<BackupData> {
         settings,
         aiConversations,
         aiMessages,
+        characterMessages,
     ] = await Promise.all([
         chapterOps.getAll(),
         sceneOps.getAll(),
@@ -53,6 +57,7 @@ export async function collectLocalData(): Promise<BackupData> {
         settingsOps.getAll(),
         aiConversationOps.getAll(),
         db.aiMessages.toArray(),
+        db.characterMessages.toArray(),
     ]);
 
     return {
@@ -66,6 +71,7 @@ export async function collectLocalData(): Promise<BackupData> {
         settings,
         aiConversations,
         aiMessages,
+        characterMessages,
     };
 }
 
@@ -99,6 +105,10 @@ export async function applyImportedData(data: BackupData): Promise<void> {
         ...m,
         createdAt: toDate(m.createdAt),
     }));
+    const characterMessages = (data.characterMessages ?? []).map((m) => ({
+        ...m,
+        createdAt: toDate(m.createdAt),
+    }));
 
     await db.transaction(
         "rw",
@@ -111,6 +121,7 @@ export async function applyImportedData(data: BackupData): Promise<void> {
             db.settings,
             db.aiConversations,
             db.aiMessages,
+            db.characterMessages,
         ],
         async () => {
             await db.chapters.clear();
@@ -121,6 +132,7 @@ export async function applyImportedData(data: BackupData): Promise<void> {
             await db.settings.clear();
             await db.aiConversations.clear();
             await db.aiMessages.clear();
+            await db.characterMessages.clear();
 
             await db.chapters.bulkAdd(chapters);
             await db.scenes.bulkAdd(scenes);
@@ -133,6 +145,8 @@ export async function applyImportedData(data: BackupData): Promise<void> {
             if (aiConversations.length > 0)
                 await db.aiConversations.bulkAdd(aiConversations);
             if (aiMessages.length > 0) await db.aiMessages.bulkAdd(aiMessages);
+            if (characterMessages.length > 0)
+                await db.characterMessages.bulkAdd(characterMessages);
         },
     );
 }

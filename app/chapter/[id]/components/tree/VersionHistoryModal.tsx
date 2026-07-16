@@ -1,9 +1,11 @@
 "use client";
 
 import { GitCompare, History, RotateCcw, Save, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { type SnapshotMeta, snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { diffScenes, type SceneDiff } from "@/app/(shared)/utils/diff";
 
@@ -28,6 +30,8 @@ interface ComparePair {
 
 export function VersionHistoryModal({ onClose }: Props) {
     const t = useTranslation();
+    const params = useParams();
+    const router = useRouter();
     const { loadData } = useEditorStore();
 
     const [metas, setMetas] = useState<SnapshotMeta[]>([]);
@@ -113,6 +117,27 @@ export function VersionHistoryModal({ onClose }: Props) {
             await snapshotOps.createAutoIfChanged();
             await snapshotOps.restore(id);
             await loadData();
+
+            // 현재 보고 있던 챕터가 복원된 데이터에 없으면 안전한 경로로 이동
+            const restoredChapters = useEditorStore.getState().chapters;
+            const currentChapterId =
+                typeof params.id === "string"
+                    ? Number.parseInt(params.id, 10)
+                    : null;
+            const exists = restoredChapters.some(
+                (c) => c.id === currentChapterId,
+            );
+            if (!exists) {
+                if (restoredChapters.length > 0) {
+                    const firstChapter = [...restoredChapters].sort(
+                        (a, b) => a.order - b.order,
+                    )[0];
+                    router.push(routes.chapter(firstChapter.id as number));
+                } else {
+                    router.push(routes.dashboard);
+                }
+            }
+
             onClose();
         } catch {
             setError(t("version_restoreError"));
