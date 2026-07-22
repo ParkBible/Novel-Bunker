@@ -19,6 +19,18 @@ interface ChapterContentProps {
     chapterId: number;
 }
 
+// 요소가 속한 실제 스크롤 컨테이너(overflow-y auto/scroll)를 찾는다.
+// 모바일/데스크톱 모두 window가 아니라 내부 div가 스크롤되므로 필수.
+function getScrollParent(node: HTMLElement | null): HTMLElement | null {
+    let el = node?.parentElement ?? null;
+    while (el) {
+        const oy = getComputedStyle(el).overflowY;
+        if (oy === "auto" || oy === "scroll") return el;
+        el = el.parentElement;
+    }
+    return null;
+}
+
 export function ChapterContent({ chapterId }: ChapterContentProps) {
     const {
         chapters,
@@ -47,7 +59,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
 
     const needsScrollAfterLoadRef = useRef(false);
-    const scrollRafRef = useRef<number | null>(null);
+    const settleCleanupRef = useRef<(() => void) | null>(null);
 
     // 챕터 변경 또는 마운트 시: 진입 직후 선택된 씬으로 정렬해야 함을 표시
     // biome-ignore lint/correctness/useExhaustiveDependencies: chapterId 변경 시에만 실행 의도적
@@ -55,29 +67,70 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         needsScrollAfterLoadRef.current = !!selectedSceneId;
     }, [chapterId]);
 
-    // 선택된 씬으로 스크롤.
-    // TipTap 에디터 콘텐츠가 한 박자 늦게 펼쳐지면서 씬 위치가 밀리므로,
-    // 여러 프레임에 걸쳐 재시도해 레이아웃이 확정된 최종 위치로 보정한다.
-    // (특히 모바일에서 목차 탭 → 편집 탭 전환으로 재마운트될 때 필수)
-    const scrollToSelectedScene = useCallback(() => {
+    // 선택된 씬을 스크롤 컨테이너 최상단에 맞춘다.
+    // scrollIntoView는 모바일(iOS Safari) 내부 컨테이너에서 자주 무시되므로,
+    // 컨테이너 기준 상대 위치를 계산해 scrollTop을 직접 설정한다(신뢰성 ↑).
+    const alignSelectedToTop = useCallback(() => {
         const id = selectedSceneId;
         if (!id) return;
-        // 진행 중인 이전 루프가 있으면 취소 (씬 연타 시 충돌 방지)
-        if (scrollRafRef.current !== null) {
-            cancelAnimationFrame(scrollRafRef.current);
+        const el = document.getElementById(`scene-${id}`);
+        if (!el) return;
+        const container = getScrollParent(el);
+        if (!container) {
+            el.scrollIntoView({ block: "start" });
+            return;
         }
-        let frame = 0;
-        const step = () => {
-            const el = document.getElementById(`scene-${id}`);
-            if (el) {
-                el.scrollIntoView({ behavior: "auto", block: "start" });
-            }
-            frame += 1;
-            scrollRafRef.current =
-                frame < 10 ? requestAnimationFrame(step) : null;
-        };
-        scrollRafRef.current = requestAnimationFrame(step);
+        const delta =
+            el.getBoundingClientRect().top -
+            container.getBoundingClientRect().top;
+        if (Math.abs(delta) > 1) container.scrollTop += delta;
     }, [selectedSceneId]);
+
+    // 진입/탭 전환 직후 선택 씬으로 정렬.
+    // TipTap 에디터가 한 박자 늦게 펼쳐지며 위치가 밀리므로, 고정 프레임 수로
+    // 추측하지 않고 ResizeObserver로 레이아웃이 확정될 때까지 재정렬한다(결정적).
+    // 단, 사용자가 손으로 스크롤하면 즉시 중단해 "스크롤 중 순간이동"을 막는다.
+    const runSettlingScroll = useCallback(() => {
+        settleCleanupRef.current?.();
+        if (!selectedSceneId) return;
+
+        const el = document.getElementById(`scene-${selectedSceneId}`);
+        const container = getScrollParent(el);
+        // 관찰 대상은 컨테이너가 아니라 "콘텐츠 래퍼". 컨테이너를 관찰하면
+        // 모바일 주소창 표시/숨김에 의한 높이 변화로 오작동한다.
+        const content = container?.firstElementChild ?? null;
+
+        alignSelectedToTop();
+
+        let raf = 0;
+        const realign = () => {
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(alignSelectedToTop);
+        };
+
+        const ro =
+            content && typeof ResizeObserver !== "undefined"
+                ? new ResizeObserver(realign)
+                : null;
+        if (ro && content) ro.observe(content);
+
+        // 사용자가 직접 스크롤/터치하면 정렬을 포기하고 사용자 조작을 존중
+        const stop = () => cleanup();
+        container?.addEventListener("wheel", stop, { passive: true });
+        container?.addEventListener("touchmove", stop, { passive: true });
+
+        const timer = window.setTimeout(() => cleanup(), 1200);
+
+        function cleanup() {
+            ro?.disconnect();
+            cancelAnimationFrame(raf);
+            clearTimeout(timer);
+            container?.removeEventListener("wheel", stop);
+            container?.removeEventListener("touchmove", stop);
+            settleCleanupRef.current = null;
+        }
+        settleCleanupRef.current = cleanup;
+    }, [selectedSceneId, alignSelectedToTop]);
 
     useEffect(() => {
         if (!selectedSceneId) return;
@@ -85,27 +138,25 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         if (needsScrollAfterLoadRef.current) {
             // 마운트 / 챕터 진입 / 모바일 탭 전환 재마운트: 선택 씬을 맨 위로 정렬
             needsScrollAfterLoadRef.current = false;
-            scrollToSelectedScene();
+            runSettlingScroll();
         } else {
-            // 같은 화면 내 씬 변경: 화면 밖일 때만 부드럽게 스크롤
+            // 같은 화면 내 씬 변경: 컨테이너 기준 화면 밖일 때만 정렬
             const el = document.getElementById(`scene-${selectedSceneId}`);
-            if (el) {
-                const { top, bottom } = el.getBoundingClientRect();
-                const isVisible = top < window.innerHeight && bottom > 0;
-                if (!isVisible) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
+            const container = getScrollParent(el);
+            if (el && container) {
+                const elRect = el.getBoundingClientRect();
+                const cRect = container.getBoundingClientRect();
+                const isVisible =
+                    elRect.top < cRect.bottom && elRect.bottom > cRect.top;
+                if (!isVisible) alignSelectedToTop();
             }
         }
 
-        // 씬 변경/언마운트 시 진행 중인 재시도 루프 정리
+        // 씬 변경/언마운트 시 진행 중인 정렬 루프 정리
         return () => {
-            if (scrollRafRef.current !== null) {
-                cancelAnimationFrame(scrollRafRef.current);
-                scrollRafRef.current = null;
-            }
+            settleCleanupRef.current?.();
         };
-    }, [selectedSceneId, scrollToSelectedScene]);
+    }, [selectedSceneId, runSettlingScroll, alignSelectedToTop]);
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
