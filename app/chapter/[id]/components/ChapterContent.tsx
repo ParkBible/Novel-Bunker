@@ -81,7 +81,10 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         if (!container || !content) return;
 
         const align = () => {
-            const target = document.getElementById(`scene-${id}`);
+            // 데스크톱/모바일 레이아웃이 동시에 렌더되어 scene-{id}가 DOM에
+            // 중복 존재한다. document.getElementById는 먼저 나오는 숨겨진
+            // 데스크톱 사본을 반환하므로, 반드시 이 인스턴스의 서브트리에서 찾는다.
+            const target = content.querySelector(`#scene-${id}`);
             if (!target) return;
             const delta =
                 target.getBoundingClientRect().top -
@@ -129,7 +132,10 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
             alignSelectedSceneToTop();
         } else {
             // 같은 화면 내 씬 변경: 컨테이너 밖일 때만 부드럽게 스크롤
-            const el = document.getElementById(`scene-${selectedSceneId}`);
+            // (중복 DOM 회피 위해 이 인스턴스의 서브트리에서 조회)
+            const el = contentRootRef.current?.querySelector(
+                `#scene-${selectedSceneId}`,
+            );
             if (el) {
                 const cRect = container.getBoundingClientRect();
                 const eRect = el.getBoundingClientRect();
@@ -154,6 +160,51 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         alignSelectedSceneToTop,
         getScrollContainer,
     ]);
+
+    // 모바일: 사용자가 손으로 편집 영역을 스크롤하면 포커스된 에디터를 블러한다.
+    // 포커스된 contenteditable/input이 있으면 모바일 브라우저(특히 iOS)가 커서를
+    // 화면에 유지하려고 스크롤을 커서 위치로 되돌리는 네이티브 동작이 있어
+    // "스크롤 중 커서 씬으로 순간이동"이 발생한다. 실제 스크롤이 일어난 터치
+    // 제스처에서만 블러하므로, 프로그램적 정렬 스크롤이나 제자리 텍스트 선택은
+    // 영향을 받지 않는다.
+    // isInitialized: 스크롤 컨테이너 마운트 후 리스너를 붙이기 위한 의존성
+    // biome-ignore lint/correctness/useExhaustiveDependencies: isInitialized는 재실행 트리거용
+    useEffect(() => {
+        const container = getScrollContainer();
+        if (!container) return;
+
+        let touching = false;
+        const onTouchStart = () => {
+            touching = true;
+        };
+        const onTouchEnd = () => {
+            touching = false;
+        };
+        const onScroll = () => {
+            if (!touching) return; // 프로그램적(정렬) 스크롤 제외
+            const active = document.activeElement;
+            if (
+                active instanceof HTMLElement &&
+                container.contains(active) &&
+                (active.isContentEditable ||
+                    active.tagName === "INPUT" ||
+                    active.tagName === "TEXTAREA")
+            ) {
+                active.blur();
+            }
+        };
+
+        container.addEventListener("touchstart", onTouchStart, {
+            passive: true,
+        });
+        container.addEventListener("touchend", onTouchEnd, { passive: true });
+        container.addEventListener("scroll", onScroll, { passive: true });
+        return () => {
+            container.removeEventListener("touchstart", onTouchStart);
+            container.removeEventListener("touchend", onTouchEnd);
+            container.removeEventListener("scroll", onScroll);
+        };
+    }, [getScrollContainer, isInitialized]);
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
