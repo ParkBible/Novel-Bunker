@@ -134,7 +134,7 @@ export function VersionHistoryModal({ onClose }: Props) {
                     )[0];
                     router.push(routes.chapter(firstChapter.id as number));
                 } else {
-                    router.push(routes.dashboard);
+                    router.push(routes.home);
                 }
             }
 

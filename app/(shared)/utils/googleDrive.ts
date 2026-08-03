@@ -3,7 +3,7 @@ import {
     type BackupData,
     collectLocalData,
 } from "../db/backup";
-import { chapterOps, characterOps, loreOps, sceneOps } from "../db/operations";
+import { projectOps } from "../db/operations";
 
 export class DriveAuthError extends Error {
     constructor(msg: string) {
@@ -483,20 +483,10 @@ export async function deleteSnapshot(fileId: string): Promise<void> {
     await authFetch(`${DRIVE_API}/files/${fileId}`, { method: "DELETE" });
 }
 
-// ── 로컬 데이터가 비어있는지 확인 ────────────────────────────
+// ── 로컬 데이터가 비어있는지 확인 (작품이 하나도 없으면 비어있음) ──
 export async function isLocalDataEmpty(): Promise<boolean> {
-    const [chapters, scenes, characters, lores] = await Promise.all([
-        chapterOps.getAll(),
-        sceneOps.getAll(),
-        characterOps.getAll(),
-        loreOps.getAll(),
-    ]);
-    return (
-        chapters.length === 0 &&
-        scenes.length === 0 &&
-        characters.length === 0 &&
-        lores.length === 0
-    );
+    const projects = await projectOps.getAll();
+    return projects.length === 0;
 }
 
 // ── Drive에 업로드 ────────────────────────────────────────────

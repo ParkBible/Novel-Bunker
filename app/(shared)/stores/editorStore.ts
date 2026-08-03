@@ -4,13 +4,14 @@ import type {
     Character,
     CharacterRelationship,
     Lore,
+    Project,
     Scene,
 } from "../db";
 import {
     chapterOps,
     characterOps,
     loreOps,
-    novelOps,
+    projectOps,
     relationshipOps,
     sceneOps,
     settingsOps,
@@ -28,6 +29,8 @@ export type DetailPanel =
 
 interface EditorState {
     // Data
+    projects: Project[];
+    activeProjectId: number | null;
     chapters: Chapter[];
     scenes: Scene[];
     characters: Character[];
@@ -49,7 +52,18 @@ interface EditorState {
     dataVersion: number;
 
     // Actions
-    loadData: () => Promise<void>;
+    loadProjects: () => Promise<Project[]>;
+    // projectId 생략 시 현재 활성 작품(없으면 첫 작품)을 로드
+    loadData: (projectId?: number) => Promise<void>;
+    loadDataForChapter: (chapterId: number) => Promise<void>;
+    addProject: (
+        title: string,
+    ) => Promise<{ projectId: number; firstChapterId: number }>;
+    deleteProject: (id: number) => Promise<void>;
+    renameProject: (id: number, title: string) => Promise<void>;
+    reorderProjects: (activeId: number, overId: number) => Promise<void>;
+    setActiveProject: (id: number) => Promise<void>;
+    updateSynopsis: (synopsis: string) => Promise<void>;
     addChapter: (title: string) => Promise<number>;
     setGeminiModel: (model: GeminiModelId) => Promise<void>;
     setGeminiApiKey: (key: string) => Promise<void>;
@@ -110,8 +124,33 @@ interface EditorState {
     getSelectedScene: () => Scene | null;
 }
 
+// 인물 그룹/설정집 카테고리는 활성 작품(Project) 레코드에 저장한다.
+async function persistCharacterGroups(
+    get: () => EditorState,
+    groups: string[],
+): Promise<void> {
+    const { activeProjectId } = get();
+    if (activeProjectId !== null) {
+        await projectOps.update(activeProjectId, { characterGroups: groups });
+    }
+}
+
+async function persistLoreCategories(
+    get: () => EditorState,
+    categories: string[],
+): Promise<void> {
+    const { activeProjectId } = get();
+    if (activeProjectId !== null) {
+        await projectOps.update(activeProjectId, {
+            loreCategories: categories,
+        });
+    }
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
     // Initial state
+    projects: [],
+    activeProjectId: null,
     chapters: [],
     scenes: [],
     characters: [],
@@ -131,71 +170,94 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     dataVersion: 0,
 
     // Actions
-    loadData: async () => {
-        if (!get().isInitialized) {
-            await initializeDemoData();
+    // 갤러리용: 데모 데이터 보장 후 작품 목록 + 전역 설정 로드
+    loadProjects: async () => {
+        await initializeDemoData();
+        const [projects, savedGeminiModel, savedGeminiApiKey] =
+            await Promise.all([
+                projectOps.getAll(),
+                settingsOps.get("geminiModel"),
+                settingsOps.get("geminiApiKey"),
+            ]);
+        set({
+            projects,
+            geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
+                ? (savedGeminiModel as GeminiModelId)
+                : DEFAULT_GEMINI_MODEL,
+            geminiApiKey: savedGeminiApiKey || "",
+        });
+        return projects;
+    },
+
+    // 특정 작품의 전체 데이터를 로드해 에디터/개요에서 사용
+    loadData: async (projectId) => {
+        await initializeDemoData();
+
+        const allProjects = await projectOps.getAll();
+        // 대상 작품 결정: 인자 > 활성 작품 > 첫 작품
+        let targetId = projectId ?? get().activeProjectId ?? null;
+        if (targetId === null || !allProjects.some((p) => p.id === targetId)) {
+            targetId = allProjects[0]?.id ?? null;
+        }
+
+        if (targetId === null) {
+            // 작품이 하나도 없음 (전부 삭제된 상태)
+            set({
+                projects: allProjects,
+                activeProjectId: null,
+                chapters: [],
+                scenes: [],
+                characters: [],
+                relationships: [],
+                lores: [],
+                isInitialized: true,
+                dataVersion: get().dataVersion + 1,
+            });
+            return;
         }
 
         const [
+            project,
             chapters,
             scenes,
             characters,
             relationships,
             lores,
-            synopsis,
-            novelTitle,
-            savedCategories,
-            savedCharGroups,
             savedGeminiModel,
             savedGeminiApiKey,
         ] = await Promise.all([
-            chapterOps.getAll(),
-            sceneOps.getAll(),
-            characterOps.getAll(),
-            relationshipOps.getAll(),
-            loreOps.getAll(),
-            settingsOps.get("synopsis"),
-            settingsOps.get("novelTitle"),
-            settingsOps.get("loreCategories"),
-            settingsOps.get("characterGroups"),
+            projectOps.get(targetId),
+            chapterOps.getAll(targetId),
+            sceneOps.getAll(targetId),
+            characterOps.getAll(targetId),
+            relationshipOps.getAll(targetId),
+            loreOps.getAll(targetId),
             settingsOps.get("geminiModel"),
             settingsOps.get("geminiApiKey"),
         ]);
 
-        const defaultCategories = ["세계관", "장소", "아이템"];
-        const loreCategories = (() => {
-            if (!savedCategories) return defaultCategories;
-            try {
-                return JSON.parse(savedCategories);
-            } catch (e) {
-                console.error(
-                    "Failed to parse loreCategories from settings:",
-                    e,
-                );
-                return defaultCategories;
-            }
-        })();
-
-        const defaultCharGroups = ["주인공", "조연", "기타"];
-        const characterGroups = (() => {
-            if (!savedCharGroups) return defaultCharGroups;
-            try {
-                return JSON.parse(savedCharGroups);
-            } catch {
-                return defaultCharGroups;
-            }
-        })();
+        await settingsOps.set("activeProjectId", String(targetId));
 
         set({
+            projects: allProjects,
+            activeProjectId: targetId,
             chapters,
             scenes,
             characters,
             relationships,
             lores,
-            loreCategories,
-            characterGroups,
-            synopsis: synopsis || "",
-            novelTitle: novelTitle || "",
+            loreCategories: project?.loreCategories ?? [
+                "세계관",
+                "장소",
+                "아이템",
+            ],
+            characterGroups: project?.characterGroups ?? [
+                "주인공",
+                "조연",
+                "기타",
+            ],
+            synopsis: project?.synopsis ?? "",
+            novelTitle: project?.title ?? "",
             isInitialized: true,
             geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
                 ? (savedGeminiModel as GeminiModelId)
@@ -207,15 +269,92 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         });
     },
 
+    // 챕터 id로 소속 작품을 찾아 로드 (딥링크/작품 전환 안전성)
+    loadDataForChapter: async (chapterId) => {
+        const projectId = await chapterOps.getProjectId(chapterId);
+        if (projectId === undefined) {
+            set({ isInitialized: true });
+            return;
+        }
+        if (
+            get().isInitialized &&
+            get().activeProjectId === projectId &&
+            get().chapters.some((c) => c.id === chapterId)
+        ) {
+            return; // 이미 해당 작품이 로드됨
+        }
+        await get().loadData(projectId);
+    },
+
+    addProject: async (title) => {
+        const result = await projectOps.create(title);
+        const projects = await projectOps.getAll();
+        set({ projects });
+        return result;
+    },
+
+    deleteProject: async (id) => {
+        await projectOps.delete(id);
+        const projects = await projectOps.getAll();
+        const { activeProjectId } = get();
+        set({
+            projects,
+            activeProjectId: activeProjectId === id ? null : activeProjectId,
+        });
+    },
+
+    renameProject: async (id, title) => {
+        await projectOps.update(id, { title });
+        set({
+            projects: get().projects.map((p) =>
+                p.id === id ? { ...p, title } : p,
+            ),
+            novelTitle: get().activeProjectId === id ? title : get().novelTitle,
+        });
+    },
+
+    reorderProjects: async (activeId, overId) => {
+        const sorted = [...get().projects].sort((a, b) => a.order - b.order);
+        const oldIndex = sorted.findIndex((p) => p.id === activeId);
+        const newIndex = sorted.findIndex((p) => p.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        await Promise.all(
+            reordered.map((p, i) =>
+                p.order !== i ? projectOps.reorder(p.id!, i) : null,
+            ),
+        );
+        set({ projects: reordered.map((p, i) => ({ ...p, order: i })) });
+    },
+
+    setActiveProject: async (id) => {
+        await settingsOps.set("activeProjectId", String(id));
+        set({ activeProjectId: id });
+    },
+
+    updateSynopsis: async (synopsis) => {
+        const { activeProjectId } = get();
+        if (activeProjectId !== null) {
+            await projectOps.update(activeProjectId, { synopsis });
+        }
+        set({ synopsis });
+    },
+
     addChapter: async (title) => {
-        const { chapters, expandedChapterIds } = get();
-        const id = await chapterOps.create(title);
+        const { chapters, expandedChapterIds, activeProjectId } = get();
+        if (activeProjectId === null) throw new Error("활성 작품이 없습니다.");
+        const id = await chapterOps.create(activeProjectId, title);
         const order =
             chapters.length > 0
                 ? Math.max(...chapters.map((c) => c.order)) + 1
                 : 0;
         const newChapter: Chapter = {
             id,
+            projectId: activeProjectId,
             title,
             order,
             createdAt: new Date(),
@@ -253,16 +392,34 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         set({ expandedChapterIds: next });
     },
     updateNovelTitle: async (title) => {
-        await novelOps.updateNovelTitle(title);
-        set({ novelTitle: title });
+        const { activeProjectId } = get();
+        if (activeProjectId !== null) {
+            await projectOps.update(activeProjectId, { title });
+        }
+        set({
+            novelTitle: title,
+            projects: get().projects.map((p) =>
+                p.id === activeProjectId ? { ...p, title } : p,
+            ),
+        });
     },
 
     // Character actions
     addCharacter: async (name, group) => {
+        const { activeProjectId } = get();
+        if (activeProjectId === null) throw new Error("활성 작품이 없습니다.");
         const order = get().characters.length;
-        const id = await characterOps.create(name, "", [], order, group);
+        const id = await characterOps.create(
+            activeProjectId,
+            name,
+            "",
+            [],
+            order,
+            group,
+        );
         const newCharacter: Character = {
             id,
+            projectId: activeProjectId,
             name,
             description: "",
             tags: [],
@@ -296,13 +453,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     addCharacterGroup: async (group) => {
         const groups = [...get().characterGroups, group];
-        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        await persistCharacterGroups(get, groups);
         set({ characterGroups: groups });
     },
 
     removeCharacterGroup: async (group) => {
         const groups = get().characterGroups.filter((g) => g !== group);
-        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        await persistCharacterGroups(get, groups);
         set({ characterGroups: groups });
     },
 
@@ -310,7 +467,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const groups = get().characterGroups.map((g) =>
             g === oldName ? newName : g,
         );
-        await settingsOps.set("characterGroups", JSON.stringify(groups));
+        await persistCharacterGroups(get, groups);
         const affected = get().characters.filter((c) => c.group === oldName);
         await Promise.all(
             affected.map((c) => characterOps.update(c.id!, { group: newName })),
@@ -406,12 +563,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     // Relationship actions
     addRelationship: async (fromCharacterId, toCharacterId, label) => {
+        const { activeProjectId } = get();
+        if (activeProjectId === null) throw new Error("활성 작품이 없습니다.");
         const id = await relationshipOps.create(
+            activeProjectId,
             fromCharacterId,
             toCharacterId,
             label,
         );
-        const newRelationship = { id, fromCharacterId, toCharacterId, label };
+        const newRelationship = {
+            id,
+            projectId: activeProjectId,
+            fromCharacterId,
+            toCharacterId,
+            label,
+        };
         set({
             relationships: [...get().relationships, newRelationship],
         });
@@ -426,9 +592,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     // Lore actions
     addLore: async (name, category) => {
-        const { id, order } = await loreOps.create(name, category);
+        const { activeProjectId } = get();
+        if (activeProjectId === null) throw new Error("활성 작품이 없습니다.");
+        const { id, order } = await loreOps.create(
+            activeProjectId,
+            name,
+            category,
+        );
         const newLore = {
             id,
+            projectId: activeProjectId,
             name,
             category,
             description: "",
@@ -455,13 +628,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     addLoreCategory: async (category) => {
         const categories = [...get().loreCategories, category];
-        await settingsOps.set("loreCategories", JSON.stringify(categories));
+        await persistLoreCategories(get, categories);
         set({ loreCategories: categories });
     },
 
     removeLoreCategory: async (category) => {
         const categories = get().loreCategories.filter((c) => c !== category);
-        await settingsOps.set("loreCategories", JSON.stringify(categories));
+        await persistLoreCategories(get, categories);
         set({ loreCategories: categories });
     },
 

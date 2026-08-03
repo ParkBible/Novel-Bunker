@@ -1,8 +1,23 @@
 import Dexie, { type EntityTable } from "dexie";
 
 // Type definitions for database entities
+
+// 작품(프로젝트) — 챕터/씬/인물/설정집/관계/AI대화의 최상위 소속 단위
+export interface Project {
+    id?: number;
+    title: string;
+    synopsis: string;
+    loreCategories: string[];
+    characterGroups: string[];
+    order: number;
+    coverColor?: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export interface AiConversation {
     id?: number;
+    projectId: number;
     title: string;
     createdAt: Date;
     updatedAt: Date;
@@ -22,6 +37,7 @@ export interface AiMessage {
 
 export interface Chapter {
     id?: number;
+    projectId: number;
     title: string;
     order: number;
     memo?: string;
@@ -31,6 +47,7 @@ export interface Chapter {
 
 export interface Scene {
     id?: number;
+    projectId: number;
     chapterId: number;
     title: string;
     content: string;
@@ -44,6 +61,7 @@ export interface Scene {
 
 export interface Character {
     id?: number;
+    projectId: number;
     name: string;
     description: string;
     tags: string[];
@@ -59,6 +77,7 @@ export interface Character {
 
 export interface CharacterRelationship {
     id?: number;
+    projectId: number;
     fromCharacterId: number;
     toCharacterId: number;
     label: string;
@@ -66,6 +85,7 @@ export interface CharacterRelationship {
 
 export interface Lore {
     id?: number;
+    projectId: number;
     name: string;
     category: string;
     description: string;
@@ -99,6 +119,7 @@ export interface Snapshot {
 
 // Database class
 class NovelBunkerDB extends Dexie {
+    projects!: EntityTable<Project, "id">;
     chapters!: EntityTable<Chapter, "id">;
     scenes!: EntityTable<Scene, "id">;
     characters!: EntityTable<Character, "id">;
@@ -234,6 +255,85 @@ class NovelBunkerDB extends Dexie {
             characterMessages: "++id, characterId, createdAt",
             snapshots: "++id, createdAt, type",
         });
+
+        // v10: 멀티 프로젝트 도입. 모든 콘텐츠를 projects에 소속시킨다.
+        this.version(10)
+            .stores({
+                projects: "++id, order, createdAt",
+                chapters:
+                    "++id, projectId, [projectId+order], order, createdAt",
+                scenes: "++id, chapterId, projectId, [chapterId+order], order, createdAt",
+                characters: "++id, projectId, name, order, group",
+                characterRelationships:
+                    "++id, projectId, fromCharacterId, toCharacterId",
+                lores: "++id, projectId, category, order, createdAt",
+                settings: "key",
+                aiConversations: "++id, projectId, createdAt",
+                aiMessages: "++id, conversationId, createdAt",
+                characterMessages: "++id, characterId, createdAt",
+                snapshots: "++id, createdAt, type",
+            })
+            .upgrade(async (tx) => {
+                // 기존 단일 작품 설정을 읽어 기본 작품 1개로 편입
+                const settingsTable = tx.table("settings");
+                const getSetting = async (key: string) => {
+                    const row = await settingsTable.get(key);
+                    return row?.value as string | undefined;
+                };
+                const parseArray = (
+                    raw: string | undefined,
+                    fallback: string[],
+                ): string[] => {
+                    if (!raw) return fallback;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        return Array.isArray(parsed) ? parsed : fallback;
+                    } catch {
+                        return fallback;
+                    }
+                };
+
+                const now = new Date();
+                const projectId = (await tx.table("projects").add({
+                    title: (await getSetting("novelTitle")) || "제목 없는 작품",
+                    synopsis: (await getSetting("synopsis")) || "",
+                    loreCategories: parseArray(
+                        await getSetting("loreCategories"),
+                        ["세계관", "장소", "아이템"],
+                    ),
+                    characterGroups: parseArray(
+                        await getSetting("characterGroups"),
+                        ["주인공", "조연", "기타"],
+                    ),
+                    order: 0,
+                    createdAt: now,
+                    updatedAt: now,
+                })) as number;
+
+                // 기존 콘텐츠 전 레코드에 projectId 부여
+                for (const table of [
+                    "chapters",
+                    "scenes",
+                    "characters",
+                    "characterRelationships",
+                    "lores",
+                    "aiConversations",
+                ]) {
+                    await tx.table(table).toCollection().modify({ projectId });
+                }
+
+                // 작품으로 이관된 전역 키 정리, 활성 작품 지정
+                await settingsTable.bulkDelete([
+                    "novelTitle",
+                    "synopsis",
+                    "loreCategories",
+                    "characterGroups",
+                ]);
+                await settingsTable.put({
+                    key: "activeProjectId",
+                    value: String(projectId),
+                });
+            });
     }
 }
 
