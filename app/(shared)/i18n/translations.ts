@@ -22,6 +22,21 @@ export const ko = {
     // Home page
     home_loading: "로딩 중...",
 
+    // Works gallery
+    gallery_title: "내 작품들",
+    gallery_newWork: "새 작품",
+    gallery_newWorkDefault: "새 작품",
+    gallery_untitled: "제목 없는 작품",
+    gallery_empty: "아직 작품이 없습니다. 새 작품을 만들어 시작하세요.",
+    gallery_deleteConfirm:
+        "이 작품과 모든 챕터·씬·인물·설정이 영구히 삭제됩니다. 계속할까요?",
+    gallery_rename: "이름 변경",
+    gallery_openOverview: "개요 보기",
+    gallery_open: "열기",
+    gallery_sceneUnit: "씬",
+    gallery_chapterUnit: "챕터",
+    work_backToGallery: "작품 목록",
+
     // Theme
     theme_toLight: "라이트 모드로 전환",
     theme_toDark: "다크 모드로 전환",
@@ -324,6 +339,21 @@ export const en = {
 
     // Home page
     home_loading: "Loading...",
+
+    // Works gallery
+    gallery_title: "My Works",
+    gallery_newWork: "New Work",
+    gallery_newWorkDefault: "New Work",
+    gallery_untitled: "Untitled Work",
+    gallery_empty: "No works yet. Create one to get started.",
+    gallery_deleteConfirm:
+        "This work and all its chapters, scenes, characters and settings will be permanently deleted. Continue?",
+    gallery_rename: "Rename",
+    gallery_openOverview: "Overview",
+    gallery_open: "Open",
+    gallery_sceneUnit: "scenes",
+    gallery_chapterUnit: "chapters",
+    work_backToGallery: "All works",
 
     // Theme
     theme_toLight: "Switch to light mode",

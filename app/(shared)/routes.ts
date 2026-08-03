@@ -1,5 +1,6 @@
 export const routes = {
-    dashboard: "/",
+    home: "/", // 작품 갤러리
+    work: (id: number) => `/works/${id}`, // 작품별 개요(대시보드)
     chapter: (id: number) => `/chapter/${id}`,
     chapterPrefix: "/chapter/",
 } as const;

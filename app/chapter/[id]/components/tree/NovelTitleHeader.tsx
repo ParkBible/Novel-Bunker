@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 interface NovelTitleHeaderProps {
     title: string;
@@ -19,6 +20,7 @@ export function NovelTitleHeader({
     onAddChapter,
 }: NovelTitleHeaderProps) {
     const t = useTranslation();
+    const activeProjectId = useEditorStore((s) => s.activeProjectId);
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(title);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +92,11 @@ export function NovelTitleHeader({
             <div className="ml-2 flex shrink-0 items-center gap-1">
                 <ThemeToggle />
                 <Link
-                    href={routes.dashboard}
+                    href={
+                        activeProjectId !== null
+                            ? routes.work(activeProjectId)
+                            : routes.home
+                    }
                     className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     title={t("novelTitle_dashboard")}
                 >

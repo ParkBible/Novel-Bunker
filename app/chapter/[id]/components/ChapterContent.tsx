@@ -24,7 +24,9 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         chapters,
         scenes,
         isInitialized,
+        activeProjectId,
         loadData,
+        loadDataForChapter,
         updateChapterTitle,
         selectedSceneId,
     } = useEditorStore();
@@ -37,11 +39,10 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     const [editedTitle, setEditedTitle] = useState("");
     const titleInputRef = useRef<HTMLInputElement>(null);
 
+    // 챕터 id로 소속 작품을 찾아 로드 (다른 작품의 챕터로 이동해도 안전)
     useEffect(() => {
-        if (!isInitialized) {
-            loadData();
-        }
-    }, [isInitialized, loadData]);
+        loadDataForChapter(chapterId);
+    }, [chapterId, loadDataForChapter]);
 
     const currentChapter = chapters.find((c) => c.id === chapterId);
     const chapterScenes = scenes.filter((s) => s.chapterId === chapterId);
@@ -237,12 +238,18 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
     };
 
     const handleAddScene = async (chapterId: number, order: number) => {
-        await sceneOps.create(chapterId, t("chapterContent_newScene"), order);
-        await loadData();
+        if (activeProjectId === null) return;
+        await sceneOps.create(
+            chapterId,
+            activeProjectId,
+            t("chapterContent_newScene"),
+            order,
+        );
+        await loadData(activeProjectId);
     };
 
     const handleSceneUpdate = async () => {
-        await loadData();
+        if (activeProjectId !== null) await loadData(activeProjectId);
     };
 
     if (!isInitialized) {

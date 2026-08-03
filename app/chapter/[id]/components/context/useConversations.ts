@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import type { AiConversation, AiMessage } from "@/app/(shared)/db";
 import { aiConversationOps, aiMessageOps } from "@/app/(shared)/db/operations";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 export function useConversations() {
+    const activeProjectId = useEditorStore((s) => s.activeProjectId);
     const [conversations, setConversations] = useState<AiConversation[]>([]);
     const [activeConvId, setActiveConvId] = useState<number | null>(null);
     const [messages, setMessages] = useState<AiMessage[]>([]);
 
     useEffect(() => {
-        aiConversationOps.getAll().then((convs) => {
+        if (activeProjectId === null) return;
+        aiConversationOps.getAll(activeProjectId).then((convs) => {
             setConversations(convs);
-            if (convs.length > 0) setActiveConvId(convs[0].id!);
+            setActiveConvId(convs.length > 0 ? convs[0].id! : null);
         });
-    }, []);
+    }, [activeProjectId]);
 
     useEffect(() => {
         if (activeConvId !== null) {
@@ -23,9 +26,11 @@ export function useConversations() {
     }, [activeConvId]);
 
     const handleNew = async () => {
-        const id = await aiConversationOps.create("새 대화");
+        if (activeProjectId === null) return;
+        const id = await aiConversationOps.create(activeProjectId, "새 대화");
         const newConv: AiConversation = {
             id,
+            projectId: activeProjectId,
             title: "새 대화",
             createdAt: new Date(),
             updatedAt: new Date(),

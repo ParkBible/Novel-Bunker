@@ -7,18 +7,140 @@ import {
     type CharacterRelationship,
     db,
     type Lore,
+    type Project,
     type Scene,
     type Setting,
 } from "./index";
 
-// AI Conversation Operations
-export const aiConversationOps = {
-    async getAll(): Promise<AiConversation[]> {
-        return db.aiConversations.orderBy("createdAt").reverse().toArray();
+const DEFAULT_LORE_CATEGORIES = ["세계관", "장소", "아이템"];
+const DEFAULT_CHARACTER_GROUPS = ["주인공", "조연", "기타"];
+
+// Project Operations
+export const projectOps = {
+    async getAll(): Promise<Project[]> {
+        return db.projects.orderBy("order").toArray();
     },
 
-    async create(title: string): Promise<number> {
+    async get(id: number): Promise<Project | undefined> {
+        return db.projects.get(id);
+    },
+
+    // 새 작품 생성 — 기본 챕터 1개까지 만들어 에디터 즉시 진입을 보장
+    async create(
+        title: string,
+    ): Promise<{ projectId: number; firstChapterId: number }> {
+        const last = await db.projects.orderBy("order").last();
+        const order = last ? last.order + 1 : 0;
+        const now = new Date();
+        const projectId = (await db.projects.add({
+            title,
+            synopsis: "",
+            loreCategories: [...DEFAULT_LORE_CATEGORIES],
+            characterGroups: [...DEFAULT_CHARACTER_GROUPS],
+            order,
+            createdAt: now,
+            updatedAt: now,
+        })) as number;
+
+        const firstChapterId = await chapterOps.create(projectId, "1장");
+        return { projectId, firstChapterId };
+    },
+
+    async update(id: number, updates: Partial<Project>): Promise<void> {
+        await db.projects.update(id, { ...updates, updatedAt: new Date() });
+    },
+
+    // 갤러리 카드용 가벼운 통계 (챕터/씬 개수, 글자 수)
+    async getStats(
+        id: number,
+    ): Promise<{ chapters: number; scenes: number; chars: number }> {
+        const [chapters, scenes] = await Promise.all([
+            db.chapters.where("projectId").equals(id).count(),
+            db.scenes.where("projectId").equals(id).toArray(),
+        ]);
+        const chars = scenes.reduce(
+            (sum, s) => sum + (s.content?.replace(/<[^>]*>/g, "").length ?? 0),
+            0,
+        );
+        return { chapters, scenes: scenes.length, chars };
+    },
+
+    async reorder(id: number, order: number): Promise<void> {
+        await db.projects.update(id, { order, updatedAt: new Date() });
+    },
+
+    // 작품과 그 하위 데이터 전체를 연쇄 삭제
+    async delete(id: number): Promise<void> {
+        const characters = await db.characters
+            .where("projectId")
+            .equals(id)
+            .toArray();
+        const characterIds = characters
+            .map((c) => c.id)
+            .filter((cid): cid is number => cid !== undefined);
+
+        const conversations = await db.aiConversations
+            .where("projectId")
+            .equals(id)
+            .toArray();
+        const conversationIds = conversations
+            .map((c) => c.id)
+            .filter((cid): cid is number => cid !== undefined);
+
+        await db.transaction(
+            "rw",
+            [
+                db.projects,
+                db.chapters,
+                db.scenes,
+                db.characters,
+                db.characterRelationships,
+                db.lores,
+                db.aiConversations,
+                db.aiMessages,
+                db.characterMessages,
+            ],
+            async () => {
+                await db.chapters.where("projectId").equals(id).delete();
+                await db.scenes.where("projectId").equals(id).delete();
+                await db.characters.where("projectId").equals(id).delete();
+                await db.characterRelationships
+                    .where("projectId")
+                    .equals(id)
+                    .delete();
+                await db.lores.where("projectId").equals(id).delete();
+                if (conversationIds.length > 0) {
+                    await db.aiMessages
+                        .where("conversationId")
+                        .anyOf(conversationIds)
+                        .delete();
+                }
+                await db.aiConversations.where("projectId").equals(id).delete();
+                if (characterIds.length > 0) {
+                    await db.characterMessages
+                        .where("characterId")
+                        .anyOf(characterIds)
+                        .delete();
+                }
+                await db.projects.delete(id);
+            },
+        );
+    },
+};
+
+// AI Conversation Operations
+export const aiConversationOps = {
+    async getAll(projectId: number): Promise<AiConversation[]> {
+        const list = await db.aiConversations
+            .where("projectId")
+            .equals(projectId)
+            .sortBy("createdAt");
+        return list.reverse(); // 최신순
+    },
+
+    async create(projectId: number, title: string): Promise<number> {
         const id = await db.aiConversations.add({
+            projectId,
             title,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -67,24 +189,29 @@ export const aiMessageOps = {
     },
 };
 
-// Novel Operations
-export const novelOps = {
-    async updateNovelTitle(title: string): Promise<void> {
-        await db.settings.put({ key: "novelTitle", value: title });
-    },
-};
-
 // Chapter Operations
 export const chapterOps = {
-    async getAll(): Promise<Chapter[]> {
-        return db.chapters.orderBy("order").toArray();
+    async getAll(projectId: number): Promise<Chapter[]> {
+        return db.chapters.where("projectId").equals(projectId).sortBy("order");
     },
 
-    async create(title: string): Promise<number> {
-        const maxOrder = await db.chapters.orderBy("order").last();
-        const newOrder = maxOrder ? maxOrder.order + 1 : 0;
+    async getProjectId(chapterId: number): Promise<number | undefined> {
+        const chapter = await db.chapters.get(chapterId);
+        return chapter?.projectId;
+    },
+
+    async create(projectId: number, title: string): Promise<number> {
+        const chapters = await db.chapters
+            .where("projectId")
+            .equals(projectId)
+            .toArray();
+        const newOrder =
+            chapters.length > 0
+                ? Math.max(...chapters.map((c) => c.order)) + 1
+                : 0;
 
         const id = await db.chapters.add({
+            projectId,
             title,
             order: newOrder,
             createdAt: new Date(),
@@ -117,8 +244,14 @@ export const chapterOps = {
 
 // Scene Operations
 export const sceneOps = {
-    async getAll(): Promise<Scene[]> {
-        return db.scenes.orderBy("[chapterId+order]").toArray();
+    async getAll(projectId: number): Promise<Scene[]> {
+        const scenes = await db.scenes
+            .where("projectId")
+            .equals(projectId)
+            .toArray();
+        return scenes.sort(
+            (a, b) => a.chapterId - b.chapterId || a.order - b.order,
+        );
     },
 
     async getByChapter(chapterId: number): Promise<Scene[]> {
@@ -127,6 +260,7 @@ export const sceneOps = {
 
     async create(
         chapterId: number,
+        projectId: number,
         title: string,
         insertAtOrder?: number,
     ): Promise<number> {
@@ -165,6 +299,7 @@ export const sceneOps = {
         }
 
         const id = await db.scenes.add({
+            projectId,
             chapterId,
             title,
             content: "",
@@ -195,11 +330,12 @@ export const sceneOps = {
 
 // Character Operations
 export const characterOps = {
-    async getAll(): Promise<Character[]> {
-        return db.characters.toArray();
+    async getAll(projectId: number): Promise<Character[]> {
+        return db.characters.where("projectId").equals(projectId).toArray();
     },
 
     async create(
+        projectId: number,
         name: string,
         description: string,
         tags: string[] = [],
@@ -207,6 +343,7 @@ export const characterOps = {
         group = "주인공",
     ): Promise<number> {
         const id = await db.characters.add({
+            projectId,
             name,
             description,
             tags,
@@ -231,16 +368,21 @@ export const characterOps = {
 
 // Relationship Operations
 export const relationshipOps = {
-    async getAll(): Promise<CharacterRelationship[]> {
-        return db.characterRelationships.toArray();
+    async getAll(projectId: number): Promise<CharacterRelationship[]> {
+        return db.characterRelationships
+            .where("projectId")
+            .equals(projectId)
+            .toArray();
     },
 
     async create(
+        projectId: number,
         fromCharacterId: number,
         toCharacterId: number,
         label: string,
     ): Promise<number> {
         const id = await db.characterRelationships.add({
+            projectId,
             fromCharacterId,
             toCharacterId,
             label,
@@ -262,8 +404,8 @@ export const relationshipOps = {
 
 // Lore Operations
 export const loreOps = {
-    async getAll(): Promise<Lore[]> {
-        return db.lores.orderBy("order").toArray();
+    async getAll(projectId: number): Promise<Lore[]> {
+        return db.lores.where("projectId").equals(projectId).sortBy("order");
     },
 
     async getByCategory(category: string): Promise<Lore[]> {
@@ -271,13 +413,19 @@ export const loreOps = {
     },
 
     async create(
+        projectId: number,
         name: string,
         category: string,
         description = "",
     ): Promise<{ id: number; order: number }> {
-        const last = await db.lores.orderBy("order").last();
-        const order = last ? last.order + 1 : 0;
+        const lores = await db.lores
+            .where("projectId")
+            .equals(projectId)
+            .toArray();
+        const order =
+            lores.length > 0 ? Math.max(...lores.map((l) => l.order)) + 1 : 0;
         const id = await db.lores.add({
+            projectId,
             name,
             category,
             description,

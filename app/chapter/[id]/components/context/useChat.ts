@@ -8,6 +8,7 @@ import {
     DEFAULT_GEMINI_MODEL,
     type GeminiModelId,
 } from "@/app/(shared)/routes";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import type { AttachedContext } from "./types";
 
 interface Options {
@@ -40,16 +41,18 @@ export function useChat({
     geminiApiKey = "",
 }: Options) {
     const [isLoading, setIsLoading] = useState(false);
+    const activeProjectId = useEditorStore((s) => s.activeProjectId);
 
     const handleSend = async () => {
         const trimmed = input.trim();
-        if (!trimmed || isLoading) return;
+        if (!trimmed || isLoading || activeProjectId === null) return;
 
         let convId = activeConvId;
         if (convId === null) {
-            convId = await aiConversationOps.create("새 대화");
+            convId = await aiConversationOps.create(activeProjectId, "새 대화");
             const newConv: AiConversation = {
                 id: convId,
+                projectId: activeProjectId,
                 title: "새 대화",
                 createdAt: new Date(),
                 updatedAt: new Date(),
