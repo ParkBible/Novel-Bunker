@@ -194,8 +194,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         await initializeDemoData();
 
         const allProjects = await projectOps.getAll();
-        // 대상 작품 결정: 인자 > 활성 작품 > 첫 작품
-        let targetId = projectId ?? get().activeProjectId ?? null;
+        // 대상 작품 결정: 인자 > DB에 저장된 활성 작품 > in-memory 활성 작품 > 첫 작품.
+        // 다운로드/스냅샷 복원으로 DB가 통째로 교체되면 in-memory 값은 신뢰할 수 없으므로
+        // DB(settings)의 activeProjectId를 우선한다. (첫 작품으로 튀는 문제 방지)
+        const savedActiveRaw = await settingsOps.get("activeProjectId");
+        const parsedActive = savedActiveRaw
+            ? Number.parseInt(savedActiveRaw, 10)
+            : Number.NaN;
+        const savedActiveId = Number.isNaN(parsedActive) ? null : parsedActive;
+        let targetId =
+            projectId ?? savedActiveId ?? get().activeProjectId ?? null;
         if (targetId === null || !allProjects.some((p) => p.id === targetId)) {
             targetId = allProjects[0]?.id ?? null;
         }
