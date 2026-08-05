@@ -1,6 +1,8 @@
 "use client";
 
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { routes } from "../routes";
 import { useEditorStore } from "../stores/editorStore";
 import {
     checkRemoteNewer,
@@ -37,6 +39,27 @@ export function useGoogleDrive(clientId?: string) {
     const [isRemoteStale, setIsRemoteStale] = useState(false);
     const [remoteModifiedAt, setRemoteModifiedAt] = useState<Date | null>(null);
     const { loadData } = useEditorStore();
+    const router = useRouter();
+    const params = useParams();
+
+    // 다운로드/복원으로 DB가 교체된 뒤, 보고 있던 챕터가 사라졌으면
+    // 로드된 작품의 첫 챕터(없으면 홈)로 이동한다. 유효하면 현재 위치 유지.
+    const navigateAfterRestore = useCallback(() => {
+        const chapters = useEditorStore.getState().chapters;
+        const currentId =
+            typeof params.id === "string"
+                ? Number.parseInt(params.id, 10)
+                : null;
+        if (currentId !== null && chapters.some((c) => c.id === currentId)) {
+            return;
+        }
+        if (chapters.length > 0) {
+            const first = [...chapters].sort((a, b) => a.order - b.order)[0];
+            router.push(routes.chapter(first.id as number));
+        } else {
+            router.push(routes.home);
+        }
+    }, [params, router]);
 
     // 언마운트 후 setState 방지용 플래그
     const isMountedRef = useRef(true);
@@ -160,8 +183,9 @@ export function useGoogleDrive(clientId?: string) {
             withSync(async () => {
                 await importFromDrive();
                 await loadData();
+                navigateAfterRestore();
             }),
-        [withSync, loadData],
+        [withSync, loadData, navigateAfterRestore],
     );
 
     // redirect 복귀 후 pending action 실행 — stale closure 방지를 위해 ref 사용
@@ -243,8 +267,9 @@ export function useGoogleDrive(clientId?: string) {
             withSync(async () => {
                 await restoreSnapshotFn(fileId);
                 await loadData();
+                navigateAfterRestore();
             }),
-        [withSync, loadData],
+        [withSync, loadData, navigateAfterRestore],
     );
 
     const deleteSnapshot = useCallback(
