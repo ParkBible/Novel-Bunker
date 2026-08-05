@@ -27,9 +27,6 @@ export function SceneEditor({
     const t = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
-    const mouseRef = useRef({ x: 0, y: 0 });
-    const isDraggingRef = useRef(false);
-    const isToolbarActionRef = useRef(false);
     // 이벤트 재구독 없이 최신 콜백을 참조하기 위한 ref
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
@@ -60,94 +57,42 @@ export function SceneEditor({
         },
     });
 
+    // 서식 툴바 표시 여부는 오직 "에디터 포커스 + 비어있지 않은 선택" 상태에서
+    // 파생한다. (드래그 여부를 추적하던 ref 상태 머신 제거 → 특정 동작 후 상태가
+    // 고착되어 클릭만 해도 툴바가 계속 뜨던 버그를 구조적으로 차단)
     const updateBubbleMenu = useCallback(() => {
         if (!editor || !containerRef.current) {
             setBubbleMenu(null);
             return;
         }
 
-        const { from, to } = editor.state.selection;
-        if (from === to) {
+        const { state, view } = editor;
+        const { from, to, empty } = state.selection;
+        // 포커스 없음(에디터 밖) 또는 빈 선택(클릭·캐럿) → 숨김
+        if (!editor.isFocused || empty) {
+            setBubbleMenu(null);
+            return;
+        }
+        // 공백만 선택된 경우도 숨김
+        if (!state.doc.textBetween(from, to, " ", " ").trim()) {
             setBubbleMenu(null);
             return;
         }
 
         const containerRect = containerRef.current.getBoundingClientRect();
-        const selection = window.getSelection();
-
-        if (selection && selection.rangeCount > 0) {
-            // 선택 영역 중앙 위에 표시 (마우스/터치 모두 동작)
-            const rect = selection.getRangeAt(0).getBoundingClientRect();
-            setBubbleMenu({
-                top: rect.top - containerRect.top - 44,
-                left: rect.left + rect.width / 2 - containerRect.left - 52,
-            });
-        } else {
-            // 폴백: 마우스 좌표
-            setBubbleMenu({
-                top: mouseRef.current.y - containerRect.top - 40,
-                left: mouseRef.current.x - containerRect.left - 44,
-            });
-        }
+        // ProseMirror 좌표 API로 선택 영역 시작/끝 위치를 구한다 (window.getSelection 타이밍 의존 제거)
+        const start = view.coordsAtPos(from);
+        const end = view.coordsAtPos(to);
+        setBubbleMenu({
+            top: Math.min(start.top, end.top) - containerRect.top - 44,
+            left: (start.left + end.left) / 2 - containerRect.left - 52,
+        });
     }, [editor]);
-
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            mouseRef.current = { x: e.clientX, y: e.clientY };
-        };
-        const handleMouseUp = (e: MouseEvent) => {
-            if (toolbarRef.current?.contains(e.target as Node)) return;
-            requestAnimationFrame(() => updateBubbleMenu());
-        };
-        document.addEventListener("mousemove", handleMouseMove);
-        document.addEventListener("mouseup", handleMouseUp);
-        return () => {
-            document.removeEventListener("mousemove", handleMouseMove);
-            document.removeEventListener("mouseup", handleMouseUp);
-        };
-    }, [updateBubbleMenu]);
-
-    // 터치 이벤트 지원
-    useEffect(() => {
-        const handleTouchStart = (e: TouchEvent) => {
-            if (toolbarRef.current?.contains(e.target as Node)) return;
-            setBubbleMenu(null);
-        };
-        const handleTouchEnd = (e: TouchEvent) => {
-            if (toolbarRef.current?.contains(e.target as Node)) return;
-            // 선택이 확정되도록 약간의 딜레이 후 메뉴 표시
-            setTimeout(() => updateBubbleMenu(), 50);
-        };
-        document.addEventListener("touchstart", handleTouchStart);
-        document.addEventListener("touchend", handleTouchEnd);
-        return () => {
-            document.removeEventListener("touchstart", handleTouchStart);
-            document.removeEventListener("touchend", handleTouchEnd);
-        };
-    }, [updateBubbleMenu]);
 
     useEffect(() => {
         if (!editor) return;
 
-        // 키보드 선택(Shift+방향키 등)은 selectionUpdate로 처리
-        const handleSelectionUpdate = () => {
-            if (isDraggingRef.current) return;
-            if (isToolbarActionRef.current) {
-                isToolbarActionRef.current = false;
-                const { from, to } = editor.state.selection;
-                if (from === to) setBubbleMenu(null);
-                return;
-            }
-            updateBubbleMenu();
-        };
-        const handleMouseDown = (e: MouseEvent) => {
-            if (toolbarRef.current?.contains(e.target as Node)) return;
-            isDraggingRef.current = true;
-            setBubbleMenu(null);
-        };
-        const handleMouseUp = () => {
-            isDraggingRef.current = false;
-        };
+        const handleSelectionUpdate = () => updateBubbleMenu();
         const handleFocusEv = () => onFocusRef.current?.();
         const handleBlurEv = () => {
             setBubbleMenu(null);
@@ -157,15 +102,11 @@ export function SceneEditor({
         editor.on("selectionUpdate", handleSelectionUpdate);
         editor.on("focus", handleFocusEv);
         editor.on("blur", handleBlurEv);
-        document.addEventListener("mousedown", handleMouseDown);
-        document.addEventListener("mouseup", handleMouseUp);
 
         return () => {
             editor.off("selectionUpdate", handleSelectionUpdate);
             editor.off("focus", handleFocusEv);
             editor.off("blur", handleBlurEv);
-            document.removeEventListener("mousedown", handleMouseDown);
-            document.removeEventListener("mouseup", handleMouseUp);
         };
     }, [editor, updateBubbleMenu]);
 
@@ -189,8 +130,8 @@ export function SceneEditor({
                         left: bubbleMenu.left,
                     }}
                     onMouseDown={(e) => {
+                        // 버튼 클릭 시 에디터가 blur되어 선택이 사라지는 것 방지
                         e.preventDefault();
-                        isToolbarActionRef.current = true;
                     }}
                 >
                     <button
