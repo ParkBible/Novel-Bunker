@@ -1,13 +1,31 @@
 "use client";
 
-import { GitCompare, History, RotateCcw, Save, X } from "lucide-react";
+import {
+    Cloud,
+    GitCompare,
+    History,
+    Laptop,
+    RotateCcw,
+    Save,
+    Trash2,
+    X,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { type SnapshotMeta, snapshotOps } from "@/app/(shared)/db/snapshots";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BackupData } from "@/app/(shared)/db/backup";
+import { snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { diffScenes, type SceneDiff } from "@/app/(shared)/utils/diff";
+import {
+    createSnapshotNow,
+    deleteSnapshot,
+    getAccessToken,
+    getSnapshotData,
+    listSnapshots,
+    restoreSnapshot,
+} from "@/app/(shared)/utils/googleDrive";
 
 function formatDate(date: Date): string {
     return date.toLocaleString("ko-KR", {
@@ -18,13 +36,60 @@ function formatDate(date: Date): string {
     });
 }
 
+// 로컬(IndexedDB)과 Drive(기기간) 두 저장소를 같은 UI에서 다루기 위한 추상화
+interface HistoryEntry {
+    id: string;
+    createdAt: Date;
+    type: "manual" | "auto";
+}
+
+interface HistorySource {
+    isCloud: boolean;
+    list: () => Promise<HistoryEntry[]>;
+    getData: (id: string) => Promise<BackupData | null>;
+    // 데이터만 로컬 DB에 적용 (loadData는 호출부에서)
+    restore: (id: string) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+    saveNow: () => Promise<void>;
+}
+
+const localSource: HistorySource = {
+    isCloud: false,
+    list: async () =>
+        (await snapshotOps.list()).map((m) => ({
+            id: String(m.id),
+            createdAt: m.createdAt,
+            type: m.type,
+        })),
+    getData: (id) => snapshotOps.getData(Number(id)),
+    restore: (id) => snapshotOps.restore(Number(id)),
+    remove: (id) => snapshotOps.delete(Number(id)),
+    saveNow: async () => {
+        await snapshotOps.create("manual");
+    },
+};
+
+const cloudSource: HistorySource = {
+    isCloud: true,
+    list: async () =>
+        (await listSnapshots()).map((s) => ({
+            id: s.id,
+            createdAt: s.createdAt,
+            type: s.type,
+        })),
+    getData: (id) => getSnapshotData(id),
+    restore: (id) => restoreSnapshot(id),
+    remove: (id) => deleteSnapshot(id),
+    saveNow: () => createSnapshotNow(),
+};
+
 interface Props {
     onClose: () => void;
 }
 
 interface ComparePair {
-    older: SnapshotMeta;
-    newer: SnapshotMeta;
+    older: HistoryEntry;
+    newer: HistoryEntry;
     diffs: SceneDiff[];
 }
 
@@ -34,32 +99,38 @@ export function VersionHistoryModal({ onClose }: Props) {
     const router = useRouter();
     const { loadData } = useEditorStore();
 
-    const [metas, setMetas] = useState<SnapshotMeta[]>([]);
+    // Drive에 연결돼 있으면 기기간 공유 기록, 아니면 이 기기의 로컬 기록으로 폴백
+    const source = useMemo<HistorySource>(
+        () => (getAccessToken() ? cloudSource : localSource),
+        [],
+    );
+
+    const [metas, setMetas] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
-    const [selected, setSelected] = useState<number[]>([]);
+    const [selected, setSelected] = useState<string[]>([]);
     const [compare, setCompare] = useState<ComparePair | null>(null);
     const [expandedScene, setExpandedScene] = useState<number | null>(null);
-    const [confirmRestoreId, setConfirmRestoreId] = useState<number | null>(
+    const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(
         null,
     );
 
     const reload = useCallback(() => {
         setLoading(true);
-        snapshotOps
+        source
             .list()
             .then(setMetas)
             .catch(() => setError(t("version_loadError")))
             .finally(() => setLoading(false));
-    }, [t]);
+    }, [source, t]);
 
     useEffect(() => {
         reload();
     }, [reload]);
 
-    const toggleSelect = (id: number) => {
+    const toggleSelect = (id: string) => {
         setSelected((prev) => {
             if (prev.includes(id)) return prev.filter((x) => x !== id);
             if (prev.length >= 2) return [prev[1], id]; // 최근 선택 + 새 선택 유지
@@ -74,8 +145,8 @@ export function VersionHistoryModal({ onClose }: Props) {
         try {
             const [id1, id2] = selected;
             const [data1, data2] = await Promise.all([
-                snapshotOps.getData(id1),
-                snapshotOps.getData(id2),
+                source.getData(id1),
+                source.getData(id2),
             ]);
             if (!data1 || !data2) throw new Error();
             const m1 = metas.find((m) => m.id === id1);
@@ -100,8 +171,9 @@ export function VersionHistoryModal({ onClose }: Props) {
 
     const handleSaveNow = async () => {
         setBusy(true);
+        setError(null);
         try {
-            await snapshotOps.create("manual");
+            await source.saveNow();
             reload();
         } catch {
             setError(t("version_loadError"));
@@ -109,13 +181,26 @@ export function VersionHistoryModal({ onClose }: Props) {
         setBusy(false);
     };
 
-    const handleRestore = async (id: number) => {
+    const handleDelete = async (id: string) => {
         setBusy(true);
         setError(null);
         try {
-            // 복원 전 현재 상태를 히스토리에 보존 (덮어쓰기 대비)
+            await source.remove(id);
+            setMetas((prev) => prev.filter((m) => m.id !== id));
+            setSelected((prev) => prev.filter((x) => x !== id));
+        } catch {
+            setError(t("version_loadError"));
+        }
+        setBusy(false);
+    };
+
+    const handleRestore = async (id: string) => {
+        setBusy(true);
+        setError(null);
+        try {
+            // 복원 전 현재 상태를 로컬 히스토리에 보존 (덮어쓰기 대비 안전망)
             await snapshotOps.createAutoIfChanged();
-            await snapshotOps.restore(id);
+            await source.restore(id);
             await loadData();
 
             // 현재 보고 있던 챕터가 복원된 데이터에 없으면 안전한 경로로 이동
@@ -164,6 +249,16 @@ export function VersionHistoryModal({ onClose }: Props) {
                         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                             {t("version_title")}
                         </h2>
+                        <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                            {source.isCloud ? (
+                                <Cloud className="size-3" />
+                            ) : (
+                                <Laptop className="size-3" />
+                            )}
+                            {source.isCloud
+                                ? t("version_scopeCloud")
+                                : t("version_scopeLocal")}
+                        </span>
                     </div>
                     <div className="flex items-center gap-1">
                         {!compare && (
@@ -207,7 +302,9 @@ export function VersionHistoryModal({ onClose }: Props) {
                         !compare &&
                         (metas.length === 0 ? (
                             <p className="py-6 text-center text-xs text-zinc-400">
-                                {t("version_empty")}
+                                {source.isCloud
+                                    ? t("snapshot_empty")
+                                    : t("version_empty")}
                             </p>
                         ) : (
                             <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -282,22 +379,39 @@ export function VersionHistoryModal({ onClose }: Props) {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setConfirmRestoreId(
-                                                            snap.id,
-                                                        )
-                                                    }
-                                                    disabled={busy}
-                                                    title={t(
-                                                        "version_restoreThis",
-                                                    )}
-                                                    className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                                                >
-                                                    <RotateCcw className="size-3" />
-                                                    {t("restore")}
-                                                </button>
+                                                <div className="flex shrink-0 items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setConfirmRestoreId(
+                                                                snap.id,
+                                                            )
+                                                        }
+                                                        disabled={busy}
+                                                        title={t(
+                                                            "version_restoreThis",
+                                                        )}
+                                                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                                                    >
+                                                        <RotateCcw className="size-3" />
+                                                        {t("restore")}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleDelete(
+                                                                snap.id,
+                                                            )
+                                                        }
+                                                        disabled={busy}
+                                                        title={t(
+                                                            "snapshot_deleteTitle",
+                                                        )}
+                                                        className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40 dark:hover:bg-red-950"
+                                                    >
+                                                        <Trash2 className="size-3" />
+                                                    </button>
+                                                </div>
                                             )}
                                         </li>
                                     );

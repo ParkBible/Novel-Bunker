@@ -272,6 +272,8 @@ export const ko = {
         "로컬에 자동 저장 · 최근 건 촘촘히, 오래된 건 듬성하게 보관",
     version_loadError: "불러오기 실패",
     version_restoreError: "복원 실패",
+    version_scopeCloud: "기기간 공유",
+    version_scopeLocal: "이 기기",
 
     // Client ID guide modal
     guide_closeLabel: "모달 닫기",
@@ -591,6 +593,8 @@ export const en = {
         "Auto-saved locally · recent kept densely, older thinned out",
     version_loadError: "Failed to load",
     version_restoreError: "Failed to restore",
+    version_scopeCloud: "Synced across devices",
+    version_scopeLocal: "This device only",
 
     // Client ID guide modal
     guide_closeLabel: "Close modal",
