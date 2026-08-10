@@ -483,6 +483,19 @@ export async function deleteSnapshot(fileId: string): Promise<void> {
     await authFetch(`${DRIVE_API}/files/${fileId}`, { method: "DELETE" });
 }
 
+// ── 스냅샷 데이터 조회 (버전 비교용) ──────────────────────────
+export async function getSnapshotData(fileId: string): Promise<BackupData> {
+    const json = await downloadFileText(fileId);
+    return JSON.parse(json) as BackupData;
+}
+
+// ── 현재 상태를 수동 스냅샷으로 저장 ─────────────────────────
+// 현재 로컬 상태를 먼저 Drive에 올린 뒤 그 사본을 스냅샷으로 남긴다.
+export async function createSnapshotNow(): Promise<void> {
+    await exportToDrive();
+    await createManualSnapshot();
+}
+
 // ── 로컬 데이터가 비어있는지 확인 (작품이 하나도 없으면 비어있음) ──
 export async function isLocalDataEmpty(): Promise<boolean> {
     const projects = await projectOps.getAll();

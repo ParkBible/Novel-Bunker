@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Download, History, Upload } from "lucide-react";
+import { AlertTriangle, Download, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useGoogleDrive } from "@/app/(shared)/hooks/useGoogleDrive";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -12,7 +12,6 @@ import {
     savePendingAction,
 } from "@/app/(shared)/utils/googleDrive";
 import { ClientIdGuideModal } from "./ClientIdGuideModal";
-import { SnapshotModal } from "./SnapshotModal";
 
 const SETTINGS_KEY = "googleClientId";
 
@@ -43,7 +42,6 @@ export function DriveSync() {
     const [isEditingClientId, setIsEditingClientId] = useState(false);
     const [inputValue, setInputValue] = useState("");
     const [showGuide, setShowGuide] = useState(false);
-    const [showSnapshots, setShowSnapshots] = useState(false);
     const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
     const [uploadConfirm, setUploadConfirm] = useState<UploadConfirmState>({
         isEmpty: false,
@@ -80,9 +78,6 @@ export function DriveSync() {
         download,
         keepLocal,
         disconnect,
-        loadSnapshots,
-        restoreSnapshot,
-        deleteSnapshot,
     } = useGoogleDrive(clientId ?? "");
 
     const [, forceUpdate] = useState(0);
@@ -245,21 +240,6 @@ export function DriveSync() {
                     >
                         <Download className="size-3.5" />
                         {t("download")}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            if (!getAccessToken()) {
-                                await redirectToAuth(clientId ?? "");
-                                return;
-                            }
-                            setShowSnapshots(true);
-                        }}
-                        disabled={isSyncing}
-                        className="flex items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        title={t("drive_versionHistory")}
-                    >
-                        <History className="size-3.5" />
                     </button>
                 </div>
 
@@ -426,15 +406,6 @@ export function DriveSync() {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {showSnapshots && (
-                <SnapshotModal
-                    loadSnapshots={loadSnapshots}
-                    restoreSnapshot={restoreSnapshot}
-                    deleteSnapshot={deleteSnapshot}
-                    onClose={() => setShowSnapshots(false)}
-                />
             )}
 
             {showGuide && (
