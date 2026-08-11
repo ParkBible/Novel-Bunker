@@ -13,6 +13,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BackupData } from "@/app/(shared)/db/backup";
+import { chapterOps } from "@/app/(shared)/db/operations";
 import { snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
@@ -201,18 +202,23 @@ export function VersionHistoryModal({ onClose }: Props) {
             // 복원 전 현재 상태를 로컬 히스토리에 보존 (덮어쓰기 대비 안전망)
             await snapshotOps.createAutoIfChanged();
             await source.restore(id);
-            await loadData();
 
-            // 현재 보고 있던 챕터가 복원된 데이터에 없으면 안전한 경로로 이동
-            const restoredChapters = useEditorStore.getState().chapters;
+            // 보고 있던 챕터가 복원 데이터에 그대로 있으면 그 작품을 유지
+            // 로드해 현재 위치를 지킨다. 사라졌을 때만 활성 작품을 로드하고
+            // 안전한 경로로 이동. (다른 작품/첫 작품으로 튕기는 문제 방지)
             const currentChapterId =
                 typeof params.id === "string"
                     ? Number.parseInt(params.id, 10)
                     : null;
-            const exists = restoredChapters.some(
-                (c) => c.id === currentChapterId,
-            );
-            if (!exists) {
+            const survivingProjectId =
+                currentChapterId !== null
+                    ? await chapterOps.getProjectId(currentChapterId)
+                    : undefined;
+            if (survivingProjectId !== undefined) {
+                await loadData(survivingProjectId);
+            } else {
+                await loadData();
+                const restoredChapters = useEditorStore.getState().chapters;
                 if (restoredChapters.length > 0) {
                     const firstChapter = [...restoredChapters].sort(
                         (a, b) => a.order - b.order,
