@@ -246,6 +246,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
         await settingsOps.set("activeProjectId", String(targetId));
 
+        // 표시용 그룹/카테고리 목록을 안전하게 구성한다.
+        // - 프로젝트에 저장된 목록이 비어 있으면 기본값으로 폴백
+        // - 어떤 그룹/카테고리에도 속하지 못한 기존 항목이 트리에서 사라지지
+        //   않도록 실제 데이터에서 발견된 값을 병합한다. (표시 전용, DB 비파괴)
+        const mergeWithOrphans = (
+            stored: string[] | undefined,
+            defaults: string[],
+            usedValues: (string | undefined)[],
+        ): string[] => {
+            const base = stored && stored.length > 0 ? stored : defaults;
+            const orphans = [
+                ...new Set(
+                    usedValues.filter(
+                        (v): v is string => !!v && !base.includes(v),
+                    ),
+                ),
+            ];
+            return [...base, ...orphans];
+        };
+        const loreCategories = mergeWithOrphans(
+            project?.loreCategories,
+            ["세계관", "장소", "아이템"],
+            lores.map((l) => l.category),
+        );
+        const characterGroups = mergeWithOrphans(
+            project?.characterGroups,
+            ["주인공", "조연", "기타"],
+            characters.map((c) => c.group),
+        );
+
         set({
             projects: allProjects,
             activeProjectId: targetId,
@@ -254,16 +284,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             characters,
             relationships,
             lores,
-            loreCategories: project?.loreCategories ?? [
-                "세계관",
-                "장소",
-                "아이템",
-            ],
-            characterGroups: project?.characterGroups ?? [
-                "주인공",
-                "조연",
-                "기타",
-            ],
+            loreCategories,
+            characterGroups,
             synopsis: project?.synopsis ?? "",
             novelTitle: project?.title ?? "",
             isInitialized: true,
