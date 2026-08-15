@@ -15,7 +15,7 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { History } from "lucide-react";
+import { Download, History } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -24,6 +24,7 @@ import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { CharacterSummaryContent } from "@/app/components/dashboard/CharacterSummary";
 import { ChapterItem } from "./ChapterItem";
 import { DriveSync } from "./DriveSync";
+import { ExportModal } from "./ExportModal";
 import { LoreSection } from "./LoreSection";
 import { NovelTitleHeader } from "./NovelTitleHeader";
 import { TreeSection } from "./TreeSection";
@@ -55,6 +56,7 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
     } = useEditorStore();
 
     const [showVersions, setShowVersions] = useState(false);
+    const [showExport, setShowExport] = useState(false);
 
     const chapterSensors = useSensors(
         useSensor(PointerSensor, {
@@ -206,15 +208,24 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
                 </TreeSection>
             </div>
 
-            <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
+            <div className="flex gap-1.5 border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
                 <button
                     type="button"
                     onClick={() => setShowVersions(true)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                     title={t("version_title")}
                 >
                     <History className="size-3.5" />
                     {t("version_open")}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setShowExport(true)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    title={t("export_title")}
+                >
+                    <Download className="size-3.5" />
+                    {t("export_open")}
                 </button>
             </div>
 
@@ -223,6 +234,8 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
             {showVersions && (
                 <VersionHistoryModal onClose={() => setShowVersions(false)} />
             )}
+
+            {showExport && <ExportModal onClose={() => setShowExport(false)} />}
         </div>
     );
 }

@@ -316,6 +316,29 @@ export const ko = {
     // ChapterLayout tabs
     chapterLayout_toc: "목차",
     chapterLayout_edit: "편집",
+
+    // Export
+    export_open: "내보내기",
+    export_title: "내보내기",
+    export_closeLabel: "모달 닫기",
+    export_summary: "챕터 {chapters}개 · 씬 {scenes}개 · {chars}자",
+    export_txt: "텍스트 (.txt)",
+    export_txtDesc: "서식 없는 순수 텍스트. 연재 플랫폼 업로드용",
+    export_markdown: "마크다운 (.md)",
+    export_markdownDesc: "굵게·인용·목록을 문법으로 유지. 외부 도구 연동용",
+    export_html: "웹 문서 (.html)",
+    export_htmlDesc: "서식을 그대로 살린 읽기용 문서",
+    export_pdf: "PDF (인쇄)",
+    export_pdfDesc: "인쇄 창에서 'PDF로 저장'을 선택하세요",
+    export_json: "전체 백업 (.json)",
+    export_jsonDesc: "모든 작품의 데이터를 통째로 저장 (기기 이전·복원용)",
+    export_includeSceneTitles: "씬 제목 포함",
+    export_emptyWarning: "내보낼 본문이 없습니다.",
+    export_error: "내보내기에 실패했습니다.",
+    export_run: "내보내기",
+    export_print: "인쇄",
+    export_running: "내보내는 중...",
+    export_done: "내보냈습니다",
 } as const;
 
 export const en = {
@@ -638,6 +661,30 @@ export const en = {
     // ChapterLayout tabs
     chapterLayout_toc: "Contents",
     chapterLayout_edit: "Edit",
+
+    // Export
+    export_open: "Export",
+    export_title: "Export",
+    export_closeLabel: "Close modal",
+    export_summary: "{chapters} chapters · {scenes} scenes · {chars} chars",
+    export_txt: "Plain text (.txt)",
+    export_txtDesc: "Unformatted text — best for posting to serial platforms",
+    export_markdown: "Markdown (.md)",
+    export_markdownDesc:
+        "Keeps bold, quotes and lists as syntax — for external tools",
+    export_html: "Web document (.html)",
+    export_htmlDesc: "Readable document with formatting preserved",
+    export_pdf: "PDF (print)",
+    export_pdfDesc: 'Choose "Save as PDF" in the print dialog',
+    export_json: "Full backup (.json)",
+    export_jsonDesc: "All works, raw — for moving devices or restoring",
+    export_includeSceneTitles: "Include scene titles",
+    export_emptyWarning: "There is no content to export.",
+    export_error: "Export failed.",
+    export_run: "Export",
+    export_print: "Print",
+    export_running: "Exporting...",
+    export_done: "Exported",
 } as const;
 
 export type TranslationKey = keyof typeof ko;
