@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { chapterOps } from "../db/operations";
 import { routes } from "../routes";
 import { useEditorStore } from "../stores/editorStore";
 import {
@@ -60,6 +61,28 @@ export function useGoogleDrive(clientId?: string) {
             router.push(routes.home);
         }
     }, [params, router]);
+
+    // 다운로드/복원으로 DB가 교체된 뒤의 재로드.
+    // 보고 있던 챕터가 교체된 데이터에 그대로 남아 있으면 그 챕터가 속한
+    // 작품을 로드해 현재 위치를 유지한다. (백업에 저장된 activeProjectId가
+    // 다른 작품이어도 보던 작품에서 튕겨 첫 작품으로 이동하지 않도록)
+    // 현재 챕터가 사라졌을 때만 백업의 활성 작품을 로드하고 유효한 위치로 이동.
+    const reloadPreservingLocation = useCallback(async () => {
+        const currentId =
+            typeof params.id === "string"
+                ? Number.parseInt(params.id, 10)
+                : null;
+        const survivingProjectId =
+            currentId !== null
+                ? await chapterOps.getProjectId(currentId)
+                : undefined;
+        if (survivingProjectId !== undefined) {
+            await loadData(survivingProjectId);
+            return;
+        }
+        await loadData();
+        navigateAfterRestore();
+    }, [params, loadData, navigateAfterRestore]);
 
     // 언마운트 후 setState 방지용 플래그
     const isMountedRef = useRef(true);
@@ -182,10 +205,9 @@ export function useGoogleDrive(clientId?: string) {
         () =>
             withSync(async () => {
                 await importFromDrive();
-                await loadData();
-                navigateAfterRestore();
+                await reloadPreservingLocation();
             }),
-        [withSync, loadData, navigateAfterRestore],
+        [withSync, reloadPreservingLocation],
     );
 
     // redirect 복귀 후 pending action 실행 — stale closure 방지를 위해 ref 사용
@@ -266,10 +288,9 @@ export function useGoogleDrive(clientId?: string) {
         (fileId: string) =>
             withSync(async () => {
                 await restoreSnapshotFn(fileId);
-                await loadData();
-                navigateAfterRestore();
+                await reloadPreservingLocation();
             }),
-        [withSync, loadData, navigateAfterRestore],
+        [withSync, reloadPreservingLocation],
     );
 
     const deleteSnapshot = useCallback(
