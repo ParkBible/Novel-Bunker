@@ -262,24 +262,71 @@ function escapeHtml(value: string): string {
         .replace(/"/g, "&quot;");
 }
 
+function countChars(scenes: Scene[]): number {
+    return scenes.reduce(
+        (sum, s) => sum + (s.content?.replace(/<[^>]*>/g, "").length ?? 0),
+        0,
+    );
+}
+
+function formatKoreanDate(date: Date): string {
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
 // HTML/PDF는 TipTap이 저장한 마크업을 그대로 살려 서식 손실이 없다.
+// 읽기용 문서이므로 표지·목차·챕터 헤더를 만들어 조판한다.
 export function buildHtmlDocument(
     source: ManuscriptSource,
     options: ExportOptions,
 ): string {
     const title = source.title.trim() || "제목 없는 작품";
-    const chapters = orderChapters(source)
-        .map((chapter) => {
+    const chapters = orderChapters(source);
+    const stats = getManuscriptStats(source);
+    // 챕터가 하나뿐이면 목차와 표지 페이지 분리는 과하다
+    const isLong = chapters.length > 1;
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    const toc = isLong
+        ? `<nav class="toc" aria-label="목차">
+<h2 class="toc-title">목차</h2>
+<ol>
+${chapters
+    .map(
+        (chapter, i) =>
+            `<li><a href="#chapter-${i + 1}"><span class="toc-num">${pad(i + 1)}</span><span class="toc-label">${escapeHtml(chapter.title)}</span><span class="toc-dots"></span><span class="toc-count">${countChars(chapter.scenes).toLocaleString()}자</span></a></li>`,
+    )
+    .join("\n")}
+</ol>
+</nav>`
+        : "";
+
+    const body = chapters
+        .map((chapter, i) => {
             const scenes = chapter.scenes
-                .map((scene) => {
-                    const heading =
-                        options.includeSceneTitles && scene.title.trim()
-                            ? `<h3>${escapeHtml(scene.title.trim())}</h3>`
+                .map((scene, sceneIndex) => {
+                    const hasHeading =
+                        options.includeSceneTitles && !!scene.title.trim();
+                    // 씬 제목을 안 쓰면 장식 기호로 장면 전환을 표시한다
+                    const divider =
+                        sceneIndex > 0 && !hasHeading
+                            ? '<div class="scene-break" aria-hidden="true">✻</div>\n'
                             : "";
-                    return `<section class="scene">${heading}${scene.content || ""}</section>`;
+                    const heading = hasHeading
+                        ? `<h3 class="scene-title">${escapeHtml(scene.title.trim())}</h3>`
+                        : "";
+                    return `${divider}<section class="scene">${heading}${scene.content || ""}</section>`;
                 })
                 .join("\n");
-            return `<section class="chapter"><h2>${escapeHtml(chapter.title)}</h2>\n${scenes}</section>`;
+
+            return `<article class="chapter" id="chapter-${i + 1}">
+<header class="chapter-head">
+<span class="chapter-num">CHAPTER ${pad(i + 1)}</span>
+<h2>${escapeHtml(chapter.title)}</h2>
+<span class="chapter-ornament" aria-hidden="true"></span>
+</header>
+${scenes}
+</article>`;
         })
         .join("\n");
 
@@ -288,41 +335,179 @@ export function buildHtmlDocument(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>${escapeHtml(title)}</title>
 <style>
-    :root { color-scheme: light; }
-    body {
-        margin: 0 auto;
-        max-width: 42rem;
-        padding: 3rem 1.5rem 5rem;
-        background: #fff;
-        color: #18181b;
-        font-family: "Nanum Myeongjo", "Batang", "Apple SD Gothic Neo", serif;
-        font-size: 1rem;
-        line-height: 1.9;
-        word-break: keep-all;
+    :root {
+        color-scheme: light dark;
+        --bg: #fbfaf7;
+        --text: #1f1c17;
+        --muted: #8b8378;
+        --rule: #e6e0d5;
+        --accent: #a17f4e;
+        --serif: Georgia, "Nanum Myeongjo", "Noto Serif KR", AppleMyungjo, Batang, "바탕", serif;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     }
-    h1 { font-size: 1.9rem; text-align: center; margin: 0 0 3.5rem; }
-    h2 { font-size: 1.35rem; margin: 0 0 1.75rem; padding-bottom: .5rem; border-bottom: 1px solid #e4e4e7; }
-    h3 { font-size: 1rem; color: #71717a; font-weight: 600; margin: 2rem 0 .75rem; }
-    p { margin: 0 0 1.15rem; text-indent: 0; }
-    blockquote { margin: 1.5rem 0; padding-left: 1rem; border-left: 3px solid #d4d4d8; color: #52525b; }
-    hr { border: 0; border-top: 1px solid #e4e4e7; margin: 2.5rem 0; }
-    ul, ol { padding-left: 1.5rem; margin: 0 0 1.15rem; }
-    .chapter + .chapter { margin-top: 4rem; }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #161513;
+            --text: #e7e2d8;
+            --muted: #918a7d;
+            --rule: #2f2c27;
+            --accent: #c2a173;
+        }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--serif);
+        font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+        line-height: 1.95;
+        letter-spacing: -0.01em;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+    .page { max-width: 34rem; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+    /* 표지 */
+    .cover { text-align: center; padding: 6.5rem 0 4.5rem; }
+    .cover h1 {
+        font-size: clamp(1.85rem, 1.4rem + 2.2vw, 2.6rem);
+        font-weight: 600;
+        line-height: 1.35;
+        letter-spacing: -0.03em;
+        margin: 0 0 1.5rem;
+    }
+    .cover .meta {
+        font-family: var(--sans);
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin: 0;
+    }
+    .cover .rule { width: 2.5rem; height: 1px; background: var(--accent); margin: 2.75rem auto 0; opacity: 0.6; }
+
+    /* 목차 */
+    .toc { border-top: 1px solid var(--rule); padding: 2rem 0 0; margin-bottom: 5rem; }
+    .toc-title {
+        font-family: var(--sans);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        margin: 0 0 1.25rem;
+    }
+    .toc ol { list-style: none; margin: 0; padding: 0; }
+    .toc li + li { margin-top: 0.35rem; }
+    .toc a {
+        display: flex;
+        align-items: baseline;
+        gap: 0.7rem;
+        color: inherit;
+        text-decoration: none;
+        padding: 0.25rem 0;
+        transition: color 0.15s;
+    }
+    .toc a:hover { color: var(--accent); }
+    .toc-num { font-family: var(--sans); font-size: 0.7rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .toc-label { font-size: 0.95rem; }
+    .toc-dots { flex: 1 1 auto; min-width: 1rem; border-bottom: 1px dotted var(--rule); transform: translateY(-0.3em); }
+    .toc-count { font-family: var(--sans); font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* 챕터 */
+    .chapter + .chapter { margin-top: 6rem; }
+    .chapter-head { text-align: center; margin-bottom: 3.25rem; }
+    .chapter-num {
+        display: block;
+        font-family: var(--sans);
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.28em;
+        color: var(--accent);
+        margin-bottom: 0.9rem;
+    }
+    .chapter-head h2 {
+        font-size: 1.45rem;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.45;
+        margin: 0;
+    }
+    .chapter-ornament { display: block; width: 2rem; height: 1px; background: var(--rule); margin: 1.75rem auto 0; }
+
+    /* 본문 */
+    .scene-title {
+        font-family: var(--sans);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        text-align: center;
+        margin: 3rem 0 1.75rem;
+    }
+    .scene-break { text-align: center; color: var(--accent); margin: 3rem 0; font-size: 0.8rem; letter-spacing: 0.4em; opacity: 0.75; }
+    .scene p { margin: 0 0 1.35rem; }
+    .scene p:last-child { margin-bottom: 0; }
+    .scene p:empty { min-height: 1.35rem; }
+    .scene h4, .scene h5, .scene h6 { font-size: 1rem; font-weight: 600; margin: 2.25rem 0 1rem; }
+    blockquote {
+        margin: 2.25rem 0;
+        padding: 0 0 0 1.25rem;
+        border-left: 2px solid var(--accent);
+        color: var(--muted);
+    }
+    blockquote p:last-child { margin-bottom: 0; }
+    hr { border: 0; height: 1px; background: var(--rule); width: 55%; margin: 3rem auto; }
+    ul, ol { padding-left: 1.35rem; margin: 0 0 1.35rem; }
+    li { margin: 0.3rem 0; }
+    a { color: var(--accent); text-underline-offset: 0.15em; }
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+
+    .colophon {
+        font-family: var(--sans);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        text-align: center;
+        border-top: 1px solid var(--rule);
+        margin-top: 6rem;
+        padding-top: 2rem;
+    }
+
+    /* 인쇄 / PDF */
     @media print {
-        body { max-width: none; padding: 0; font-size: 11pt; }
-        @page { margin: 20mm 18mm; }
-        .chapter { break-before: page; page-break-before: always; }
-        .chapter:first-of-type { break-before: auto; page-break-before: avoid; }
-        .scene { break-inside: auto; }
-        h2 { break-after: avoid; page-break-after: avoid; }
+        :root { --bg: #fff; --text: #000; --muted: #555; --rule: #ccc; --accent: #555; }
+        @page { margin: 22mm 20mm; }
+        body { font-size: 10.5pt; line-height: 1.75; }
+        .page { max-width: none; padding: 0; }
+        .toc, .colophon { display: none; }
+        .cover { padding: 4rem 0 0; ${isLong ? "break-after: page; page-break-after: always;" : ""} }
+        .chapter + .chapter { break-before: page; page-break-before: always; margin-top: 0; }
+        .chapter-head { break-after: avoid; page-break-after: avoid; padding-top: 1rem; }
+        .scene-title { break-after: avoid; page-break-after: avoid; }
+        p { orphans: 3; widows: 3; }
+        blockquote, li { break-inside: avoid; }
+        a { color: inherit; text-decoration: none; }
     }
 </style>
 </head>
 <body>
+<main class="page">
+<header class="cover">
 <h1>${escapeHtml(title)}</h1>
-${chapters}
+<p class="meta">챕터 ${stats.chapters} · 씬 ${stats.scenes} · ${stats.chars.toLocaleString()}자</p>
+<div class="rule" aria-hidden="true"></div>
+</header>
+${toc}
+${body}
+<footer class="colophon">${formatKoreanDate(new Date())} · NovelBunker</footer>
+</main>
 </body>
 </html>
 `;
