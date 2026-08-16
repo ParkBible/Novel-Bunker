@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BackupData } from "@/app/(shared)/db/backup";
+import { type BackupData, collectLocalData } from "@/app/(shared)/db/backup";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -88,9 +88,9 @@ interface Props {
     onClose: () => void;
 }
 
-interface ComparePair {
-    older: HistoryEntry;
-    newer: HistoryEntry;
+// 선택한 버전(이전) ↔ 현재 상태(이후) 비교 결과
+interface CompareResult {
+    entry: HistoryEntry;
     diffs: SceneDiff[];
 }
 
@@ -111,8 +111,7 @@ export function VersionHistoryModal({ onClose }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
-    const [selected, setSelected] = useState<string[]>([]);
-    const [compare, setCompare] = useState<ComparePair | null>(null);
+    const [compare, setCompare] = useState<CompareResult | null>(null);
     const [expandedScene, setExpandedScene] = useState<number | null>(null);
     const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(
         null,
@@ -131,37 +130,19 @@ export function VersionHistoryModal({ onClose }: Props) {
         reload();
     }, [reload]);
 
-    const toggleSelect = (id: string) => {
-        setSelected((prev) => {
-            if (prev.includes(id)) return prev.filter((x) => x !== id);
-            if (prev.length >= 2) return [prev[1], id]; // 최근 선택 + 새 선택 유지
-            return [...prev, id];
-        });
-    };
-
-    const handleCompare = async () => {
-        if (selected.length !== 2) return;
+    // 선택한 버전을 "현재 상태"와 비교 (버전=이전, 현재=이후)
+    const handleCompare = async (entry: HistoryEntry) => {
         setBusy(true);
         setError(null);
         try {
-            const [id1, id2] = selected;
-            const [data1, data2] = await Promise.all([
-                source.getData(id1),
-                source.getData(id2),
+            const [versionData, currentData] = await Promise.all([
+                source.getData(entry.id),
+                collectLocalData(),
             ]);
-            if (!data1 || !data2) throw new Error();
-            const m1 = metas.find((m) => m.id === id1);
-            const m2 = metas.find((m) => m.id === id2);
-            if (!m1 || !m2) throw new Error();
-            const firstIsOlder = m1.createdAt <= m2.createdAt;
-            const older = firstIsOlder ? m1 : m2;
-            const newer = firstIsOlder ? m2 : m1;
-            const olderData = firstIsOlder ? data1 : data2;
-            const newerData = firstIsOlder ? data2 : data1;
+            if (!versionData) throw new Error();
             setCompare({
-                older,
-                newer,
-                diffs: diffScenes(olderData, newerData),
+                entry,
+                diffs: diffScenes(versionData, currentData),
             });
             setExpandedScene(null);
         } catch {
@@ -188,7 +169,6 @@ export function VersionHistoryModal({ onClose }: Props) {
         try {
             await source.remove(id);
             setMetas((prev) => prev.filter((m) => m.id !== id));
-            setSelected((prev) => prev.filter((x) => x !== id));
         } catch {
             setError(t("version_loadError"));
         }
@@ -314,114 +294,98 @@ export function VersionHistoryModal({ onClose }: Props) {
                             </p>
                         ) : (
                             <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-                                {metas.map((snap) => {
-                                    const selIndex = selected.indexOf(snap.id);
-                                    const isSelected = selIndex !== -1;
-                                    return (
-                                        <li
-                                            key={snap.id}
-                                            className="flex items-center justify-between gap-2 py-2.5"
-                                        >
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    toggleSelect(snap.id)
-                                                }
-                                                className="flex flex-1 items-center gap-2 text-left"
-                                            >
-                                                <span
-                                                    className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
-                                                        isSelected
-                                                            ? "border-blue-500 bg-blue-500 text-white"
-                                                            : "border-zinc-300 text-transparent dark:border-zinc-600"
-                                                    }`}
-                                                >
-                                                    {isSelected
-                                                        ? selIndex + 1
-                                                        : ""}
-                                                </span>
-                                                <span
-                                                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                                                        snap.type === "manual"
-                                                            ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                                                            : "bg-blue-50 text-blue-500 dark:bg-blue-950/60 dark:text-blue-400"
-                                                    }`}
-                                                >
-                                                    {snap.type === "manual"
-                                                        ? t("snapshot_manual")
-                                                        : t("snapshot_auto")}
-                                                </span>
-                                                <span className="text-xs text-zinc-600 dark:text-zinc-300">
-                                                    {formatDate(snap.createdAt)}
-                                                </span>
-                                            </button>
-                                            {confirmRestoreId === snap.id ? (
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleRestore(
-                                                                snap.id,
-                                                            )
-                                                        }
-                                                        disabled={busy}
-                                                        className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900"
-                                                    >
-                                                        {busy
-                                                            ? t("restoring")
-                                                            : t("confirm")}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setConfirmRestoreId(
-                                                                null,
-                                                            )
-                                                        }
-                                                        disabled={busy}
-                                                        className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300"
-                                                    >
-                                                        {t("cancel")}
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="flex shrink-0 items-center gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setConfirmRestoreId(
-                                                                snap.id,
-                                                            )
-                                                        }
-                                                        disabled={busy}
-                                                        title={t(
-                                                            "version_restoreThis",
-                                                        )}
-                                                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                                                    >
-                                                        <RotateCcw className="size-3" />
-                                                        {t("restore")}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                snap.id,
-                                                            )
-                                                        }
-                                                        disabled={busy}
-                                                        title={t(
-                                                            "snapshot_deleteTitle",
-                                                        )}
-                                                        className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40 dark:hover:bg-red-950"
-                                                    >
-                                                        <Trash2 className="size-3" />
-                                                    </button>
-                                                </div>
+                                {metas.map((snap) => (
+                                    <li
+                                        key={snap.id}
+                                        className="flex items-center justify-between gap-2 py-2.5"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCompare(snap)}
+                                            disabled={busy}
+                                            title={t(
+                                                "version_compareWithCurrent",
                                             )}
-                                        </li>
-                                    );
-                                })}
+                                            className="flex flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:hover:bg-zinc-800/60"
+                                        >
+                                            <GitCompare className="size-3.5 shrink-0 text-zinc-400" />
+                                            <span
+                                                className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                                    snap.type === "manual"
+                                                        ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                                                        : "bg-blue-50 text-blue-500 dark:bg-blue-950/60 dark:text-blue-400"
+                                                }`}
+                                            >
+                                                {snap.type === "manual"
+                                                    ? t("snapshot_manual")
+                                                    : t("snapshot_auto")}
+                                            </span>
+                                            <span className="text-xs text-zinc-600 dark:text-zinc-300">
+                                                {formatDate(snap.createdAt)}
+                                            </span>
+                                        </button>
+                                        {confirmRestoreId === snap.id ? (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleRestore(snap.id)
+                                                    }
+                                                    disabled={busy}
+                                                    className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900"
+                                                >
+                                                    {busy
+                                                        ? t("restoring")
+                                                        : t("confirm")}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setConfirmRestoreId(
+                                                            null,
+                                                        )
+                                                    }
+                                                    disabled={busy}
+                                                    className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300"
+                                                >
+                                                    {t("cancel")}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex shrink-0 items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setConfirmRestoreId(
+                                                            snap.id,
+                                                        )
+                                                    }
+                                                    disabled={busy}
+                                                    title={t(
+                                                        "version_restoreThis",
+                                                    )}
+                                                    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                                                >
+                                                    <RotateCcw className="size-3" />
+                                                    {t("restore")}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleDelete(snap.id)
+                                                    }
+                                                    disabled={busy}
+                                                    title={t(
+                                                        "snapshot_deleteTitle",
+                                                    )}
+                                                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40 dark:hover:bg-red-950"
+                                                >
+                                                    <Trash2 className="size-3" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </li>
+                                ))}
                             </ul>
                         ))}
 
@@ -430,13 +394,11 @@ export function VersionHistoryModal({ onClose }: Props) {
                         <div className="flex flex-col gap-3">
                             <div className="flex items-center justify-center gap-2 rounded-lg bg-zinc-50 py-2 text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
                                 <span>
-                                    {t("version_older")}:{" "}
-                                    {formatDate(compare.older.createdAt)}
+                                    {formatDate(compare.entry.createdAt)}
                                 </span>
                                 <span>→</span>
-                                <span>
-                                    {t("version_newer")}:{" "}
-                                    {formatDate(compare.newer.createdAt)}
+                                <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                                    {t("version_current")}
                                 </span>
                             </div>
 
@@ -542,7 +504,7 @@ export function VersionHistoryModal({ onClose }: Props) {
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            handleRestore(compare.newer.id)
+                                            handleRestore(compare.entry.id)
                                         }
                                         disabled={busy}
                                         className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
@@ -550,7 +512,7 @@ export function VersionHistoryModal({ onClose }: Props) {
                                         <RotateCcw className="size-3.5" />
                                         {busy
                                             ? t("restoring")
-                                            : `${t("version_newer")} ${t("version_restoreThis")}`}
+                                            : t("version_restoreThis")}
                                     </button>
                                 </>
                             )}
@@ -568,21 +530,9 @@ export function VersionHistoryModal({ onClose }: Props) {
                         >
                             {t("version_back")}
                         </button>
-                    ) : selected.length === 2 ? (
-                        <button
-                            type="button"
-                            onClick={handleCompare}
-                            disabled={busy}
-                            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            <GitCompare className="size-3.5" />
-                            {t("version_compare")}
-                        </button>
                     ) : (
                         <p className="text-center text-xs text-zinc-400">
-                            {selected.length === 1
-                                ? t("version_selectedCount", { n: 1 })
-                                : t("version_selectTwo")}
+                            {t("version_selectOne")}
                         </p>
                     )}
                 </div>
