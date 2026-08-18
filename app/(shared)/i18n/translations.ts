@@ -271,7 +271,8 @@ export const ko = {
         "타임라인에서 버전을 고르면 현재 내용과 나란히 비교합니다",
     version_paneCurrent: "현재",
     version_manualPinned: "직접 저장한 버전",
-    version_sceneCount: "씬 {n}개",
+    version_sceneMore: "외 {n}개",
+    version_untitledScene: "제목 없는 씬",
     version_footer:
         "최근 1시간은 5분 간격 · 오늘은 1시간 간격 · 어제 이전은 하루 2개 보관",
     version_loadError: "불러오기 실패",
@@ -596,7 +597,8 @@ export const en = {
         "Pick a version from the timeline to compare it side by side with your current content",
     version_paneCurrent: "Current",
     version_manualPinned: "Saved manually",
-    version_sceneCount: "{n} scenes",
+    version_sceneMore: "and {n} more",
+    version_untitledScene: "Untitled scene",
     version_footer:
         "Last hour every 5 min · today hourly · older days keep 2 each",
     version_loadError: "Failed to load",

@@ -57,7 +57,7 @@ const localSource: HistorySource = {
             added: m.added,
             removed: m.removed,
             scenesChanged: m.scenesChanged,
-            excerpt: m.excerpt,
+            changedScenes: m.changedScenes,
         })),
     getData: (id) => snapshotOps.getData(Number(id)),
     restore: (id) => snapshotOps.restore(Number(id)),

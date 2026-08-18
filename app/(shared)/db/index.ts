@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { type EntityTable, type Transaction } from "dexie";
 import type { BackupData } from "./backup";
 import { computeStats } from "./snapshotStats";
 
@@ -123,7 +123,7 @@ export interface Snapshot {
     added?: number; // 직전 스냅샷 대비 늘어난 글자 수
     removed?: number; // 직전 스냅샷 대비 줄어든 글자 수
     scenesChanged?: number; // 직전 스냅샷 대비 바뀐 씬 개수
-    excerpt?: string; // 이 버전에서 새로 쓰인 첫 문장
+    changedScenes?: string[]; // 바뀐 씬 이름 (앞의 몇 개만)
 }
 
 // 스냅샷 본문. id는 Snapshot.id와 1:1로 맞춘다.
@@ -406,36 +406,45 @@ class NovelBunkerDB extends Dexie {
                 }
             });
 
-        // v12: 요약값이 비어 있는 스냅샷을 채운다. v11 업그레이드가 본문 이관만
-        // 하던 시점에 올라온 DB를 위한 보충 단계 — 이미 채워진 건 건드리지 않아
-        // 여러 번 실행돼도 안전하다.
-        this.version(12).upgrade(async (tx) => {
-            const snapshots = (await tx.table("snapshots").toArray()).sort(
-                (a, b) =>
-                    new Date(a.createdAt).getTime() -
-                    new Date(b.createdAt).getTime(),
-            );
-            if (snapshots.every((s) => s.added !== undefined)) return;
+        // v12, v13: 요약값이 비어 있는 스냅샷을 채우는 보충 단계.
+        // 요약 항목이 바뀔 때마다 버전을 올리면 이미 업그레이드된 DB도 따라온다.
+        // (Dexie는 같은 버전의 upgrade를 두 번 실행하지 않는다)
+        this.version(12).upgrade(backfillSnapshotSummaries);
+        this.version(13).upgrade(backfillSnapshotSummaries);
+    }
+}
 
-            let prev: BackupData | null = null;
-            for (const row of snapshots) {
-                if (row.id === undefined) continue;
-                const body = await tx.table("snapshotData").get(row.id);
-                if (!body) continue;
+// 요약값이 없는 스냅샷만 골라 본문을 읽어 채운다. 이미 채워진 건 건드리지
+// 않으므로 여러 버전에서 반복 호출해도 안전하다.
+async function backfillSnapshotSummaries(
+    tx: Transaction & { table: Dexie["table"] },
+): Promise<void> {
+    const snapshots = (await tx.table("snapshots").toArray()).sort(
+        (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const needsFill = (s: Snapshot) =>
+        s.added === undefined || s.changedScenes === undefined;
+    if (!snapshots.some(needsFill)) return;
 
-                try {
-                    const parsed = JSON.parse(body.data) as BackupData;
-                    if (row.added === undefined) {
-                        await tx
-                            .table("snapshots")
-                            .update(row.id, computeStats(parsed, prev));
-                    }
-                    prev = parsed;
-                } catch {
-                    prev = null;
-                }
+    let prev: BackupData | null = null;
+    for (const row of snapshots) {
+        if (row.id === undefined) continue;
+        const body = await tx.table("snapshotData").get(row.id);
+        if (!body) continue;
+
+        try {
+            const parsed = JSON.parse(body.data) as BackupData;
+            if (needsFill(row)) {
+                await tx
+                    .table("snapshots")
+                    .update(row.id, computeStats(parsed, prev));
             }
-        });
+            prev = parsed;
+        } catch {
+            // 깨진 스냅샷이 있어도 나머지 백필은 계속한다
+            prev = null;
+        }
     }
 }
 

@@ -1,4 +1,3 @@
-import { htmlToParagraphs } from "../utils/diff";
 import type { BackupData } from "./backup";
 import type { Scene } from "./index";
 
@@ -6,26 +5,25 @@ import type { Scene } from "./index";
 // db/index.ts의 마이그레이션에서도 쓰이므로 별도 모듈로 둔다.
 // (여기서 index/backup은 타입만 가져와 런타임 순환 참조가 없다)
 
-const EXCERPT_MAX = 80;
+// 목록에 이름을 다 늘어놓을 수 없으니 앞의 몇 개만 저장한다.
+const SCENE_NAMES_MAX = 3;
 
 const plainLength = (html: string | undefined): number =>
     (html ?? "").replace(/<[^>]*>/g, "").length;
 
-function truncate(text: string): string {
-    return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX)}…` : text;
-}
+// 씬 제목은 비어 있을 수 있다. 표시용 문구는 로케일에 따라 달라지므로
+// 여기서는 원본 그대로 두고 UI에서 폴백을 채운다.
+type SceneRef = Pick<Scene, "title" | "chapterId" | "order">;
 
-// 이 버전에서 새로 쓰인 문장을 고른다. 직전 버전에 없던 첫 문단이
-// 가장 설명력이 높고, 없으면 해당 씬의 첫 문단으로 폴백한다.
-function pickExcerpt(scene: Scene, before: Scene | undefined): string {
-    const paragraphs = htmlToParagraphs(scene.content ?? "");
-    if (paragraphs.length === 0) return scene.title?.trim() ?? "";
-    if (before) {
-        const seen = new Set(htmlToParagraphs(before.content ?? ""));
-        const fresh = paragraphs.find((p) => !seen.has(p));
-        if (fresh) return truncate(fresh);
-    }
-    return truncate(paragraphs[0]);
+function toNames(refs: SceneRef[]): string[] {
+    return [...refs]
+        .sort((a, b) =>
+            a.chapterId !== b.chapterId
+                ? a.chapterId - b.chapterId
+                : a.order - b.order,
+        )
+        .slice(0, SCENE_NAMES_MAX)
+        .map((s) => s.title?.trim() ?? "");
 }
 
 export interface SnapshotStats {
@@ -33,7 +31,7 @@ export interface SnapshotStats {
     added: number;
     removed: number;
     scenesChanged: number;
-    excerpt: string;
+    changedScenes: string[];
 }
 
 export function computeStats(
@@ -46,13 +44,12 @@ export function computeStats(
     );
 
     if (!prev) {
-        const first = data.scenes.find((s) => plainLength(s.content) > 0);
         return {
             chars,
             added: chars,
             removed: 0,
             scenesChanged: data.scenes.length,
-            excerpt: first ? pickExcerpt(first, undefined) : "",
+            changedScenes: toNames(data.scenes),
         };
     }
 
@@ -61,8 +58,7 @@ export function computeStats(
 
     let added = 0;
     let removed = 0;
-    let scenesChanged = 0;
-    let changed: { scene: Scene; before: Scene | undefined } | null = null;
+    const changed: SceneRef[] = [];
 
     for (const scene of data.scenes) {
         const before = prevById.get(scene.id as number);
@@ -74,22 +70,19 @@ export function computeStats(
             !before ||
             before.content !== scene.content ||
             before.title !== scene.title;
-        if (isChanged) {
-            scenesChanged++;
-            if (!changed) changed = { scene, before };
-        }
+        if (isChanged) changed.push(scene);
     }
     for (const [id, scene] of prevById) {
         if (currentIds.has(id)) continue;
         removed += plainLength(scene.content);
-        scenesChanged++; // 삭제된 씬도 변경으로 센다
+        changed.push(scene); // 삭제된 씬도 변경으로 센다
     }
 
     return {
         chars,
         added,
         removed,
-        scenesChanged,
-        excerpt: changed ? pickExcerpt(changed.scene, changed.before) : "",
+        scenesChanged: changed.length,
+        changedScenes: toNames(changed),
     };
 }

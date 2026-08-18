@@ -12,8 +12,11 @@ export interface TimelineEntry {
     added?: number;
     removed?: number;
     scenesChanged?: number;
-    excerpt?: string;
+    changedScenes?: string[];
 }
+
+// 목록에 이름을 다 늘어놓으면 줄이 넘치므로 앞 두 개만 보이고 나머지는 개수로
+const SHOWN_SCENE_NAMES = 2;
 
 interface Props {
     entries: TimelineEntry[];
@@ -40,6 +43,26 @@ function formatTime(date: Date): string {
 // 날짜가 바뀌는 지점에 구분선을 넣기 위한 키
 function dayKey(date: Date): string {
     return date.toLocaleDateString("ko-KR");
+}
+
+type TFunction = (
+    key: Parameters<ReturnType<typeof useTranslation>>[0],
+    params?: Record<string, string | number>,
+) => string;
+
+// "문이 닫히다, 계단 외 1개" — 이름 몇 개만 보이고 나머지는 개수로 접는다
+function sceneSummary(entry: TimelineEntry, t: TFunction): string {
+    const names = entry.changedScenes ?? [];
+    if (names.length === 0) return "";
+
+    const shown = names
+        .slice(0, SHOWN_SCENE_NAMES)
+        .map((name) => name || t("version_untitledScene"));
+    const rest = (entry.scenesChanged ?? names.length) - shown.length;
+    const joined = shown.join(", ");
+    return rest > 0
+        ? `${joined} ${t("version_sceneMore", { n: rest })}`
+        : joined;
 }
 
 export function VersionTimeline({
@@ -105,11 +128,7 @@ export function VersionTimeline({
                                     )}
                                 </span>
 
-                                {!!(
-                                    entry.added ||
-                                    entry.removed ||
-                                    entry.scenesChanged
-                                ) && (
+                                {!!(entry.added || entry.removed) && (
                                     <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-medium tabular-nums">
                                         {!!entry.added && (
                                             <span className="text-emerald-600 dark:text-emerald-400">
@@ -124,19 +143,12 @@ export function VersionTimeline({
                                                 자
                                             </span>
                                         )}
-                                        {!!entry.scenesChanged && (
-                                            <span className="text-zinc-400 dark:text-zinc-500">
-                                                {t("version_sceneCount", {
-                                                    n: entry.scenesChanged,
-                                                })}
-                                            </span>
-                                        )}
                                     </span>
                                 )}
 
-                                {entry.excerpt && (
+                                {sceneSummary(entry, t) && (
                                     <span className="line-clamp-2 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-500">
-                                        {entry.excerpt}
+                                        {sceneSummary(entry, t)}
                                     </span>
                                 )}
                             </button>
