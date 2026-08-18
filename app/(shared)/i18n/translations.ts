@@ -266,8 +266,15 @@ export const ko = {
     version_sceneNew: "새 씬",
     version_sceneDeleted: "삭제됨",
     version_current: "현재",
+    version_timeline: "타임라인",
+    version_selectFromTimeline:
+        "타임라인에서 버전을 고르면 현재 내용과 나란히 비교합니다",
+    version_paneCurrent: "현재",
+    version_manualPinned: "직접 저장한 버전",
+    version_sceneMore: "외 {n}개",
+    version_untitledScene: "제목 없는 씬",
     version_footer:
-        "로컬에 자동 저장 · 최근 건 촘촘히, 오래된 건 듬성하게 보관",
+        "최근 1시간은 5분 간격 · 오늘은 1시간 간격 · 어제 이전은 하루 2개 보관",
     version_loadError: "불러오기 실패",
     version_restoreError: "복원 실패",
     version_scopeCloud: "기기간 공유",
@@ -608,8 +615,15 @@ export const en = {
     version_sceneNew: "New scene",
     version_sceneDeleted: "Deleted",
     version_current: "Current",
+    version_timeline: "Timeline",
+    version_selectFromTimeline:
+        "Pick a version from the timeline to compare it side by side with your current content",
+    version_paneCurrent: "Current",
+    version_manualPinned: "Saved manually",
+    version_sceneMore: "and {n} more",
+    version_untitledScene: "Untitled scene",
     version_footer:
-        "Auto-saved locally · recent kept densely, older thinned out",
+        "Last hour every 5 min · today hourly · older days keep 2 each",
     version_loadError: "Failed to load",
     version_restoreError: "Failed to restore",
     version_scopeCloud: "Synced across devices",
