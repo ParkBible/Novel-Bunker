@@ -6,8 +6,11 @@ import { collectLocalData } from "../db/backup";
 
 export type ExportFormat = "txt" | "markdown" | "html" | "pdf" | "json";
 
+// 씬 구분선을 무엇으로 표시할지: 씬 제목 / 챕터 내 순번 / 표시 안 함
+export type SceneHeadingMode = "title" | "number" | "none";
+
 export interface ExportOptions {
-    includeSceneTitles: boolean;
+    sceneHeading: SceneHeadingMode;
 }
 
 export interface ManuscriptSource {
@@ -185,6 +188,18 @@ function orderChapters(source: ManuscriptSource): OrderedChapter[] {
         }));
 }
 
+// 씬마다 붙일 머리글. 번호는 챕터 안에서 1부터 다시 센다.
+// 제목 모드인데 제목이 비어 있으면 머리글을 생략한다(빈 대괄호 방지).
+function sceneHeading(
+    scene: Scene,
+    indexInChapter: number,
+    options: ExportOptions,
+): string | null {
+    if (options.sceneHeading === "number") return `씬 ${indexInChapter + 1}`;
+    if (options.sceneHeading === "title") return scene.title.trim() || null;
+    return null;
+}
+
 export interface ManuscriptStats {
     chapters: number;
     scenes: number;
@@ -220,13 +235,12 @@ export function buildTxt(
 
     for (const chapter of orderChapters(source)) {
         const body: string[] = [chapter.title];
-        for (const scene of chapter.scenes) {
+        chapter.scenes.forEach((scene, i) => {
             const text = htmlToPlainText(scene.content);
-            if (options.includeSceneTitles && scene.title.trim()) {
-                body.push(`[${scene.title.trim()}]`);
-            }
+            const heading = sceneHeading(scene, i, options);
+            if (heading) body.push(`[${heading}]`);
             if (text) body.push(text);
-        }
+        });
         parts.push(body.join("\n\n"));
     }
 
@@ -242,13 +256,12 @@ export function buildMarkdown(
 
     for (const chapter of orderChapters(source)) {
         parts.push(`## ${chapter.title}`);
-        for (const scene of chapter.scenes) {
-            if (options.includeSceneTitles && scene.title.trim()) {
-                parts.push(`### ${scene.title.trim()}`);
-            }
+        chapter.scenes.forEach((scene, i) => {
+            const heading = sceneHeading(scene, i, options);
+            if (heading) parts.push(`### ${heading}`);
             const md = htmlToMarkdown(scene.content);
             if (md) parts.push(md);
-        }
+        });
     }
 
     return `${parts.join("\n\n")}\n`;
@@ -305,15 +318,18 @@ ${chapters
         .map((chapter, i) => {
             const scenes = chapter.scenes
                 .map((scene, sceneIndex) => {
-                    const hasHeading =
-                        options.includeSceneTitles && !!scene.title.trim();
-                    // 씬 제목을 안 쓰면 장식 기호로 장면 전환을 표시한다
+                    const headingText = sceneHeading(
+                        scene,
+                        sceneIndex,
+                        options,
+                    );
+                    // 씬 머리글이 없으면 장식 기호로 장면 전환을 표시한다
                     const divider =
-                        sceneIndex > 0 && !hasHeading
+                        sceneIndex > 0 && !headingText
                             ? '<div class="scene-break" aria-hidden="true">✻</div>\n'
                             : "";
-                    const heading = hasHeading
-                        ? `<h3 class="scene-title">${escapeHtml(scene.title.trim())}</h3>`
+                    const heading = headingText
+                        ? `<h3 class="scene-title">${escapeHtml(headingText)}</h3>`
                         : "";
                     return `${divider}<section class="scene">${heading}${scene.content || ""}</section>`;
                 })
