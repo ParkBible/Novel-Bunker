@@ -11,6 +11,7 @@ export interface TimelineEntry {
     label?: string;
     added?: number;
     removed?: number;
+    scenesChanged?: number;
     excerpt?: string;
 }
 
@@ -104,8 +105,12 @@ export function VersionTimeline({
                                     )}
                                 </span>
 
-                                {(entry.added || entry.removed) && (
-                                    <span className="flex items-center gap-2 text-[11px] font-medium tabular-nums">
+                                {!!(
+                                    entry.added ||
+                                    entry.removed ||
+                                    entry.scenesChanged
+                                ) && (
+                                    <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-medium tabular-nums">
                                         {!!entry.added && (
                                             <span className="text-emerald-600 dark:text-emerald-400">
                                                 +{entry.added.toLocaleString()}
@@ -117,6 +122,13 @@ export function VersionTimeline({
                                                 −
                                                 {entry.removed.toLocaleString()}
                                                 자
+                                            </span>
+                                        )}
+                                        {!!entry.scenesChanged && (
+                                            <span className="text-zinc-400 dark:text-zinc-500">
+                                                {t("version_sceneCount", {
+                                                    n: entry.scenesChanged,
+                                                })}
                                             </span>
                                         )}
                                     </span>

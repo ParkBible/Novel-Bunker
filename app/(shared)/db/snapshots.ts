@@ -2,16 +2,17 @@ import { htmlToParagraphs } from "../utils/diff";
 import { applyImportedData, type BackupData, collectLocalData } from "./backup";
 import { db, type Scene, type Snapshot } from "./index";
 
-// 목록 표시에 필요한 메타데이터만 (무거운 data 문자열 제외)
+// 목록 표시용 메타데이터. 본문은 snapshotData 테이블에 있어 여기 없다.
 export interface SnapshotMeta {
     id: number;
     createdAt: Date;
     type: "manual" | "auto";
     label?: string;
-    size: number; // data 바이트 근사치
+    size?: number; // 본문 길이 (진단용)
     chars?: number;
     added?: number;
     removed?: number;
+    scenesChanged?: number;
     excerpt?: string;
 }
 
@@ -57,10 +58,11 @@ function toMeta(s: Snapshot): SnapshotMeta {
         createdAt: s.createdAt,
         type: s.type,
         label: s.label,
-        size: s.data.length,
+        size: s.size,
         chars: s.chars,
         added: s.added,
         removed: s.removed,
+        scenesChanged: s.scenesChanged,
         excerpt: s.excerpt,
     };
 }
@@ -91,6 +93,7 @@ interface SnapshotStats {
     chars: number;
     added: number;
     removed: number;
+    scenesChanged: number;
     excerpt: string;
 }
 
@@ -109,6 +112,7 @@ function computeStats(
             chars,
             added: chars,
             removed: 0,
+            scenesChanged: data.scenes.length,
             excerpt: first ? pickExcerpt(first, undefined) : "",
         };
     }
@@ -118,6 +122,7 @@ function computeStats(
 
     let added = 0;
     let removed = 0;
+    let scenesChanged = 0;
     let changed: { scene: Scene; before: Scene | undefined } | null = null;
 
     for (const scene of data.scenes) {
@@ -126,24 +131,55 @@ function computeStats(
         if (delta > 0) added += delta;
         else removed += -delta;
         // 길이가 같아도 내용이 바뀌었을 수 있으므로 문자열로 판정한다
-        if (!changed && (!before || before.content !== scene.content)) {
-            changed = { scene, before };
+        const isChanged =
+            !before ||
+            before.content !== scene.content ||
+            before.title !== scene.title;
+        if (isChanged) {
+            scenesChanged++;
+            if (!changed) changed = { scene, before };
         }
     }
     for (const [id, scene] of prevById) {
-        if (!currentIds.has(id)) removed += plainLength(scene.content);
+        if (currentIds.has(id)) continue;
+        removed += plainLength(scene.content);
+        scenesChanged++; // 삭제된 씬도 변경으로 센다
     }
 
     return {
         chars,
         added,
         removed,
+        scenesChanged,
         excerpt: changed ? pickExcerpt(changed.scene, changed.before) : "",
     };
 }
 
-async function latestSnapshot(): Promise<Snapshot | undefined> {
-    return db.snapshots.orderBy("createdAt").reverse().first();
+// ── 저장소 접근 (메타/본문 분리) ─────────────────────────────
+
+async function readData(id: number): Promise<BackupData | null> {
+    const row = await db.snapshotData.get(id);
+    if (!row) return null;
+    return JSON.parse(row.data) as BackupData;
+}
+
+// 새 스냅샷을 메타 + 본문 두 테이블에 한 트랜잭션으로 기록
+async function insertSnapshot(
+    meta: Omit<Snapshot, "id">,
+    json: string,
+): Promise<number> {
+    return db.transaction("rw", [db.snapshots, db.snapshotData], async () => {
+        const id = (await db.snapshots.add(meta)) as number;
+        await db.snapshotData.put({ id, data: json });
+        return id;
+    });
+}
+
+// 직전 스냅샷의 본문 (없으면 null)
+async function latestData(): Promise<BackupData | null> {
+    const latest = await db.snapshots.orderBy("createdAt").reverse().first();
+    if (!latest || latest.id === undefined) return null;
+    return readData(latest.id);
 }
 
 export const snapshotOps = {
@@ -153,44 +189,48 @@ export const snapshotOps = {
         label?: string,
     ): Promise<number | null> {
         const data = await collectLocalData();
-        const latest = await latestSnapshot();
-        const prev = latest ? (JSON.parse(latest.data) as BackupData) : null;
-        const id = await db.snapshots.add({
-            createdAt: new Date(),
-            type,
-            label,
-            data: JSON.stringify(data),
-            ...computeStats(data, prev),
-        });
+        const json = JSON.stringify(data);
+        const prev = await latestData();
+        const id = await insertSnapshot(
+            {
+                createdAt: new Date(),
+                type,
+                label,
+                size: json.length,
+                ...computeStats(data, prev),
+            },
+            json,
+        );
         await snapshotOps.prune();
-        return id as number;
+        return id;
     },
 
     // 마지막 스냅샷과 내용이 같으면 건너뛰는 자동 스냅샷
     async createAutoIfChanged(): Promise<number | null> {
         const data = await collectLocalData();
         const json = JSON.stringify(data);
-        const latest = await latestSnapshot();
-        let prev: BackupData | null = null;
-        if (latest) {
-            prev = JSON.parse(latest.data) as BackupData;
+        const prev = await latestData();
+        if (prev) {
             // exportedAt은 수집 시각이라 매번 달라지므로 비교에서 제외
             const hasChanged =
                 JSON.stringify({ ...data, exportedAt: "" }) !==
                 JSON.stringify({ ...prev, exportedAt: "" });
             if (!hasChanged) return null; // 변경 없음
         }
-        const id = await db.snapshots.add({
-            createdAt: new Date(),
-            type: "auto",
-            data: json,
-            ...computeStats(data, prev),
-        });
+        const id = await insertSnapshot(
+            {
+                createdAt: new Date(),
+                type: "auto",
+                size: json.length,
+                ...computeStats(data, prev),
+            },
+            json,
+        );
         await snapshotOps.prune();
-        return id as number;
+        return id;
     },
 
-    // 메타데이터 목록 (최신순)
+    // 메타데이터 목록 (최신순). 본문 테이블은 건드리지 않는다.
     async list(): Promise<SnapshotMeta[]> {
         const all = await db.snapshots.orderBy("createdAt").reverse().toArray();
         return all.map(toMeta);
@@ -198,9 +238,7 @@ export const snapshotOps = {
 
     // 특정 스냅샷의 백업 데이터 파싱
     async getData(id: number): Promise<BackupData | null> {
-        const snap = await db.snapshots.get(id);
-        if (!snap) return null;
-        return JSON.parse(snap.data) as BackupData;
+        return readData(id);
     },
 
     // 스냅샷으로 전체 복원
@@ -211,7 +249,14 @@ export const snapshotOps = {
     },
 
     async delete(id: number): Promise<void> {
-        await db.snapshots.delete(id);
+        await db.transaction(
+            "rw",
+            [db.snapshots, db.snapshotData],
+            async () => {
+                await db.snapshots.delete(id);
+                await db.snapshotData.delete(id);
+            },
+        );
     },
 
     // 보관 정책 적용: 수동은 최대 개수, 자동은 구간별 씨닝
@@ -246,6 +291,15 @@ export const snapshotOps = {
             else seenBuckets.add(bucket);
         });
 
-        if (toDelete.length > 0) await db.snapshots.bulkDelete(toDelete);
+        if (toDelete.length > 0) {
+            await db.transaction(
+                "rw",
+                [db.snapshots, db.snapshotData],
+                async () => {
+                    await db.snapshots.bulkDelete(toDelete);
+                    await db.snapshotData.bulkDelete(toDelete);
+                },
+            );
+        }
     },
 };

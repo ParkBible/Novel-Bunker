@@ -107,20 +107,27 @@ export interface CharacterMessage {
     createdAt: Date;
 }
 
-// 로컬 버전 히스토리 스냅샷 (프로젝트 전체를 JSON 문자열로 보관)
+// 로컬 버전 히스토리 스냅샷의 메타데이터.
+// 본문(JSON)은 snapshotData 테이블에 따로 둔다 — IndexedDB는 레코드 일부만
+// 읽을 수 없어서, 한 테이블에 두면 목록을 그릴 때마다 전체 본문이 딸려 온다.
 export interface Snapshot {
     id?: number;
     createdAt: Date;
     type: "manual" | "auto";
     label?: string;
-    // JSON.stringify(BackupData) — 용량/직렬화 단순화를 위해 문자열로 저장
-    data: string;
-    // 타임라인 표시용 요약. 저장 시점에 계산해 두어 목록을 그릴 때
-    // 스냅샷 본문을 파싱하지 않아도 되게 한다. (구버전 레코드엔 없음)
+    size?: number; // 본문 길이 (진단용)
+    // 타임라인 표시용 요약. 저장 시점에 계산해 둔다. (구버전 레코드엔 없음)
     chars?: number; // 본문 총 글자 수
     added?: number; // 직전 스냅샷 대비 늘어난 글자 수
     removed?: number; // 직전 스냅샷 대비 줄어든 글자 수
+    scenesChanged?: number; // 직전 스냅샷 대비 바뀐 씬 개수
     excerpt?: string; // 이 버전에서 새로 쓰인 첫 문장
+}
+
+// 스냅샷 본문. id는 Snapshot.id와 1:1로 맞춘다.
+export interface SnapshotData {
+    id: number;
+    data: string; // JSON.stringify(BackupData)
 }
 
 // Database class
@@ -136,6 +143,7 @@ class NovelBunkerDB extends Dexie {
     aiMessages!: EntityTable<AiMessage, "id">;
     characterMessages!: EntityTable<CharacterMessage, "id">;
     snapshots!: EntityTable<Snapshot, "id">;
+    snapshotData!: EntityTable<SnapshotData, "id">;
 
     constructor() {
         super("NovelBunkerDB");
@@ -339,6 +347,41 @@ class NovelBunkerDB extends Dexie {
                     key: "activeProjectId",
                     value: String(projectId),
                 });
+            });
+
+        // v11: 스냅샷 본문을 별도 테이블로 분리. 버전 목록을 그릴 때
+        // 본문까지 읽어 올리던 비용을 없앤다.
+        this.version(11)
+            .stores({
+                projects: "++id, order, createdAt",
+                chapters:
+                    "++id, projectId, [projectId+order], order, createdAt",
+                scenes: "++id, chapterId, projectId, [chapterId+order], order, createdAt",
+                characters: "++id, projectId, name, order, group",
+                characterRelationships:
+                    "++id, projectId, fromCharacterId, toCharacterId",
+                lores: "++id, projectId, category, order, createdAt",
+                settings: "key",
+                aiConversations: "++id, projectId, createdAt",
+                aiMessages: "++id, conversationId, createdAt",
+                characterMessages: "++id, characterId, createdAt",
+                snapshots: "++id, createdAt, type",
+                snapshotData: "id",
+            })
+            .upgrade(async (tx) => {
+                const snapshots = await tx.table("snapshots").toArray();
+                for (const row of snapshots) {
+                    const { data, ...meta } = row as Snapshot & {
+                        data?: string;
+                    };
+                    if (typeof data !== "string" || row.id === undefined)
+                        continue;
+                    await tx.table("snapshotData").put({ id: row.id, data });
+                    // put으로 통째로 덮어써 data 필드를 떨어뜨린다
+                    await tx
+                        .table("snapshots")
+                        .put({ ...meta, size: data.length });
+                }
             });
     }
 }
