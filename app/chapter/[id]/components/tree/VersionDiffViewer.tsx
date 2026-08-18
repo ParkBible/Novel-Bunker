@@ -1,60 +1,56 @@
 "use client";
 
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import {
-    type AlignedRow,
-    alignDiff,
-    type SceneDiff,
-} from "@/app/(shared)/utils/diff";
+import type { DiffLine, SceneDiff } from "@/app/(shared)/utils/diff";
 
 interface Props {
     diffs: SceneDiff[];
     versionLabel: string;
 }
 
-// 문단 단위로만 옅게 칠한다. 글자 단위 강조는 본문 읽기를 방해해서 쓰지 않는다.
-const CHANGED_BG =
-    "bg-amber-50/80 dark:bg-amber-950/25 rounded-sm ring-1 ring-inset ring-amber-200/60 dark:ring-amber-900/40";
+// GitHub식 통합(unified) diff — 한 열에 이전/이후를 섞어 놓고 색으로 구분한다.
+// 선택한 버전이 "이전", 현재 원고가 "이후"다.
+//   빨강(−) = 그 버전에 있었지만 지금은 없는 문단
+//   초록(+) = 그 뒤에 새로 쓴 문단
+// 강조는 문단 단위까지만 한다. 글자 단위로 쪼개면 본문이 읽히지 않는다.
+const LINE_STYLE: Record<DiffLine["type"], string> = {
+    del: "border-red-300 bg-red-50/70 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200",
+    add: "border-emerald-300 bg-emerald-50/70 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
+    same: "border-transparent text-zinc-600 dark:text-zinc-400",
+};
 
-function Paragraph({
-    text,
-    highlight,
-}: {
-    text: string | undefined;
-    highlight: boolean;
-}) {
-    if (text === undefined) {
-        // 반대편에만 있는 문단 — 자리만 비워 두 열의 줄이 어긋나지 않게 한다
-        return <div className="min-h-[1.5rem]" aria-hidden="true" />;
-    }
-    return (
-        <div
-            className={`whitespace-pre-wrap break-words px-2 py-1 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300 ${
-                highlight ? CHANGED_BG : ""
-            }`}
-        >
-            {text}
-        </div>
+const MARKER: Record<DiffLine["type"], string> = {
+    del: "−",
+    add: "+",
+    same: "",
+};
+
+// diffScenes는 제목 변경도 잡으려고 본문 앞에 "# 제목" 줄을 끼워 넣는다.
+// 섹션 머리말에 제목이 이미 있으므로, 그대로면 감추고 바뀐 경우만 남긴다.
+const TITLE_LINE = /^# /;
+
+function SceneRows({ lines }: { lines: DiffLine[] }) {
+    const shown = lines.filter(
+        (line) => !(line.type === "same" && TITLE_LINE.test(line.text)),
     );
-}
 
-function SceneRows({ rows }: { rows: AlignedRow[] }) {
     return (
-        <div className="flex flex-col gap-1">
-            {rows.map((row, i) => (
+        <div className="flex flex-col">
+            {shown.map((line, i) => (
                 <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: diff 행은 순서가 고정
+                    // biome-ignore lint/suspicious/noArrayIndexKey: diff 줄은 순서가 고정
                     key={i}
-                    className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2"
+                    className={`flex gap-1.5 border-l-2 px-2 py-1 text-xs leading-relaxed ${LINE_STYLE[line.type]}`}
                 >
-                    <Paragraph
-                        text={row.left}
-                        highlight={row.type !== "same"}
-                    />
-                    <Paragraph
-                        text={row.right}
-                        highlight={row.type !== "same"}
-                    />
+                    <span
+                        aria-hidden="true"
+                        className="w-2 shrink-0 select-none text-center opacity-60"
+                    >
+                        {MARKER[line.type]}
+                    </span>
+                    <span className="whitespace-pre-wrap break-words">
+                        {line.text}
+                    </span>
                 </div>
             ))}
         </div>
@@ -75,18 +71,25 @@ export function VersionDiffViewer({ diffs, versionLabel }: Props) {
 
     return (
         <div className="flex flex-col gap-4">
-            {/* 두 열의 머리말 — 스크롤해도 어느 쪽이 현재인지 보이게 고정 */}
-            <div className="sticky top-0 z-10 grid grid-cols-1 gap-x-3 bg-white pb-2 pt-1 sm:grid-cols-2 dark:bg-zinc-900">
+            {/* 어느 시점의 원고를 보고 있는지 스크롤해도 보이게 고정 */}
+            <div className="sticky top-0 z-10 flex items-baseline gap-2 bg-white pb-2 pt-1 dark:bg-zinc-900">
                 <span className="px-2 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
-                    {t("version_paneCurrent")}
-                </span>
-                <span className="px-2 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
                     {versionLabel}
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                    {t("version_changedScenes", { n: changed.length })}
                 </span>
             </div>
 
-            <p className="px-2 text-xs text-zinc-400">
-                {t("version_changedScenes", { n: changed.length })}
+            <p className="flex flex-wrap items-center gap-x-3 px-2 text-[11px] text-zinc-400">
+                <span className="flex items-center gap-1">
+                    <span className="inline-block size-2 rounded-sm bg-red-300 dark:bg-red-900" />
+                    {t("version_legendRemoved")}
+                </span>
+                <span className="flex items-center gap-1">
+                    <span className="inline-block size-2 rounded-sm bg-emerald-300 dark:bg-emerald-900" />
+                    {t("version_legendAdded")}
+                </span>
             </p>
 
             {changed.map((scene) => (
@@ -106,7 +109,7 @@ export function VersionDiffViewer({ diffs, versionLabel }: Props) {
                             {scene.title}
                         </h3>
                     </header>
-                    <SceneRows rows={alignDiff(scene.lines)} />
+                    <SceneRows lines={scene.lines} />
                 </section>
             ))}
         </div>

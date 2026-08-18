@@ -50,7 +50,8 @@ type TFunction = (
     params?: Record<string, string | number>,
 ) => string;
 
-// "문이 닫히다, 계단 외 1개" — 이름 몇 개만 보이고 나머지는 개수로 접는다
+// "문이 닫히다, 계단 외 1개" — 이름 몇 개만 보이고 나머지는 개수로 접는다.
+// 총 개수는 위쪽 칩에도 있지만, 이름이 잘렸다는 사실은 여기서만 알 수 있다.
 function sceneSummary(entry: TimelineEntry, t: TFunction): string {
     const names = entry.changedScenes ?? [];
     if (names.length === 0) return "";
@@ -128,7 +129,11 @@ export function VersionTimeline({
                                     )}
                                 </span>
 
-                                {!!(entry.added || entry.removed) && (
+                                {!!(
+                                    entry.added ||
+                                    entry.removed ||
+                                    entry.scenesChanged
+                                ) && (
                                     <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-medium tabular-nums">
                                         {!!entry.added && (
                                             <span className="text-emerald-600 dark:text-emerald-400">
@@ -141,6 +146,13 @@ export function VersionTimeline({
                                                 −
                                                 {entry.removed.toLocaleString()}
                                                 자
+                                            </span>
+                                        )}
+                                        {!!entry.scenesChanged && (
+                                            <span className="text-zinc-400 dark:text-zinc-500">
+                                                {t("version_sceneCount", {
+                                                    n: entry.scenesChanged,
+                                                })}
                                             </span>
                                         )}
                                     </span>
