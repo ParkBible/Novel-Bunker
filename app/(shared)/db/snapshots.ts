@@ -1,6 +1,6 @@
-import { htmlToParagraphs } from "../utils/diff";
 import { applyImportedData, type BackupData, collectLocalData } from "./backup";
-import { db, type Scene, type Snapshot } from "./index";
+import { db, type Snapshot } from "./index";
+import { computeStats } from "./snapshotStats";
 
 // 목록 표시용 메타데이터. 본문은 snapshotData 테이블에 있어 여기 없다.
 export interface SnapshotMeta {
@@ -27,8 +27,6 @@ const FINE_WINDOW_MS = HOUR_MS; // 세밀 보관 구간 (최근 1시간)
 const FINE_BUCKET_MS = 5 * MINUTE_MS;
 const TODAY_BUCKET_MS = HOUR_MS;
 const MAX_AGE_MS = 90 * DAY_MS;
-
-const EXCERPT_MAX = 80;
 
 /**
  * 자동 스냅샷이 속할 보관 구간 키. 같은 키를 가진 것들 중 최신 하나만 남는다.
@@ -64,94 +62,6 @@ function toMeta(s: Snapshot): SnapshotMeta {
         removed: s.removed,
         scenesChanged: s.scenesChanged,
         excerpt: s.excerpt,
-    };
-}
-
-// ── 버전 요약 계산 ───────────────────────────────────────────
-
-const plainLength = (html: string | undefined): number =>
-    (html ?? "").replace(/<[^>]*>/g, "").length;
-
-function truncate(text: string): string {
-    return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX)}…` : text;
-}
-
-// 이 버전에서 새로 쓰인 문장을 고른다. 직전 버전에 없던 첫 문단이
-// 가장 설명력이 높고, 없으면 해당 씬의 첫 문단으로 폴백한다.
-function pickExcerpt(scene: Scene, before: Scene | undefined): string {
-    const paragraphs = htmlToParagraphs(scene.content ?? "");
-    if (paragraphs.length === 0) return scene.title?.trim() ?? "";
-    if (before) {
-        const seen = new Set(htmlToParagraphs(before.content ?? ""));
-        const fresh = paragraphs.find((p) => !seen.has(p));
-        if (fresh) return truncate(fresh);
-    }
-    return truncate(paragraphs[0]);
-}
-
-interface SnapshotStats {
-    chars: number;
-    added: number;
-    removed: number;
-    scenesChanged: number;
-    excerpt: string;
-}
-
-function computeStats(
-    data: BackupData,
-    prev: BackupData | null,
-): SnapshotStats {
-    const chars = data.scenes.reduce(
-        (sum, s) => sum + plainLength(s.content),
-        0,
-    );
-
-    if (!prev) {
-        const first = data.scenes.find((s) => plainLength(s.content) > 0);
-        return {
-            chars,
-            added: chars,
-            removed: 0,
-            scenesChanged: data.scenes.length,
-            excerpt: first ? pickExcerpt(first, undefined) : "",
-        };
-    }
-
-    const prevById = new Map(prev.scenes.map((s) => [s.id as number, s]));
-    const currentIds = new Set(data.scenes.map((s) => s.id as number));
-
-    let added = 0;
-    let removed = 0;
-    let scenesChanged = 0;
-    let changed: { scene: Scene; before: Scene | undefined } | null = null;
-
-    for (const scene of data.scenes) {
-        const before = prevById.get(scene.id as number);
-        const delta = plainLength(scene.content) - plainLength(before?.content);
-        if (delta > 0) added += delta;
-        else removed += -delta;
-        // 길이가 같아도 내용이 바뀌었을 수 있으므로 문자열로 판정한다
-        const isChanged =
-            !before ||
-            before.content !== scene.content ||
-            before.title !== scene.title;
-        if (isChanged) {
-            scenesChanged++;
-            if (!changed) changed = { scene, before };
-        }
-    }
-    for (const [id, scene] of prevById) {
-        if (currentIds.has(id)) continue;
-        removed += plainLength(scene.content);
-        scenesChanged++; // 삭제된 씬도 변경으로 센다
-    }
-
-    return {
-        chars,
-        added,
-        removed,
-        scenesChanged,
-        excerpt: changed ? pickExcerpt(changed.scene, changed.before) : "",
     };
 }
 

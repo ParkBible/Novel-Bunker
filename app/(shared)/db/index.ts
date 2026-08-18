@@ -1,4 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
+import type { BackupData } from "./backup";
+import { computeStats } from "./snapshotStats";
 
 // Type definitions for database entities
 
@@ -369,20 +371,71 @@ class NovelBunkerDB extends Dexie {
                 snapshotData: "id",
             })
             .upgrade(async (tx) => {
-                const snapshots = await tx.table("snapshots").toArray();
+                // 본문을 이미 손에 들고 있으므로, 옮기는 김에 타임라인 요약값
+                // (글자 증감·바뀐 씬 수·발췌)도 함께 채운다. 오래된 것부터
+                // 훑으면서 직전 버전과 비교한다.
+                const snapshots = (await tx.table("snapshots").toArray()).sort(
+                    (a, b) =>
+                        new Date(a.createdAt).getTime() -
+                        new Date(b.createdAt).getTime(),
+                );
+
+                let prev: BackupData | null = null;
                 for (const row of snapshots) {
                     const { data, ...meta } = row as Snapshot & {
                         data?: string;
                     };
                     if (typeof data !== "string" || row.id === undefined)
                         continue;
+
+                    let stats: Partial<Snapshot> = {};
+                    try {
+                        const parsed = JSON.parse(data) as BackupData;
+                        stats = computeStats(parsed, prev);
+                        prev = parsed;
+                    } catch {
+                        // 깨진 스냅샷이 있어도 이관 자체는 멈추지 않는다
+                        prev = null;
+                    }
+
                     await tx.table("snapshotData").put({ id: row.id, data });
                     // put으로 통째로 덮어써 data 필드를 떨어뜨린다
                     await tx
                         .table("snapshots")
-                        .put({ ...meta, size: data.length });
+                        .put({ ...meta, ...stats, size: data.length });
                 }
             });
+
+        // v12: 요약값이 비어 있는 스냅샷을 채운다. v11 업그레이드가 본문 이관만
+        // 하던 시점에 올라온 DB를 위한 보충 단계 — 이미 채워진 건 건드리지 않아
+        // 여러 번 실행돼도 안전하다.
+        this.version(12).upgrade(async (tx) => {
+            const snapshots = (await tx.table("snapshots").toArray()).sort(
+                (a, b) =>
+                    new Date(a.createdAt).getTime() -
+                    new Date(b.createdAt).getTime(),
+            );
+            if (snapshots.every((s) => s.added !== undefined)) return;
+
+            let prev: BackupData | null = null;
+            for (const row of snapshots) {
+                if (row.id === undefined) continue;
+                const body = await tx.table("snapshotData").get(row.id);
+                if (!body) continue;
+
+                try {
+                    const parsed = JSON.parse(body.data) as BackupData;
+                    if (row.added === undefined) {
+                        await tx
+                            .table("snapshots")
+                            .update(row.id, computeStats(parsed, prev));
+                    }
+                    prev = parsed;
+                } catch {
+                    prev = null;
+                }
+            }
+        });
     }
 }
 
