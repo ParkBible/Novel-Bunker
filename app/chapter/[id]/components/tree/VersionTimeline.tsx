@@ -3,7 +3,8 @@
 import { Pin, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
-// 로컬/Drive 공통 타임라인 항목. 요약 필드는 로컬 스냅샷에만 있다.
+// 로컬/Drive 공통 타임라인 항목. 요약 필드는 없을 수 있다
+// (요약을 심기 전에 만들어진 Drive 스냅샷).
 export interface TimelineEntry {
     id: string;
     createdAt: Date;
