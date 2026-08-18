@@ -115,6 +115,12 @@ export interface Snapshot {
     label?: string;
     // JSON.stringify(BackupData) — 용량/직렬화 단순화를 위해 문자열로 저장
     data: string;
+    // 타임라인 표시용 요약. 저장 시점에 계산해 두어 목록을 그릴 때
+    // 스냅샷 본문을 파싱하지 않아도 되게 한다. (구버전 레코드엔 없음)
+    chars?: number; // 본문 총 글자 수
+    added?: number; // 직전 스냅샷 대비 늘어난 글자 수
+    removed?: number; // 직전 스냅샷 대비 줄어든 글자 수
+    excerpt?: string; // 이 버전에서 새로 쓰인 첫 문장
 }
 
 // Database class

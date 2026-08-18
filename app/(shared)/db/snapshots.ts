@@ -1,5 +1,6 @@
+import { htmlToParagraphs } from "../utils/diff";
 import { applyImportedData, type BackupData, collectLocalData } from "./backup";
-import { db, type Snapshot } from "./index";
+import { db, type Scene, type Snapshot } from "./index";
 
 // 목록 표시에 필요한 메타데이터만 (무거운 data 문자열 제외)
 export interface SnapshotMeta {
@@ -8,14 +9,47 @@ export interface SnapshotMeta {
     type: "manual" | "auto";
     label?: string;
     size: number; // data 바이트 근사치
+    chars?: number;
+    added?: number;
+    removed?: number;
+    excerpt?: string;
 }
 
-// 보관 정책
-const MANUAL_MAX = 20; // 수동 스냅샷 최대 개수
-const AUTO_KEEP_RECENT = 12; // 최근 auto는 무조건 보존
-const HOUR_MS = 60 * 60 * 1000;
+// ── 보관 정책 ────────────────────────────────────────────────
+// 최근 1시간은 5분 간격으로 촘촘히, 오늘 것은 1시간 간격으로 통합,
+// 어제 이전은 하루 대표 2개(오전/오후)만 남긴다.
+const MANUAL_MAX = 20; // 직접 저장한 버전 최대 개수
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
-const AUTO_MAX_AGE_MS = 30 * DAY_MS; // 30일 지난 auto는 정리
+const FINE_WINDOW_MS = HOUR_MS; // 세밀 보관 구간 (최근 1시간)
+const FINE_BUCKET_MS = 5 * MINUTE_MS;
+const TODAY_BUCKET_MS = HOUR_MS;
+const MAX_AGE_MS = 90 * DAY_MS;
+
+const EXCERPT_MAX = 80;
+
+/**
+ * 자동 스냅샷이 속할 보관 구간 키. 같은 키를 가진 것들 중 최신 하나만 남는다.
+ * null이면 보관 기간을 넘겨 삭제 대상.
+ */
+export function retentionBucket(
+    at: number,
+    now: number,
+    todayStart: number,
+): string | null {
+    const age = now - at;
+    if (age > MAX_AGE_MS) return null;
+    // 최근 1시간: 5분 간격
+    if (age <= FINE_WINDOW_MS) return `f${Math.floor(at / FINE_BUCKET_MS)}`;
+    // 오늘(자정 이후): 1시간 간격
+    if (at >= todayStart) return `t${Math.floor(at / TODAY_BUCKET_MS)}`;
+    // 어제 이전: 하루 2개(오전/오후). epoch를 12시간으로 나누면 UTC 기준이라
+    // 시간대에 따라 하루가 셋으로 쪼개진다 → 로컬 날짜로 버킷을 만든다.
+    const d = new Date(at);
+    const half = d.getHours() < 12 ? "a" : "p";
+    return `o${d.getFullYear()}-${d.getMonth()}-${d.getDate()}${half}`;
+}
 
 function toMeta(s: Snapshot): SnapshotMeta {
     return {
@@ -24,7 +58,92 @@ function toMeta(s: Snapshot): SnapshotMeta {
         type: s.type,
         label: s.label,
         size: s.data.length,
+        chars: s.chars,
+        added: s.added,
+        removed: s.removed,
+        excerpt: s.excerpt,
     };
+}
+
+// ── 버전 요약 계산 ───────────────────────────────────────────
+
+const plainLength = (html: string | undefined): number =>
+    (html ?? "").replace(/<[^>]*>/g, "").length;
+
+function truncate(text: string): string {
+    return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX)}…` : text;
+}
+
+// 이 버전에서 새로 쓰인 문장을 고른다. 직전 버전에 없던 첫 문단이
+// 가장 설명력이 높고, 없으면 해당 씬의 첫 문단으로 폴백한다.
+function pickExcerpt(scene: Scene, before: Scene | undefined): string {
+    const paragraphs = htmlToParagraphs(scene.content ?? "");
+    if (paragraphs.length === 0) return scene.title?.trim() ?? "";
+    if (before) {
+        const seen = new Set(htmlToParagraphs(before.content ?? ""));
+        const fresh = paragraphs.find((p) => !seen.has(p));
+        if (fresh) return truncate(fresh);
+    }
+    return truncate(paragraphs[0]);
+}
+
+interface SnapshotStats {
+    chars: number;
+    added: number;
+    removed: number;
+    excerpt: string;
+}
+
+function computeStats(
+    data: BackupData,
+    prev: BackupData | null,
+): SnapshotStats {
+    const chars = data.scenes.reduce(
+        (sum, s) => sum + plainLength(s.content),
+        0,
+    );
+
+    if (!prev) {
+        const first = data.scenes.find((s) => plainLength(s.content) > 0);
+        return {
+            chars,
+            added: chars,
+            removed: 0,
+            excerpt: first ? pickExcerpt(first, undefined) : "",
+        };
+    }
+
+    const prevById = new Map(prev.scenes.map((s) => [s.id as number, s]));
+    const currentIds = new Set(data.scenes.map((s) => s.id as number));
+
+    let added = 0;
+    let removed = 0;
+    let changed: { scene: Scene; before: Scene | undefined } | null = null;
+
+    for (const scene of data.scenes) {
+        const before = prevById.get(scene.id as number);
+        const delta = plainLength(scene.content) - plainLength(before?.content);
+        if (delta > 0) added += delta;
+        else removed += -delta;
+        // 길이가 같아도 내용이 바뀌었을 수 있으므로 문자열로 판정한다
+        if (!changed && (!before || before.content !== scene.content)) {
+            changed = { scene, before };
+        }
+    }
+    for (const [id, scene] of prevById) {
+        if (!currentIds.has(id)) removed += plainLength(scene.content);
+    }
+
+    return {
+        chars,
+        added,
+        removed,
+        excerpt: changed ? pickExcerpt(changed.scene, changed.before) : "",
+    };
+}
+
+async function latestSnapshot(): Promise<Snapshot | undefined> {
+    return db.snapshots.orderBy("createdAt").reverse().first();
 }
 
 export const snapshotOps = {
@@ -34,13 +153,16 @@ export const snapshotOps = {
         label?: string,
     ): Promise<number | null> {
         const data = await collectLocalData();
-        const json = JSON.stringify(data);
+        const latest = await latestSnapshot();
+        const prev = latest ? (JSON.parse(latest.data) as BackupData) : null;
         const id = await db.snapshots.add({
             createdAt: new Date(),
             type,
             label,
-            data: json,
+            data: JSON.stringify(data),
+            ...computeStats(data, prev),
         });
+        await snapshotOps.prune();
         return id as number;
     },
 
@@ -48,22 +170,21 @@ export const snapshotOps = {
     async createAutoIfChanged(): Promise<number | null> {
         const data = await collectLocalData();
         const json = JSON.stringify(data);
-        const latest = await db.snapshots
-            .orderBy("createdAt")
-            .reverse()
-            .first();
+        const latest = await latestSnapshot();
+        let prev: BackupData | null = null;
         if (latest) {
-            const latestData = JSON.parse(latest.data) as BackupData;
+            prev = JSON.parse(latest.data) as BackupData;
             // exportedAt은 수집 시각이라 매번 달라지므로 비교에서 제외
             const hasChanged =
                 JSON.stringify({ ...data, exportedAt: "" }) !==
-                JSON.stringify({ ...latestData, exportedAt: "" });
+                JSON.stringify({ ...prev, exportedAt: "" });
             if (!hasChanged) return null; // 변경 없음
         }
         const id = await db.snapshots.add({
             createdAt: new Date(),
             type: "auto",
             data: json,
+            ...computeStats(data, prev),
         });
         await snapshotOps.prune();
         return id as number;
@@ -93,10 +214,13 @@ export const snapshotOps = {
         await db.snapshots.delete(id);
     },
 
-    // 보관 정책 적용: 수동은 최대 개수, 자동은 시간대별 씨닝
+    // 보관 정책 적용: 수동은 최대 개수, 자동은 구간별 씨닝
     async prune(): Promise<void> {
         const all = await db.snapshots.orderBy("createdAt").reverse().toArray();
         const now = Date.now();
+        const midnight = new Date();
+        midnight.setHours(0, 0, 0, 0);
+        const todayStart = midnight.getTime();
         const toDelete: number[] = [];
 
         const manuals = all.filter((s) => s.type === "manual");
@@ -108,22 +232,18 @@ export const snapshotOps = {
         const seenBuckets = new Set<string>();
         autos.forEach((s, index) => {
             if (s.id === undefined) return;
-            if (index < AUTO_KEEP_RECENT) return; // 최근 것은 보존
-            const age = now - s.createdAt.getTime();
-            if (age > AUTO_MAX_AGE_MS) {
+            const bucket = retentionBucket(
+                s.createdAt.getTime(),
+                now,
+                todayStart,
+            );
+            if (bucket === null) {
                 toDelete.push(s.id);
                 return;
             }
-            // 24시간 이내는 시간당 1개, 그 이후는 하루 1개만 유지
-            const bucket =
-                age < DAY_MS
-                    ? `h${Math.floor(s.createdAt.getTime() / HOUR_MS)}`
-                    : `d${Math.floor(s.createdAt.getTime() / DAY_MS)}`;
-            if (seenBuckets.has(bucket)) {
-                toDelete.push(s.id);
-            } else {
-                seenBuckets.add(bucket);
-            }
+            // 가장 최신 한 건은 어떤 경우에도 남긴다
+            if (seenBuckets.has(bucket) && index > 0) toDelete.push(s.id);
+            else seenBuckets.add(bucket);
         });
 
         if (toDelete.length > 0) await db.snapshots.bulkDelete(toDelete);

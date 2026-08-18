@@ -1,15 +1,6 @@
 "use client";
 
-import {
-    Cloud,
-    GitCompare,
-    History,
-    Laptop,
-    RotateCcw,
-    Save,
-    Trash2,
-    X,
-} from "lucide-react";
+import { Cloud, History, Laptop, RotateCcw, Save, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BackupData, collectLocalData } from "@/app/(shared)/db/backup";
@@ -27,6 +18,8 @@ import {
     listSnapshots,
     restoreSnapshot,
 } from "@/app/(shared)/utils/googleDrive";
+import { VersionDiffViewer } from "./VersionDiffViewer";
+import { type TimelineEntry, VersionTimeline } from "./VersionTimeline";
 
 function formatDate(date: Date): string {
     return date.toLocaleString("ko-KR", {
@@ -37,12 +30,9 @@ function formatDate(date: Date): string {
     });
 }
 
-// 로컬(IndexedDB)과 Drive(기기간) 두 저장소를 같은 UI에서 다루기 위한 추상화
-interface HistoryEntry {
-    id: string;
-    createdAt: Date;
-    type: "manual" | "auto";
-}
+// 로컬(IndexedDB)과 Drive(기기간) 두 저장소를 같은 UI에서 다루기 위한 추상화.
+// 글자 변화량·발췌는 로컬 스냅샷에만 있어 Drive 기록에서는 비어 있다.
+type HistoryEntry = TimelineEntry;
 
 interface HistorySource {
     isCloud: boolean;
@@ -61,6 +51,10 @@ const localSource: HistorySource = {
             id: String(m.id),
             createdAt: m.createdAt,
             type: m.type,
+            label: m.label,
+            added: m.added,
+            removed: m.removed,
+            excerpt: m.excerpt,
         })),
     getData: (id) => snapshotOps.getData(Number(id)),
     restore: (id) => snapshotOps.restore(Number(id)),
@@ -112,7 +106,6 @@ export function VersionHistoryModal({ onClose }: Props) {
     const [busy, setBusy] = useState(false);
 
     const [compare, setCompare] = useState<CompareResult | null>(null);
-    const [expandedScene, setExpandedScene] = useState<number | null>(null);
     const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(
         null,
     );
@@ -144,7 +137,7 @@ export function VersionHistoryModal({ onClose }: Props) {
                 entry,
                 diffs: diffScenes(versionData, currentData),
             });
-            setExpandedScene(null);
+            setConfirmRestoreId(null);
         } catch {
             setError(t("version_loadError"));
         }
@@ -216,9 +209,6 @@ export function VersionHistoryModal({ onClose }: Props) {
         }
     };
 
-    const changed =
-        compare?.diffs.filter((d) => d.status !== "unchanged") ?? [];
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -227,7 +217,7 @@ export function VersionHistoryModal({ onClose }: Props) {
                 onClick={onClose}
                 aria-label={t("snapshot_closeLabel")}
             />
-            <div className="relative z-10 flex max-h-[80vh] w-full max-w-md flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="relative z-10 flex max-h-[85vh] w-full max-w-5xl flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                 {/* 헤더 */}
                 <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
@@ -247,19 +237,15 @@ export function VersionHistoryModal({ onClose }: Props) {
                         </span>
                     </div>
                     <div className="flex items-center gap-1">
-                        {!compare && (
-                            <button
-                                type="button"
-                                onClick={handleSaveNow}
-                                disabled={busy}
-                                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                            >
-                                <Save className="size-3.5" />
-                                {busy
-                                    ? t("version_saving")
-                                    : t("version_saveNow")}
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveNow}
+                            disabled={busy}
+                            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                        >
+                            <Save className="size-3.5" />
+                            {busy ? t("version_saving") : t("version_saveNow")}
+                        </button>
                         <button
                             type="button"
                             onClick={onClose}
@@ -270,271 +256,83 @@ export function VersionHistoryModal({ onClose }: Props) {
                     </div>
                 </div>
 
-                {/* 본문 */}
-                <div className="flex-1 overflow-y-auto px-5 py-3">
-                    {loading && (
-                        <p className="py-6 text-center text-xs text-zinc-400">
-                            {t("loading")}
-                        </p>
-                    )}
-                    {!loading && error && (
-                        <p className="py-3 text-center text-xs text-red-500">
-                            {error}
-                        </p>
-                    )}
+                {/* 본문: 좌측 비교 뷰어 + 우측 타임라인 */}
+                <div className="flex min-h-0 flex-1 flex-col-reverse lg:flex-row">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                        {loading && (
+                            <p className="py-10 text-center text-xs text-zinc-400">
+                                {t("loading")}
+                            </p>
+                        )}
+                        {!loading && error && (
+                            <p className="py-3 text-center text-xs text-red-500">
+                                {error}
+                            </p>
+                        )}
+                        {!loading && !error && !compare && (
+                            <p className="py-10 text-center text-xs text-zinc-400">
+                                {metas.length === 0
+                                    ? source.isCloud
+                                        ? t("snapshot_empty")
+                                        : t("version_empty")
+                                    : t("version_selectFromTimeline")}
+                            </p>
+                        )}
+                        {!loading && compare && (
+                            <>
+                                <VersionDiffViewer
+                                    diffs={compare.diffs}
+                                    versionLabel={formatDate(
+                                        compare.entry.createdAt,
+                                    )}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleRestore(compare.entry.id)
+                                    }
+                                    disabled={busy}
+                                    className="mt-5 flex w-full items-center justify-center gap-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                                >
+                                    <RotateCcw className="size-3.5" />
+                                    {busy
+                                        ? t("restoring")
+                                        : t("version_restoreThis")}
+                                </button>
+                            </>
+                        )}
+                    </div>
 
-                    {/* 목록 뷰 */}
-                    {!loading &&
-                        !compare &&
-                        (metas.length === 0 ? (
-                            <p className="py-6 text-center text-xs text-zinc-400">
+                    <aside className="flex max-h-56 shrink-0 flex-col overflow-y-auto border-b border-zinc-100 lg:max-h-none lg:w-72 lg:border-b-0 lg:border-l dark:border-zinc-800">
+                        <div className="sticky top-0 z-20 border-b border-zinc-100 bg-white px-3 py-2 text-[10px] font-semibold tracking-wide text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
+                            {t("version_timeline")}
+                        </div>
+                        {metas.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-xs text-zinc-400">
                                 {source.isCloud
                                     ? t("snapshot_empty")
                                     : t("version_empty")}
                             </p>
                         ) : (
-                            <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
-                                {metas.map((snap) => (
-                                    <li
-                                        key={snap.id}
-                                        className="flex items-center justify-between gap-2 py-2.5"
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCompare(snap)}
-                                            disabled={busy}
-                                            title={t(
-                                                "version_compareWithCurrent",
-                                            )}
-                                            className="flex flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:hover:bg-zinc-800/60"
-                                        >
-                                            <GitCompare className="size-3.5 shrink-0 text-zinc-400" />
-                                            <span
-                                                className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                                                    snap.type === "manual"
-                                                        ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                                                        : "bg-blue-50 text-blue-500 dark:bg-blue-950/60 dark:text-blue-400"
-                                                }`}
-                                            >
-                                                {snap.type === "manual"
-                                                    ? t("snapshot_manual")
-                                                    : t("snapshot_auto")}
-                                            </span>
-                                            <span className="text-xs text-zinc-600 dark:text-zinc-300">
-                                                {formatDate(snap.createdAt)}
-                                            </span>
-                                        </button>
-                                        {confirmRestoreId === snap.id ? (
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleRestore(snap.id)
-                                                    }
-                                                    disabled={busy}
-                                                    className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900"
-                                                >
-                                                    {busy
-                                                        ? t("restoring")
-                                                        : t("confirm")}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setConfirmRestoreId(
-                                                            null,
-                                                        )
-                                                    }
-                                                    disabled={busy}
-                                                    className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300"
-                                                >
-                                                    {t("cancel")}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex shrink-0 items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setConfirmRestoreId(
-                                                            snap.id,
-                                                        )
-                                                    }
-                                                    disabled={busy}
-                                                    title={t(
-                                                        "version_restoreThis",
-                                                    )}
-                                                    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                                                >
-                                                    <RotateCcw className="size-3" />
-                                                    {t("restore")}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleDelete(snap.id)
-                                                    }
-                                                    disabled={busy}
-                                                    title={t(
-                                                        "snapshot_deleteTitle",
-                                                    )}
-                                                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40 dark:hover:bg-red-950"
-                                                >
-                                                    <Trash2 className="size-3" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        ))}
-
-                    {/* 비교 뷰 */}
-                    {!loading && compare && (
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-center gap-2 rounded-lg bg-zinc-50 py-2 text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
-                                <span>
-                                    {formatDate(compare.entry.createdAt)}
-                                </span>
-                                <span>→</span>
-                                <span className="font-medium text-zinc-700 dark:text-zinc-200">
-                                    {t("version_current")}
-                                </span>
-                            </div>
-
-                            {changed.length === 0 ? (
-                                <p className="py-6 text-center text-xs text-zinc-400">
-                                    {t("version_noChanges")}
-                                </p>
-                            ) : (
-                                <>
-                                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                        {t("version_changedScenes", {
-                                            n: changed.length,
-                                        })}
-                                    </p>
-                                    <ul className="flex flex-col gap-1.5">
-                                        {changed.map((d) => (
-                                            <li
-                                                key={d.sceneId}
-                                                className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800"
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setExpandedScene(
-                                                            expandedScene ===
-                                                                d.sceneId
-                                                                ? null
-                                                                : d.sceneId,
-                                                        )
-                                                    }
-                                                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                                                >
-                                                    <span className="flex items-center gap-1.5 truncate">
-                                                        {d.status ===
-                                                            "added" && (
-                                                            <span className="rounded bg-emerald-50 px-1 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-                                                                {t(
-                                                                    "version_sceneNew",
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                        {d.status ===
-                                                            "removed" && (
-                                                            <span className="rounded bg-red-50 px-1 py-0.5 text-[10px] font-medium text-red-600 dark:bg-red-950 dark:text-red-400">
-                                                                {t(
-                                                                    "version_sceneDeleted",
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                        <span className="truncate text-xs text-zinc-700 dark:text-zinc-200">
-                                                            {d.title}
-                                                        </span>
-                                                    </span>
-                                                    <span className="flex shrink-0 items-center gap-1.5 text-xs">
-                                                        {d.added > 0 && (
-                                                            <span className="text-emerald-600 dark:text-emerald-400">
-                                                                +{d.added}
-                                                            </span>
-                                                        )}
-                                                        {d.removed > 0 && (
-                                                            <span className="text-red-500">
-                                                                -{d.removed}
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                </button>
-                                                {expandedScene ===
-                                                    d.sceneId && (
-                                                    <div className="border-t border-zinc-100 bg-zinc-50/60 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-950/40">
-                                                        {d.lines.map(
-                                                            (line, i) => (
-                                                                <div
-                                                                    // biome-ignore lint/suspicious/noArrayIndexKey: diff 줄은 순서 고정
-                                                                    key={i}
-                                                                    className={`whitespace-pre-wrap break-words px-1.5 py-0.5 text-xs leading-relaxed ${
-                                                                        line.type ===
-                                                                        "add"
-                                                                            ? "bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                                                                            : line.type ===
-                                                                                "del"
-                                                                              ? "bg-red-100/70 text-red-700 line-through dark:bg-red-950/50 dark:text-red-300"
-                                                                              : "text-zinc-500 dark:text-zinc-400"
-                                                                    }`}
-                                                                >
-                                                                    <span className="mr-1 select-none opacity-50">
-                                                                        {line.type ===
-                                                                        "add"
-                                                                            ? "+"
-                                                                            : line.type ===
-                                                                                "del"
-                                                                              ? "-"
-                                                                              : " "}
-                                                                    </span>
-                                                                    {line.text}
-                                                                </div>
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            handleRestore(compare.entry.id)
-                                        }
-                                        disabled={busy}
-                                        className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
-                                    >
-                                        <RotateCcw className="size-3.5" />
-                                        {busy
-                                            ? t("restoring")
-                                            : t("version_restoreThis")}
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    )}
+                            <VersionTimeline
+                                entries={metas}
+                                selectedId={compare?.entry.id ?? null}
+                                busy={busy}
+                                confirmRestoreId={confirmRestoreId}
+                                onSelect={handleCompare}
+                                onAskRestore={setConfirmRestoreId}
+                                onRestore={handleRestore}
+                                onDelete={handleDelete}
+                            />
+                        )}
+                    </aside>
                 </div>
 
                 {/* 푸터 */}
-                <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
-                    {compare ? (
-                        <button
-                            type="button"
-                            onClick={() => setCompare(null)}
-                            className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            {t("version_back")}
-                        </button>
-                    ) : (
-                        <p className="text-center text-xs text-zinc-400">
-                            {t("version_selectOne")}
-                        </p>
-                    )}
+                <div className="border-t border-zinc-100 px-5 py-2.5 dark:border-zinc-800">
+                    <p className="text-center text-[11px] text-zinc-400">
+                        {t("version_footer")}
+                    </p>
                 </div>
             </div>
         </div>
