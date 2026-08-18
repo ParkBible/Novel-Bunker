@@ -1,45 +1,56 @@
 "use client";
 
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import {
-    type AlignedRow,
-    alignDiff,
-    type SceneDiff,
-} from "@/app/(shared)/utils/diff";
+import type { DiffLine, SceneDiff } from "@/app/(shared)/utils/diff";
 
 interface Props {
     diffs: SceneDiff[];
     versionLabel: string;
 }
 
-// 문단 단위로만 옅게 칠한다. 글자 단위 강조는 본문 읽기를 방해해서 쓰지 않는다.
-const CHANGED_BG =
-    "bg-amber-50/80 dark:bg-amber-950/25 rounded-sm ring-1 ring-inset ring-amber-200/60 dark:ring-amber-900/40";
+// GitHub식 통합(unified) diff — 한 열에 이전/이후를 섞어 놓고 색으로 구분한다.
+// 선택한 버전이 "이전", 현재 원고가 "이후"다.
+//   빨강(−) = 그 버전에 있었지만 지금은 없는 문단
+//   초록(+) = 그 뒤에 새로 쓴 문단
+// 강조는 문단 단위까지만 한다. 글자 단위로 쪼개면 본문이 읽히지 않는다.
+const LINE_STYLE: Record<DiffLine["type"], string> = {
+    del: "border-red-300 bg-red-50/70 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200",
+    add: "border-emerald-300 bg-emerald-50/70 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
+    same: "border-transparent text-zinc-600 dark:text-zinc-400",
+};
+
+const MARKER: Record<DiffLine["type"], string> = {
+    del: "−",
+    add: "+",
+    same: "",
+};
 
 // diffScenes는 제목 변경도 잡으려고 본문 앞에 "# 제목" 줄을 끼워 넣는다.
 // 섹션 머리말에 제목이 이미 있으므로, 그대로면 감추고 바뀐 경우만 남긴다.
 const TITLE_LINE = /^# /;
 
-// 선택한 버전의 본문만 보여 준다. 현재 내용과 다른 문단에만 배경을 깐다.
-// (현재 내용은 에디터에서 바로 볼 수 있으니 굳이 나란히 띄우지 않는다)
-function SceneRows({ rows }: { rows: AlignedRow[] }) {
-    const paragraphs = rows.filter(
-        (row) =>
-            row.right !== undefined &&
-            !(row.type === "same" && TITLE_LINE.test(row.right)),
+function SceneRows({ lines }: { lines: DiffLine[] }) {
+    const shown = lines.filter(
+        (line) => !(line.type === "same" && TITLE_LINE.test(line.text)),
     );
 
     return (
-        <div className="flex flex-col gap-1">
-            {paragraphs.map((row, i) => (
+        <div className="flex flex-col">
+            {shown.map((line, i) => (
                 <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: diff 행은 순서가 고정
+                    // biome-ignore lint/suspicious/noArrayIndexKey: diff 줄은 순서가 고정
                     key={i}
-                    className={`whitespace-pre-wrap break-words px-2 py-1 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300 ${
-                        row.type !== "same" ? CHANGED_BG : ""
-                    }`}
+                    className={`flex gap-1.5 border-l-2 px-2 py-1 text-xs leading-relaxed ${LINE_STYLE[line.type]}`}
                 >
-                    {row.right}
+                    <span
+                        aria-hidden="true"
+                        className="w-2 shrink-0 select-none text-center opacity-60"
+                    >
+                        {MARKER[line.type]}
+                    </span>
+                    <span className="whitespace-pre-wrap break-words">
+                        {line.text}
+                    </span>
                 </div>
             ))}
         </div>
@@ -70,8 +81,15 @@ export function VersionDiffViewer({ diffs, versionLabel }: Props) {
                 </span>
             </div>
 
-            <p className="px-2 text-[11px] text-zinc-400">
-                {t("version_highlightHint")}
+            <p className="flex flex-wrap items-center gap-x-3 px-2 text-[11px] text-zinc-400">
+                <span className="flex items-center gap-1">
+                    <span className="inline-block size-2 rounded-sm bg-red-300 dark:bg-red-900" />
+                    {t("version_legendRemoved")}
+                </span>
+                <span className="flex items-center gap-1">
+                    <span className="inline-block size-2 rounded-sm bg-emerald-300 dark:bg-emerald-900" />
+                    {t("version_legendAdded")}
+                </span>
             </p>
 
             {changed.map((scene) => (
@@ -91,7 +109,7 @@ export function VersionDiffViewer({ diffs, versionLabel }: Props) {
                             {scene.title}
                         </h3>
                     </header>
-                    <SceneRows rows={alignDiff(scene.lines)} />
+                    <SceneRows lines={scene.lines} />
                 </section>
             ))}
         </div>

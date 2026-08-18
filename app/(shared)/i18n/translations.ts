@@ -268,8 +268,9 @@ export const ko = {
     version_current: "현재",
     version_timeline: "타임라인",
     version_selectFromTimeline:
-        "타임라인에서 버전을 고르면 현재 내용과 나란히 비교합니다",
-    version_highlightHint: "색이 깔린 문단이 지금과 다른 부분입니다",
+        "타임라인에서 버전을 고르면 지금과 무엇이 달라졌는지 보여줍니다",
+    version_legendRemoved: "이 버전에만 있던 문단",
+    version_legendAdded: "이후에 추가된 문단",
     version_manualPinned: "직접 저장한 버전",
     version_sceneCount: "씬 {n}개",
     version_sceneMore: "외 {n}개",
@@ -618,9 +619,9 @@ export const en = {
     version_current: "Current",
     version_timeline: "Timeline",
     version_selectFromTimeline:
-        "Pick a version from the timeline to compare it side by side with your current content",
-    version_highlightHint:
-        "Highlighted paragraphs differ from your current text",
+        "Pick a version from the timeline to see how it differs from your current text",
+    version_legendRemoved: "Only in this version",
+    version_legendAdded: "Added since",
     version_manualPinned: "Saved manually",
     version_sceneCount: "{n} scenes",
     version_sceneMore: "and {n} more",

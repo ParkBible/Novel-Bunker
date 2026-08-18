@@ -66,59 +66,6 @@ export function diffLines(a: string[], b: string[]): DiffLine[] {
     return result;
 }
 
-// ── 나란히 보기(side-by-side) 정렬 ────────────────────────────
-// diffLines 결과를 좌/우 두 열로 짝지어 준다. 연속된 del/add 덩어리는
-// 순서대로 한 행에 묶어 "같은 자리에서 고쳐 쓴 문단"으로 보이게 한다.
-export type AlignedRowType = "same" | "changed" | "add" | "del";
-export interface AlignedRow {
-    type: AlignedRowType;
-    left?: string; // 이후(현재)
-    right?: string; // 이전(선택한 버전)
-}
-
-export function alignDiff(lines: DiffLine[]): AlignedRow[] {
-    const rows: AlignedRow[] = [];
-    let i = 0;
-
-    while (i < lines.length) {
-        if (lines[i].type === "same") {
-            rows.push({
-                type: "same",
-                left: lines[i].text,
-                right: lines[i].text,
-            });
-            i++;
-            continue;
-        }
-
-        const dels: string[] = [];
-        const adds: string[] = [];
-        while (i < lines.length && lines[i].type !== "same") {
-            if (lines[i].type === "del") dels.push(lines[i].text);
-            else adds.push(lines[i].text);
-            i++;
-        }
-
-        const rowCount = Math.max(dels.length, adds.length);
-        for (let k = 0; k < rowCount; k++) {
-            const left = adds[k];
-            const right = dels[k];
-            rows.push({
-                type:
-                    left !== undefined && right !== undefined
-                        ? "changed"
-                        : left !== undefined
-                          ? "add"
-                          : "del",
-                left,
-                right,
-            });
-        }
-    }
-
-    return rows;
-}
-
 // ── 씬 단위 비교 ──────────────────────────────────────────────
 export type SceneStatus = "added" | "removed" | "modified" | "unchanged";
 export interface SceneDiff {
