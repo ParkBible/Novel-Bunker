@@ -27,6 +27,8 @@ function formatDate(date: Date): string {
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
+        // 오전/오후 대신 24시간제 (hour12:false는 자정을 24:00으로 쓰는 엔진이 있어 h23 지정)
+        hourCycle: "h23",
     });
 }
 
