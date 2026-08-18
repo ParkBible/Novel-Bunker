@@ -269,8 +269,9 @@ export const ko = {
     version_timeline: "타임라인",
     version_selectFromTimeline:
         "타임라인에서 버전을 고르면 현재 내용과 나란히 비교합니다",
-    version_paneCurrent: "현재",
+    version_highlightHint: "색이 깔린 문단이 지금과 다른 부분입니다",
     version_manualPinned: "직접 저장한 버전",
+    version_sceneCount: "씬 {n}개",
     version_sceneMore: "외 {n}개",
     version_untitledScene: "제목 없는 씬",
     version_footer:
@@ -618,8 +619,10 @@ export const en = {
     version_timeline: "Timeline",
     version_selectFromTimeline:
         "Pick a version from the timeline to compare it side by side with your current content",
-    version_paneCurrent: "Current",
+    version_highlightHint:
+        "Highlighted paragraphs differ from your current text",
     version_manualPinned: "Saved manually",
+    version_sceneCount: "{n} scenes",
     version_sceneMore: "and {n} more",
     version_untitledScene: "Untitled scene",
     version_footer:

@@ -16,45 +16,30 @@ interface Props {
 const CHANGED_BG =
     "bg-amber-50/80 dark:bg-amber-950/25 rounded-sm ring-1 ring-inset ring-amber-200/60 dark:ring-amber-900/40";
 
-function Paragraph({
-    text,
-    highlight,
-}: {
-    text: string | undefined;
-    highlight: boolean;
-}) {
-    if (text === undefined) {
-        // 반대편에만 있는 문단 — 자리만 비워 두 열의 줄이 어긋나지 않게 한다
-        return <div className="min-h-[1.5rem]" aria-hidden="true" />;
-    }
-    return (
-        <div
-            className={`whitespace-pre-wrap break-words px-2 py-1 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300 ${
-                highlight ? CHANGED_BG : ""
-            }`}
-        >
-            {text}
-        </div>
-    );
-}
+// diffScenes는 제목 변경도 잡으려고 본문 앞에 "# 제목" 줄을 끼워 넣는다.
+// 섹션 머리말에 제목이 이미 있으므로, 그대로면 감추고 바뀐 경우만 남긴다.
+const TITLE_LINE = /^# /;
 
+// 선택한 버전의 본문만 보여 준다. 현재 내용과 다른 문단에만 배경을 깐다.
+// (현재 내용은 에디터에서 바로 볼 수 있으니 굳이 나란히 띄우지 않는다)
 function SceneRows({ rows }: { rows: AlignedRow[] }) {
+    const paragraphs = rows.filter(
+        (row) =>
+            row.right !== undefined &&
+            !(row.type === "same" && TITLE_LINE.test(row.right)),
+    );
+
     return (
         <div className="flex flex-col gap-1">
-            {rows.map((row, i) => (
+            {paragraphs.map((row, i) => (
                 <div
                     // biome-ignore lint/suspicious/noArrayIndexKey: diff 행은 순서가 고정
                     key={i}
-                    className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2"
+                    className={`whitespace-pre-wrap break-words px-2 py-1 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300 ${
+                        row.type !== "same" ? CHANGED_BG : ""
+                    }`}
                 >
-                    <Paragraph
-                        text={row.left}
-                        highlight={row.type !== "same"}
-                    />
-                    <Paragraph
-                        text={row.right}
-                        highlight={row.type !== "same"}
-                    />
+                    {row.right}
                 </div>
             ))}
         </div>
@@ -75,18 +60,18 @@ export function VersionDiffViewer({ diffs, versionLabel }: Props) {
 
     return (
         <div className="flex flex-col gap-4">
-            {/* 두 열의 머리말 — 스크롤해도 어느 쪽이 현재인지 보이게 고정 */}
-            <div className="sticky top-0 z-10 grid grid-cols-1 gap-x-3 bg-white pb-2 pt-1 sm:grid-cols-2 dark:bg-zinc-900">
+            {/* 어느 시점의 원고를 보고 있는지 스크롤해도 보이게 고정 */}
+            <div className="sticky top-0 z-10 flex items-baseline gap-2 bg-white pb-2 pt-1 dark:bg-zinc-900">
                 <span className="px-2 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
-                    {t("version_paneCurrent")}
-                </span>
-                <span className="px-2 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
                     {versionLabel}
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                    {t("version_changedScenes", { n: changed.length })}
                 </span>
             </div>
 
-            <p className="px-2 text-xs text-zinc-400">
-                {t("version_changedScenes", { n: changed.length })}
+            <p className="px-2 text-[11px] text-zinc-400">
+                {t("version_highlightHint")}
             </p>
 
             {changed.map((scene) => (
