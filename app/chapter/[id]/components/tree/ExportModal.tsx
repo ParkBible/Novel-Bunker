@@ -11,6 +11,7 @@ import {
     getManuscriptStats,
     isManuscriptEmpty,
     type ManuscriptSource,
+    type SceneHeadingMode,
 } from "@/app/(shared)/utils/export";
 
 interface ExportModalProps {
@@ -57,6 +58,12 @@ const FORMATS: FormatOption[] = [
     },
 ];
 
+const SCENE_HEADINGS: { id: SceneHeadingMode; labelKey: TranslationKey }[] = [
+    { id: "title", labelKey: "export_sceneHeadingTitle" },
+    { id: "number", labelKey: "export_sceneHeadingNumber" },
+    { id: "none", labelKey: "export_sceneHeadingNone" },
+];
+
 export function ExportModal({ onClose }: ExportModalProps) {
     const t = useTranslation();
     const novelTitle = useEditorStore((s) => s.novelTitle);
@@ -64,7 +71,7 @@ export function ExportModal({ onClose }: ExportModalProps) {
     const scenes = useEditorStore((s) => s.scenes);
 
     const [format, setFormat] = useState<ExportFormat>("txt");
-    const [includeSceneTitles, setIncludeSceneTitles] = useState(true);
+    const [sceneHeading, setSceneHeading] = useState<SceneHeadingMode>("title");
     const [isExporting, setIsExporting] = useState(false);
     const [isDone, setIsDone] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,7 +88,7 @@ export function ExportModal({ onClose }: ExportModalProps) {
         setIsExporting(true);
         setError(null);
         try {
-            await exportManuscript(format, source, { includeSceneTitles });
+            await exportManuscript(format, source, { sceneHeading });
             setIsDone(true);
             // 인쇄는 대화상자가 뜨는 동안 모달을 남겨 둔다
             if (!isPrint) setTimeout(onClose, 600);
@@ -152,17 +159,39 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 </div>
 
                 {!isBackup && (
-                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                        <input
-                            type="checkbox"
-                            checked={includeSceneTitles}
-                            onChange={(e) =>
-                                setIncludeSceneTitles(e.target.checked)
-                            }
-                            className="size-3.5 accent-zinc-800 dark:accent-zinc-300"
-                        />
-                        {t("export_includeSceneTitles")}
-                    </label>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                            {t("export_sceneHeadingLabel")}
+                        </span>
+                        <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
+                            {SCENE_HEADINGS.map((option) => {
+                                const isSelected = sceneHeading === option.id;
+                                return (
+                                    <label
+                                        key={option.id}
+                                        className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                            isSelected
+                                                ? "bg-white text-zinc-800 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
+                                                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="export-scene-heading"
+                                            className="sr-only"
+                                            checked={isSelected}
+                                            onChange={() => {
+                                                setSceneHeading(option.id);
+                                                setIsDone(false);
+                                                setError(null);
+                                            }}
+                                        />
+                                        {t(option.labelKey)}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
 
                 {isBlocked && (
