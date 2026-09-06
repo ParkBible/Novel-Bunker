@@ -33,7 +33,8 @@ function formatDate(date: Date): string {
 }
 
 // 로컬(IndexedDB)과 Drive(기기간) 두 저장소를 같은 UI에서 다루기 위한 추상화.
-// 글자 변화량·발췌는 로컬 스냅샷에만 있어 Drive 기록에서는 비어 있다.
+// 로컬은 스냅샷 레코드에, Drive는 파일 메타(appProperties)에 요약을 담아 둔다.
+// 요약 도입 전에 만들어진 Drive 스냅샷은 요약이 비어 있다.
 type HistoryEntry = TimelineEntry;
 
 interface HistorySource {
@@ -74,6 +75,10 @@ const cloudSource: HistorySource = {
             id: s.id,
             createdAt: s.createdAt,
             type: s.type,
+            added: s.added,
+            removed: s.removed,
+            scenesChanged: s.scenesChanged,
+            changedScenes: s.changedScenes,
         })),
     getData: (id) => getSnapshotData(id),
     restore: (id) => restoreSnapshot(id),

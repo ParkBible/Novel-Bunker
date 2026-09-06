@@ -132,6 +132,19 @@ export interface SnapshotData {
     data: string; // JSON.stringify(BackupData)
 }
 
+/**
+ * Drive 스냅샷의 요약값(글자 증감·바뀐 씬)을 계산하기 위한 캐시.
+ * Drive 스냅샷은 서버 측 파일 복사로 만들어져 본문이 로컬에 없으므로,
+ * 요약을 계산하려면 두 가지 상태가 필요하다.
+ *   - lastUploaded: 마지막으로 Drive에 올린 내용 (= 새 스냅샷의 본문)
+ *   - baseline: 직전 Drive 스냅샷의 본문 (= 비교 기준)
+ * 이 캐시가 있어 스냅샷을 만들 때 Drive에서 본문을 다시 내려받지 않는다.
+ */
+export interface DriveCacheRow {
+    key: "lastUploaded" | "baseline";
+    data: string; // JSON.stringify(BackupData)
+}
+
 // Database class
 class NovelBunkerDB extends Dexie {
     projects!: EntityTable<Project, "id">;
@@ -146,6 +159,7 @@ class NovelBunkerDB extends Dexie {
     characterMessages!: EntityTable<CharacterMessage, "id">;
     snapshots!: EntityTable<Snapshot, "id">;
     snapshotData!: EntityTable<SnapshotData, "id">;
+    driveCache!: EntityTable<DriveCacheRow, "key">;
 
     constructor() {
         super("NovelBunkerDB");
@@ -411,6 +425,10 @@ class NovelBunkerDB extends Dexie {
         // (Dexie는 같은 버전의 upgrade를 두 번 실행하지 않는다)
         this.version(12).upgrade(backfillSnapshotSummaries);
         this.version(13).upgrade(backfillSnapshotSummaries);
+
+        // v14: Drive 스냅샷 요약 계산용 캐시 테이블 추가. 기존 데이터는 손대지
+        // 않으며, 캐시가 채워지기 전(첫 업로드 전)에는 요약을 생략한다.
+        this.version(14).stores({ driveCache: "key" });
     }
 }
 

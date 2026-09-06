@@ -3,7 +3,13 @@ import {
     type BackupData,
     collectLocalData,
 } from "../db/backup";
+import {
+    readDriveCache,
+    readDriveCacheJson,
+    writeDriveCacheJson,
+} from "../db/driveCache";
 import { projectOps } from "../db/operations";
+import { computeStats, type SnapshotStats } from "../db/snapshotStats";
 
 export class DriveAuthError extends Error {
     constructor(msg: string) {
@@ -354,24 +360,119 @@ export async function checkRemoteNewer(): Promise<{
     return { stale, modifiedTime };
 }
 
+// ── 스냅샷 요약값 (Drive 파일 메타에 저장) ────────────────────
+// 타임라인의 글자 증감·바뀐 씬은 스냅샷을 만든 기기에서 계산해 파일
+// appProperties에 심어 둔다. 그래야 다른 기기에서도 본문을 내려받지 않고
+// 목록만으로 그릴 수 있다. (요약이 생기기 전에 만든 스냅샷은 값이 없다)
+const NAMES_SEPARATOR = "\u001f";
+// appProperties는 값 하나가 짧아야 해서(수백 바이트 수준) 넉넉히 잡아 자른다.
+// UI는 앞 두 개만 보여주고 나머지는 개수로 접으므로 잘려도 표시가 깨지지 않는다.
+const NAMES_MAX_BYTES = 100;
+// 이름 하나가 예산을 통째로 먹어 아무 이름도 안 남는 일을 막는 상한.
+// 한글은 UTF-8로 3바이트라 20자면 60바이트 — 최소 한 개는 항상 들어간다.
+const NAME_MAX_CHARS = 20;
+
+// 빈 문자열(제목 없는 씬)도 자리를 지켜야 UI 폴백이 로컬과 같아진다.
+function encodeSceneNames(names: string[]): string {
+    const encoder = new TextEncoder();
+    const kept: string[] = [];
+    let bytes = 0;
+    for (const raw of names) {
+        const name = raw.trim().slice(0, NAME_MAX_CHARS);
+        const size = encoder.encode(name).length + NAMES_SEPARATOR.length;
+        if (kept.length > 0 && bytes + size > NAMES_MAX_BYTES) break;
+        kept.push(name);
+        bytes += size;
+    }
+    return kept.join(NAMES_SEPARATOR);
+}
+
+function encodeSnapshotStats(stats: SnapshotStats): Record<string, string> {
+    return {
+        nbAdded: String(stats.added),
+        nbRemoved: String(stats.removed),
+        nbScenes: String(stats.scenesChanged),
+        nbNames: encodeSceneNames(stats.changedScenes),
+    };
+}
+
+type SnapshotSummary = Pick<
+    SnapshotInfo,
+    "added" | "removed" | "scenesChanged" | "changedScenes"
+>;
+
+function decodeSnapshotStats(
+    props: Record<string, string> | undefined,
+): SnapshotSummary {
+    if (!props) return {};
+    const num = (raw: string | undefined): number | undefined => {
+        if (raw === undefined) return undefined;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : undefined;
+    };
+    const names = props.nbNames;
+    return {
+        added: num(props.nbAdded),
+        removed: num(props.nbRemoved),
+        scenesChanged: num(props.nbScenes),
+        changedScenes:
+            names === undefined
+                ? undefined
+                : names === ""
+                  ? []
+                  : names.split(NAMES_SEPARATOR),
+    };
+}
+
+/**
+ * 새로 만들 스냅샷에 심을 요약값. 스냅샷 본문은 "마지막으로 업로드한 내용",
+ * 비교 기준은 "직전 스냅샷 본문"이며 둘 다 로컬 캐시에서 읽는다.
+ * 캐시가 없으면(첫 실행·다른 기기) 현재 상태를 본문으로 간주한다.
+ * 요약 계산 실패가 스냅샷 생성 자체를 막지 않도록 null로 흘린다.
+ */
+async function prepareSnapshotStats(): Promise<{
+    props: Record<string, string>;
+    contentJson: string;
+} | null> {
+    try {
+        const contentJson =
+            (await readDriveCacheJson("lastUploaded")) ??
+            JSON.stringify(await collectLocalData());
+        const content = JSON.parse(contentJson) as BackupData;
+        const baseline = await readDriveCache("baseline");
+        return {
+            props: encodeSnapshotStats(computeStats(content, baseline)),
+            contentJson,
+        };
+    } catch {
+        return null;
+    }
+}
+
 // ── 스냅샷 목록 조회 ──────────────────────────────────────────
 export interface SnapshotInfo {
     id: string;
     name: string;
     createdAt: Date;
     type: "manual" | "auto";
+    // 타임라인 표시용 요약 (요약 도입 전 스냅샷에는 없다)
+    added?: number;
+    removed?: number;
+    scenesChanged?: number;
+    changedScenes?: string[];
 }
 
 export async function listSnapshots(): Promise<SnapshotInfo[]> {
     const q = encodeURIComponent("name contains 'novelbunker-snapshot-'");
     const res = await authFetch(
-        `${DRIVE_API}/files?spaces=appDataFolder&q=${q}&fields=files(id,name,createdTime)`,
+        `${DRIVE_API}/files?spaces=appDataFolder&q=${q}&fields=files(id,name,createdTime,appProperties)`,
     );
     const data = await res.json();
     const files = (data.files ?? []) as {
         id: string;
         name: string;
         createdTime: string;
+        appProperties?: Record<string, string>;
     }[];
     return files
         .map((f) => ({
@@ -381,6 +482,7 @@ export async function listSnapshots(): Promise<SnapshotInfo[]> {
             type: f.name.startsWith(MANUAL_SNAPSHOT_PREFIX)
                 ? ("manual" as const)
                 : ("auto" as const),
+            ...decodeSnapshotStats(f.appProperties),
         }))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
@@ -431,12 +533,31 @@ async function pruneSnapshots(prefix: string, max: number): Promise<void> {
 }
 
 // ── 서버 측 파일 복사 (files.copy) ──────────────────────────
-async function copyFile(fileId: string, name: string): Promise<void> {
+async function copyFile(
+    fileId: string,
+    name: string,
+    appProperties?: Record<string, string>,
+): Promise<void> {
     await authFetch(`${DRIVE_API}/files/${fileId}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, parents: ["appDataFolder"] }),
+        body: JSON.stringify({
+            name,
+            parents: ["appDataFolder"],
+            ...(appProperties ? { appProperties } : {}),
+        }),
     });
+}
+
+// 스냅샷 복사 + 요약 심기 + 비교 기준 갱신을 한 흐름으로 묶는다.
+// 비교 기준은 복사가 성공한 뒤에만 옮겨, 실패 시 다음 스냅샷이 어긋나지 않게 한다.
+async function copySnapshotWithStats(
+    fileId: string,
+    name: string,
+): Promise<void> {
+    const stats = await prepareSnapshotStats();
+    await copyFile(fileId, name, stats?.props);
+    if (stats) await writeDriveCacheJson("baseline", stats.contentJson);
 }
 
 // ── 수동 스냅샷 생성 ──────────────────────────────────────────
@@ -444,7 +565,7 @@ export async function createManualSnapshot(): Promise<void> {
     const file = await findBackupFile();
     if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await copyFile(file.id, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
+    await copySnapshotWithStats(file.id, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(MANUAL_SNAPSHOT_PREFIX, MAX_MANUAL_SNAPSHOTS);
 }
 
@@ -462,7 +583,7 @@ export async function createAutoSnapshot(): Promise<void> {
     const file = await findBackupFile();
     if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    await copyFile(file.id, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
+    await copySnapshotWithStats(file.id, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
     await pruneSnapshots(AUTO_SNAPSHOT_PREFIX, MAX_AUTO_SNAPSHOTS);
     try {
         localStorage.setItem(LAST_AUTO_SNAPSHOT_KEY, new Date().toISOString());
@@ -526,6 +647,13 @@ export async function exportToDrive(): Promise<void> {
     }
     // 방금 올린 버전을 "마지막 동기화 버전"으로 기록 → stale 오탐 방지
     if (modifiedTime) saveLastSyncedModified(modifiedTime);
+    // 다음 스냅샷의 본문은 지금 올린 이 내용이다 (스냅샷은 Drive 파일의 사본).
+    // 요약 계산에 쓰려고 캐시해 둔다 — 실패해도 업로드 자체는 성공 처리한다.
+    try {
+        await writeDriveCacheJson("lastUploaded", json);
+    } catch {
+        // 캐시 실패 시 다음 스냅샷의 요약만 생략된다
+    }
 }
 
 // ── 수동 스냅샷 생성 후 업로드 ───────────────────────────────
