@@ -195,7 +195,7 @@ function sceneHeading(
     indexInChapter: number,
     options: ExportOptions,
 ): string | null {
-    if (options.sceneHeading === "number") return `씬 ${indexInChapter + 1}`;
+    if (options.sceneHeading === "number") return `${indexInChapter + 1}`;
     if (options.sceneHeading === "title") return scene.title.trim() || null;
     return null;
 }
