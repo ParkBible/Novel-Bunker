@@ -65,6 +65,8 @@ export function ExportModal({ onClose }: ExportModalProps) {
 
     const [format, setFormat] = useState<ExportFormat>("txt");
     const [includeSceneTitles, setIncludeSceneTitles] = useState(true);
+    // 주석은 작업용 메모라 기본은 제외 — 완성 원고를 그대로 내보내는 게 기본값
+    const [includeComments, setIncludeComments] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isDone, setIsDone] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,7 +83,10 @@ export function ExportModal({ onClose }: ExportModalProps) {
         setIsExporting(true);
         setError(null);
         try {
-            await exportManuscript(format, source, { includeSceneTitles });
+            await exportManuscript(format, source, {
+                includeSceneTitles,
+                includeComments,
+            });
             setIsDone(true);
             // 인쇄는 대화상자가 뜨는 동안 모달을 남겨 둔다
             if (!isPrint) setTimeout(onClose, 600);
@@ -152,17 +157,30 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 </div>
 
                 {!isBackup && (
-                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                        <input
-                            type="checkbox"
-                            checked={includeSceneTitles}
-                            onChange={(e) =>
-                                setIncludeSceneTitles(e.target.checked)
-                            }
-                            className="size-3.5 accent-zinc-800 dark:accent-zinc-300"
-                        />
-                        {t("export_includeSceneTitles")}
-                    </label>
+                    <div className="mt-3 flex flex-col gap-2">
+                        <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <input
+                                type="checkbox"
+                                checked={includeSceneTitles}
+                                onChange={(e) =>
+                                    setIncludeSceneTitles(e.target.checked)
+                                }
+                                className="size-3.5 accent-zinc-800 dark:accent-zinc-300"
+                            />
+                            {t("export_includeSceneTitles")}
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <input
+                                type="checkbox"
+                                checked={includeComments}
+                                onChange={(e) =>
+                                    setIncludeComments(e.target.checked)
+                                }
+                                className="size-3.5 accent-zinc-800 dark:accent-zinc-300"
+                            />
+                            {t("export_includeComments")}
+                        </label>
+                    </div>
                 )}
 
                 {isBlocked && (

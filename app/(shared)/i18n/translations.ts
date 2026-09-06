@@ -59,6 +59,8 @@ export const ko = {
     // Chapter item
     chapterItem_editTitle: "챕터 이름 편집",
     chapterItem_deleteTitle: "챕터 삭제",
+    chapterItem_memoTitle: "챕터 메모",
+    chapterDetail_notFound: "챕터를 찾을 수 없습니다.",
 
     // Scene item
     sceneItem_deleteTitle: "씬 삭제",
@@ -67,11 +69,16 @@ export const ko = {
     sceneCard_titlePlaceholder: "씬 제목",
     sceneCard_contentPlaceholder: "씬 내용을 작성하세요...",
     sceneCard_deleteTitle: "씬 삭제",
+    sceneCard_memoTitle: "씬 메모",
 
     // Scene editor toolbar
     sceneEditor_bold: "굵게 (Ctrl+B)",
     sceneEditor_italic: "기울임 (Ctrl+I)",
     sceneEditor_quote: "인용문",
+    sceneEditor_comment: "주석",
+    sceneEditor_commentPlaceholder: "이 구간에 남길 메모...",
+    sceneEditor_commentSave: "저장",
+    sceneEditor_commentRemove: "주석 삭제",
 
     // Chapter content
     chapterContent_notFound: "챕터를 찾을 수 없습니다.",
@@ -88,6 +95,10 @@ export const ko = {
     contextPanel_characterDetail: "인물 상세",
     contextPanel_lore: "설정집",
     contextPanel_loreDetail: "설정 상세",
+    contextPanel_scene: "씬",
+    contextPanel_sceneDetail: "씬 상세",
+    contextPanel_chapter: "챕터",
+    contextPanel_chapterDetail: "챕터 상세",
 
     // AI feedback
     aiFeedback_title: "AI 피드백",
@@ -340,6 +351,7 @@ export const ko = {
     export_json: "전체 백업 (.json)",
     export_jsonDesc: "모든 작품의 데이터를 통째로 저장 (기기 이전·복원용)",
     export_includeSceneTitles: "씬 제목 포함",
+    export_includeComments: "주석 포함",
     export_emptyWarning: "내보낼 본문이 없습니다.",
     export_error: "내보내기에 실패했습니다.",
     export_run: "내보내기",
@@ -409,6 +421,8 @@ export const en = {
     // Chapter item
     chapterItem_editTitle: "Edit chapter name",
     chapterItem_deleteTitle: "Delete chapter",
+    chapterItem_memoTitle: "Chapter memo",
+    chapterDetail_notFound: "Chapter not found.",
 
     // Scene item
     sceneItem_deleteTitle: "Delete scene",
@@ -417,11 +431,16 @@ export const en = {
     sceneCard_titlePlaceholder: "Scene title",
     sceneCard_contentPlaceholder: "Write scene content...",
     sceneCard_deleteTitle: "Delete scene",
+    sceneCard_memoTitle: "Scene memo",
 
     // Scene editor toolbar
     sceneEditor_bold: "Bold (Ctrl+B)",
     sceneEditor_italic: "Italic (Ctrl+I)",
     sceneEditor_quote: "Quote",
+    sceneEditor_comment: "Comment",
+    sceneEditor_commentPlaceholder: "Note for this passage...",
+    sceneEditor_commentSave: "Save",
+    sceneEditor_commentRemove: "Remove",
 
     // Chapter content
     chapterContent_notFound: "Chapter not found.",
@@ -438,6 +457,10 @@ export const en = {
     contextPanel_characterDetail: "Character Detail",
     contextPanel_lore: "Lore",
     contextPanel_loreDetail: "Lore Detail",
+    contextPanel_scene: "Scene",
+    contextPanel_sceneDetail: "Scene Detail",
+    contextPanel_chapter: "Chapter",
+    contextPanel_chapterDetail: "Chapter Detail",
 
     // AI feedback
     aiFeedback_title: "AI Feedback",
@@ -693,6 +716,7 @@ export const en = {
     export_json: "Full backup (.json)",
     export_jsonDesc: "All works, raw — for moving devices or restoring",
     export_includeSceneTitles: "Include scene titles",
+    export_includeComments: "Include comments",
     export_emptyWarning: "There is no content to export.",
     export_error: "Export failed.",
     export_run: "Export",

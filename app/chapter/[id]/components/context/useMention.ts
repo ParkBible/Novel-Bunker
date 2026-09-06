@@ -8,7 +8,6 @@ import type { AttachedContext, MentionItem } from "./types";
 interface Options {
     input: string;
     setInput: (val: string) => void;
-    attachedCtxs: AttachedContext[];
     setAttachedCtxs: React.Dispatch<React.SetStateAction<AttachedContext[]>>;
     textareaRef: RefObject<HTMLTextAreaElement | null>;
     chapters: Chapter[];
@@ -19,7 +18,6 @@ interface Options {
 export function useMention({
     input,
     setInput,
-    attachedCtxs,
     setAttachedCtxs,
     textareaRef,
     chapters,

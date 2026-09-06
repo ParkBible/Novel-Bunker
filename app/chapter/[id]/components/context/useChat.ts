@@ -14,7 +14,6 @@ import type { AttachedContext } from "./types";
 interface Options {
     activeConvId: number | null;
     setActiveConvId: (id: number) => void;
-    conversations: AiConversation[];
     setConversations: React.Dispatch<React.SetStateAction<AiConversation[]>>;
     messages: AiMessage[];
     setMessages: React.Dispatch<React.SetStateAction<AiMessage[]>>;
@@ -29,7 +28,6 @@ interface Options {
 export function useChat({
     activeConvId,
     setActiveConvId,
-    conversations,
     setConversations,
     messages,
     setMessages,

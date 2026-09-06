@@ -1,5 +1,10 @@
 import type { Chapter, Scene } from "../db";
 import { collectLocalData } from "../db/backup";
+import {
+    COMMENT_ATTRIBUTE,
+    COMMENT_LABEL,
+    decodeCommentNote,
+} from "../tiptap/comment";
 
 // 씬 본문은 TipTap이 만든 HTML 문자열이다. 내보내기 형식마다 이 HTML을
 // 텍스트/마크다운으로 변환하거나(=아래 렌더러), 스타일을 입혀 그대로 감싼다.
@@ -8,6 +13,8 @@ export type ExportFormat = "txt" | "markdown" | "html" | "pdf" | "json";
 
 export interface ExportOptions {
     includeSceneTitles: boolean;
+    // 본문에 달린 인라인 주석을 결과물에 포함할지
+    includeComments: boolean;
 }
 
 export interface ManuscriptSource {
@@ -25,6 +32,12 @@ interface OrderedChapter {
 
 type RenderMode = "text" | "markdown";
 
+interface RenderContext {
+    mode: RenderMode;
+    // 인라인 주석을 결과물에 남길지. 끄면 주석이 걸린 구간의 본문만 남는다.
+    comments: boolean;
+}
+
 const TEXT_NODE = 3;
 const ELEMENT_NODE = 1;
 
@@ -32,18 +45,28 @@ function parseBody(html: string): HTMLElement {
     return new DOMParser().parseFromString(html || "", "text/html").body;
 }
 
-// 인라인 서식(굵게/기울임/취소선/링크/줄바꿈)만 처리한다.
-function renderInline(node: Node, mode: RenderMode): string {
+// 인라인 서식(굵게/기울임/취소선/링크/줄바꿈)과 주석만 처리한다.
+function renderInline(node: Node, ctx: RenderContext): string {
     if (node.nodeType === TEXT_NODE) return node.textContent ?? "";
     if (node.nodeType !== ELEMENT_NODE) return "";
 
     const el = node as Element;
-    if (el.tagName === "BR") return mode === "markdown" ? "  \n" : "\n";
+    if (el.tagName === "BR") return ctx.mode === "markdown" ? "  \n" : "\n";
 
     const inner = Array.from(el.childNodes)
-        .map((child) => renderInline(child, mode))
+        .map((child) => renderInline(child, ctx))
         .join("");
-    if (mode === "text" || !inner.trim()) return inner;
+
+    // 주석은 서식이 아니라 메모라 text/markdown 모두 같은 모양으로 붙인다
+    if (el.hasAttribute(COMMENT_ATTRIBUTE)) {
+        const note = decodeCommentNote(
+            el.getAttribute(COMMENT_ATTRIBUTE),
+        ).trim();
+        if (!ctx.comments || !note) return inner;
+        return `${inner}[${COMMENT_LABEL}: ${note}]`;
+    }
+
+    if (ctx.mode === "text" || !inner.trim()) return inner;
 
     switch (el.tagName) {
         case "STRONG":
@@ -70,7 +93,7 @@ function renderInline(node: Node, mode: RenderMode): string {
 // 블록 단위 문자열 배열을 반환한다. 호출부에서 "\n\n"으로 이어 붙인다.
 function renderBlocks(
     parent: ParentNode,
-    mode: RenderMode,
+    ctx: RenderContext,
     depth: number,
 ): string[] {
     const out: string[] = [];
@@ -88,26 +111,26 @@ function renderBlocks(
 
         // 씬 안의 제목은 문서 계층(작품 > 챕터 > 씬) 아래로 3단계 밀어 넣는다
         if (/^H[1-6]$/.test(tag)) {
-            const text = renderInline(el, mode).trim();
+            const text = renderInline(el, ctx).trim();
             if (!text) continue;
             const level = Math.min(6, Number(tag[1]) + 3);
             out.push(
-                mode === "markdown" ? `${"#".repeat(level)} ${text}` : text,
+                ctx.mode === "markdown" ? `${"#".repeat(level)} ${text}` : text,
             );
             continue;
         }
 
         switch (tag) {
             case "P": {
-                const text = renderInline(el, mode).trimEnd();
+                const text = renderInline(el, ctx).trimEnd();
                 if (text.trim()) out.push(text);
                 break;
             }
             case "BLOCKQUOTE": {
-                const inner = renderBlocks(el, mode, depth);
+                const inner = renderBlocks(el, ctx, depth);
                 if (inner.length === 0) break;
                 out.push(
-                    mode === "markdown"
+                    ctx.mode === "markdown"
                         ? inner
                               .map((block) =>
                                   block
@@ -126,13 +149,13 @@ function renderBlocks(
                 let index = 1;
                 for (const li of Array.from(el.children)) {
                     if (li.tagName !== "LI") continue;
-                    const blocks = renderBlocks(li, mode, depth + 1);
+                    const blocks = renderBlocks(li, ctx, depth + 1);
                     if (blocks.length === 0) continue;
 
                     const marker =
                         tag === "OL"
                             ? `${index}. `
-                            : mode === "markdown"
+                            : ctx.mode === "markdown"
                               ? "- "
                               : "· ";
                     const indent = "    ".repeat(depth);
@@ -152,24 +175,75 @@ function renderBlocks(
                 break;
             }
             case "HR":
-                out.push(mode === "markdown" ? "---" : "* * *");
+                out.push(ctx.mode === "markdown" ? "---" : "* * *");
                 break;
             case "BR":
                 break;
-            default:
-                out.push(...renderBlocks(el, mode, depth));
+            default: {
+                // 주석 span은 인라인이라 블록 순회에서 만나면 인라인 렌더러로 넘긴다
+                if (el.hasAttribute(COMMENT_ATTRIBUTE)) {
+                    const text = renderInline(el, ctx).trim();
+                    if (text) out.push(text);
+                    break;
+                }
+                out.push(...renderBlocks(el, ctx, depth));
+            }
         }
     }
 
     return out;
 }
 
-export function htmlToPlainText(html: string): string {
-    return renderBlocks(parseBody(html), "text", 0).join("\n\n").trim();
+export function htmlToPlainText(html: string, includeComments = false): string {
+    return renderBlocks(
+        parseBody(html),
+        { mode: "text", comments: includeComments },
+        0,
+    )
+        .join("\n\n")
+        .trim();
 }
 
-export function htmlToMarkdown(html: string): string {
-    return renderBlocks(parseBody(html), "markdown", 0).join("\n\n").trim();
+export function htmlToMarkdown(html: string, includeComments = false): string {
+    return renderBlocks(
+        parseBody(html),
+        { mode: "markdown", comments: includeComments },
+        0,
+    )
+        .join("\n\n")
+        .trim();
+}
+
+// HTML/PDF는 TipTap 마크업을 그대로 싣는다. 주석 내용은 속성에 들어 있어
+// 스타일이 없으면 화면에 안 보이지만 파일 소스에는 남는다. 포함하지 않기로
+// 했다면 span 자체를 벗겨 흔적을 남기지 않고, 포함한다면 읽을 수 있도록
+// 주석 내용을 실제 텍스트 노드로 뽑아 본문 옆에 붙인다.
+function renderSceneHtml(html: string, includeComments: boolean): string {
+    if (!html || !html.includes(COMMENT_ATTRIBUTE)) return html;
+
+    const body = parseBody(html);
+
+    for (const el of Array.from(
+        body.querySelectorAll(`[${COMMENT_ATTRIBUTE}]`),
+    )) {
+        const note = decodeCommentNote(
+            el.getAttribute(COMMENT_ATTRIBUTE),
+        ).trim();
+        el.removeAttribute(COMMENT_ATTRIBUTE);
+
+        if (!includeComments || !note) {
+            el.replaceWith(...Array.from(el.childNodes));
+            continue;
+        }
+
+        const marker = el.ownerDocument.createElement("span");
+        marker.className = "comment-note";
+        // textContent로 넣어야 주석 안의 < & 가 안전하게 이스케이프된다
+        marker.textContent = `[${COMMENT_LABEL}: ${note}]`;
+        el.after(marker);
+    }
+
+    return body.innerHTML;
 }
 
 // ── 원고 구성 ────────────────────────────────────────────
@@ -221,7 +295,10 @@ export function buildTxt(
     for (const chapter of orderChapters(source)) {
         const body: string[] = [chapter.title];
         for (const scene of chapter.scenes) {
-            const text = htmlToPlainText(scene.content);
+            const text = htmlToPlainText(
+                scene.content,
+                options.includeComments,
+            );
             if (options.includeSceneTitles && scene.title.trim()) {
                 body.push(`[${scene.title.trim()}]`);
             }
@@ -246,7 +323,7 @@ export function buildMarkdown(
             if (options.includeSceneTitles && scene.title.trim()) {
                 parts.push(`### ${scene.title.trim()}`);
             }
-            const md = htmlToMarkdown(scene.content);
+            const md = htmlToMarkdown(scene.content, options.includeComments);
             if (md) parts.push(md);
         }
     }
@@ -315,7 +392,11 @@ ${chapters
                     const heading = hasHeading
                         ? `<h3 class="scene-title">${escapeHtml(scene.title.trim())}</h3>`
                         : "";
-                    return `${divider}<section class="scene">${heading}${scene.content || ""}</section>`;
+                    const sceneHtml = renderSceneHtml(
+                        scene.content || "",
+                        options.includeComments,
+                    );
+                    return `${divider}<section class="scene">${heading}${sceneHtml}</section>`;
                 })
                 .join("\n");
 
@@ -469,6 +550,15 @@ ${scenes}
     strong { font-weight: 700; }
     em { font-style: italic; }
 
+    /* 인라인 주석 (포함 옵션을 켰을 때만 등장) */
+    .nb-comment { background: rgba(161, 127, 78, 0.14); border-radius: 2px; padding: 0 1px; }
+    .comment-note {
+        font-family: var(--sans);
+        font-size: 0.74em;
+        color: var(--accent);
+        margin-left: 0.25em;
+    }
+
     .colophon {
         font-family: var(--sans);
         font-size: 0.68rem;
@@ -494,6 +584,8 @@ ${scenes}
         p { orphans: 3; widows: 3; }
         blockquote, li { break-inside: avoid; }
         a { color: inherit; text-decoration: none; }
+        .nb-comment { background: #eee; }
+        .comment-note { color: #555; }
     }
 </style>
 </head>

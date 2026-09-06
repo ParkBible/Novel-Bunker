@@ -45,6 +45,7 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
         setSelectedSceneId,
         expandedChapterIds,
         toggleExpandedChapter,
+        setDetailPanel,
         deleteChapter,
         deleteScene,
         novelTitle,
@@ -161,6 +162,13 @@ export function TreePanel({ onSceneSelect }: TreePanelProps) {
                                                 chapter.id,
                                                 title,
                                             )
+                                        }
+                                        onMemo={() =>
+                                            chapter.id &&
+                                            setDetailPanel({
+                                                type: "chapter",
+                                                chapterId: chapter.id,
+                                            })
                                         }
                                         onDelete={() =>
                                             chapter.id &&

@@ -128,3 +128,26 @@ button:not(:disabled) {
     border-left-color: #52525b;
     color: #a1a1aa;
 }
+
+/* 인라인 주석 — 본문 위에 얹힌 메모라 원고 글자처럼 보이면 안 된다.
+   내용은 data-comment 속성에 있고, 클릭하면 편집 팝오버가 열린다. */
+.tiptap .nb-comment {
+    background-color: rgba(245, 158, 11, 0.14);
+    border-bottom: 1px dashed rgba(217, 119, 6, 0.7);
+    border-radius: 2px;
+    cursor: pointer;
+    padding: 0 1px;
+}
+
+.tiptap .nb-comment:hover {
+    background-color: rgba(245, 158, 11, 0.26);
+}
+
+.dark .tiptap .nb-comment {
+    background-color: rgba(245, 158, 11, 0.18);
+    border-bottom-color: rgba(251, 191, 36, 0.75);
+}
+
+.dark .tiptap .nb-comment:hover {
+    background-color: rgba(245, 158, 11, 0.3);
+}
