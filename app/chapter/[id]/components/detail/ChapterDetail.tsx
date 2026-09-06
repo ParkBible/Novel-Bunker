@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback } from "react";
+import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { AiFeedbackSection, CHAPTER_PROMPT_OPTIONS } from "./AiFeedbackSection";
 import { MemoSection } from "./MemoSection";
 
 export function ChapterDetail({ chapterId }: { chapterId: number }) {
+    const t = useTranslation();
     const { chapters, scenes, updateChapterMemo } = useEditorStore();
     const chapter = chapters.find((c) => c.id === chapterId);
 
@@ -19,7 +21,7 @@ export function ChapterDetail({ chapterId }: { chapterId: number }) {
     if (!chapter) {
         return (
             <p className="p-4 text-sm text-zinc-500">
-                챕터를 찾을 수 없습니다.
+                {t("chapterDetail_notFound")}
             </p>
         );
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { StickyNote, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Scene } from "@/app/(shared)/db";
@@ -23,9 +23,10 @@ export function SceneCard({
     onUpdate,
     onEditorReady,
 }: SceneCardProps) {
-    const { selectedSceneId, setSelectedSceneId, deleteScene } =
+    const { selectedSceneId, setSelectedSceneId, deleteScene, setDetailPanel } =
         useEditorStore();
     const isSelected = selectedSceneId === scene.id;
+    const hasMemo = Boolean(scene.memo?.trim());
     const [confirmDelete, setConfirmDelete] = useState(false);
     const t = useTranslation();
 
@@ -102,6 +103,27 @@ export function SceneCard({
                     className="flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
                     placeholder={t("sceneCard_titlePlaceholder")}
                 />
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (scene.id === undefined) return;
+                        setSelectedSceneId(scene.id);
+                        setDetailPanel({ type: "scene", sceneId: scene.id });
+                    }}
+                    className={`mr-1 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${
+                        hasMemo || isSelected ? "opacity-100" : "opacity-0"
+                    }`}
+                    title={t("sceneCard_memoTitle")}
+                >
+                    <StickyNote
+                        className={`h-4 w-4 ${
+                            hasMemo
+                                ? "text-amber-500"
+                                : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                        }`}
+                    />
+                </button>
                 <button
                     type="button"
                     onClick={(e) => {

@@ -72,6 +72,8 @@ export function ExportModal({ onClose }: ExportModalProps) {
 
     const [format, setFormat] = useState<ExportFormat>("txt");
     const [sceneHeading, setSceneHeading] = useState<SceneHeadingMode>("title");
+    // 주석은 작업용 메모라 기본은 제외 — 완성 원고를 그대로 내보내는 게 기본값
+    const [includeComments, setIncludeComments] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isDone, setIsDone] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,10 @@ export function ExportModal({ onClose }: ExportModalProps) {
         setIsExporting(true);
         setError(null);
         try {
-            await exportManuscript(format, source, { sceneHeading });
+            await exportManuscript(format, source, {
+                sceneHeading,
+                includeComments,
+            });
             setIsDone(true);
             // 인쇄는 대화상자가 뜨는 동안 모달을 남겨 둔다
             if (!isPrint) setTimeout(onClose, 600);
@@ -159,38 +164,54 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 </div>
 
                 {!isBackup && (
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {t("export_sceneHeadingLabel")}
-                        </span>
-                        <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
-                            {SCENE_HEADINGS.map((option) => {
-                                const isSelected = sceneHeading === option.id;
-                                return (
-                                    <label
-                                        key={option.id}
-                                        className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                                            isSelected
-                                                ? "bg-white text-zinc-800 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
-                                                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="export-scene-heading"
-                                            className="sr-only"
-                                            checked={isSelected}
-                                            onChange={() => {
-                                                setSceneHeading(option.id);
-                                                setIsDone(false);
-                                                setError(null);
-                                            }}
-                                        />
-                                        {t(option.labelKey)}
-                                    </label>
-                                );
-                            })}
+                    <div className="mt-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                                {t("export_sceneHeadingLabel")}
+                            </span>
+                            <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
+                                {SCENE_HEADINGS.map((option) => {
+                                    const isSelected =
+                                        sceneHeading === option.id;
+                                    return (
+                                        <label
+                                            key={option.id}
+                                            className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                                isSelected
+                                                    ? "bg-white text-zinc-800 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
+                                                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="export-scene-heading"
+                                                className="sr-only"
+                                                checked={isSelected}
+                                                onChange={() => {
+                                                    setSceneHeading(option.id);
+                                                    setIsDone(false);
+                                                    setError(null);
+                                                }}
+                                            />
+                                            {t(option.labelKey)}
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         </div>
+                        <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <input
+                                type="checkbox"
+                                checked={includeComments}
+                                onChange={(e) => {
+                                    setIncludeComments(e.target.checked);
+                                    setIsDone(false);
+                                    setError(null);
+                                }}
+                                className="size-3.5 accent-zinc-800 dark:accent-zinc-300"
+                            />
+                            {t("export_includeComments")}
+                        </label>
                     </div>
                 )}
 

@@ -40,7 +40,6 @@ export function AiChatPanel() {
     const { handleSend, isLoading } = useChat({
         activeConvId,
         setActiveConvId,
-        conversations,
         setConversations,
         messages,
         setMessages,
@@ -62,7 +61,6 @@ export function AiChatPanel() {
     } = useMention({
         input,
         setInput,
-        attachedCtxs,
         setAttachedCtxs,
         textareaRef,
         chapters,

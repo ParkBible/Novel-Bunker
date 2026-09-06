@@ -22,6 +22,7 @@ import {
     ChevronRight,
     GripVertical,
     Pencil,
+    StickyNote,
     Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +40,7 @@ interface Scene {
 interface Chapter {
     id?: number;
     title: string;
+    memo?: string;
 }
 
 interface ChapterItemProps {
@@ -50,6 +52,7 @@ interface ChapterItemProps {
     onToggle: () => void;
     onClick: () => void;
     onTitleUpdate: (title: string) => void;
+    onMemo: () => void;
     onDelete: () => void;
     onSceneSelect: (sceneId: number) => void;
     onSceneDelete: (sceneId: number) => void;
@@ -65,6 +68,7 @@ export function ChapterItem({
     onToggle,
     onClick,
     onTitleUpdate,
+    onMemo,
     onDelete,
     onSceneSelect,
     onSceneDelete,
@@ -73,6 +77,7 @@ export function ChapterItem({
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(chapter.title);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const hasMemo = Boolean(chapter.memo?.trim());
     const inputRef = useRef<HTMLInputElement>(null);
     const t = useTranslation();
 
@@ -198,6 +203,20 @@ export function ChapterItem({
                     title={t("chapterItem_editTitle")}
                 >
                     <Pencil className="h-3.5 w-3.5 text-zinc-500" />
+                </button>
+                <button
+                    type="button"
+                    onClick={onMemo}
+                    className={`rounded p-0.5 transition-opacity hover:bg-zinc-200 group-hover:opacity-100 dark:hover:bg-zinc-700 ${
+                        hasMemo ? "opacity-100" : "opacity-0"
+                    }`}
+                    title={t("chapterItem_memoTitle")}
+                >
+                    <StickyNote
+                        className={`h-3.5 w-3.5 ${
+                            hasMemo ? "text-amber-500" : "text-zinc-500"
+                        }`}
+                    />
                 </button>
                 <button
                     type="button"
