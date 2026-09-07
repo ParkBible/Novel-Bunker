@@ -463,7 +463,9 @@ export function DriveSync() {
                             )}
                         </div>
 
-                        <div className="flex gap-2">
+                        {/* 좁은 화면에서는 세로로 쌓는다. 셋을 flex-1로 나누면
+                            버튼 하나가 90px 남짓이라 라벨이 중간에서 쪼개진다. */}
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <button
                                 type="button"
                                 onClick={handleConfirmDownload}
