@@ -237,6 +237,30 @@ export const ko = {
     drive_timeHours: "{n}시간 전",
     drive_timeDays: "{n}일 전",
 
+    // Drive 받기 미리보기 (작품별 변경사항)
+    drive_scopeAll: "모든 작품({n}개)에 적용",
+    drive_scopeAllUnknown: "모든 작품에 적용",
+    drive_scopeHint:
+        "Drive 백업은 작품별이 아니라 이 기기의 데이터 전체입니다. 올리기·받기는 모든 작품에 함께 적용됩니다.",
+    drive_previewHeading: "이 버전을 받으면",
+    drive_previewLoading: "변경사항 확인 중...",
+    drive_previewError: "변경사항을 불러오지 못했습니다.",
+    drive_previewNoChanges: "지금 이 기기의 내용과 다른 점이 없습니다.",
+    drive_previewAuthNeeded:
+        "Google 로그인 후 변경사항을 확인할 수 있습니다. 받기를 누르면 로그인 창이 열립니다.",
+    drive_workAdded: "이 기기에 새로 생김",
+    drive_workRemoved: "이 기기에서 사라짐",
+    drive_workUnchanged: "변경 없음",
+    drive_untitledWork: "제목 없는 작품",
+    drive_untitledChapter: "제목 없는 화",
+    drive_sceneModified: "수정",
+    drive_charsAdded: "+{n}자",
+    drive_charsRemoved: "−{n}자",
+    drive_legendAdded: "받으면 새로 생기는 문단",
+    drive_legendRemoved: "받으면 이 기기에서 사라지는 문단",
+    drive_previewShowDiff: "본문 비교 보기",
+    drive_previewHideDiff: "본문 접기",
+
     // Snapshot modal
     snapshot_closeLabel: "모달 닫기",
     snapshot_title: "버전 기록",
@@ -589,6 +613,30 @@ export const en = {
     drive_timeMinutes: "{n}m ago",
     drive_timeHours: "{n}h ago",
     drive_timeDays: "{n}d ago",
+
+    // Download preview (per-work changes)
+    drive_scopeAll: "Applies to all {n} works",
+    drive_scopeAllUnknown: "Applies to all works",
+    drive_scopeHint:
+        "The Drive backup covers this device's entire data, not a single work. Upload and download apply to every work at once.",
+    drive_previewHeading: "Downloading this version will:",
+    drive_previewLoading: "Checking changes...",
+    drive_previewError: "Couldn't load the changes.",
+    drive_previewNoChanges: "Nothing differs from what is on this device.",
+    drive_previewAuthNeeded:
+        "Sign in with Google to see the changes. Pressing Download opens the sign-in window.",
+    drive_workAdded: "New on this device",
+    drive_workRemoved: "Removed from this device",
+    drive_workUnchanged: "No changes",
+    drive_untitledWork: "Untitled work",
+    drive_untitledChapter: "Untitled chapter",
+    drive_sceneModified: "Modified",
+    drive_charsAdded: "+{n} chars",
+    drive_charsRemoved: "−{n} chars",
+    drive_legendAdded: "Paragraphs you will gain",
+    drive_legendRemoved: "Paragraphs this device will lose",
+    drive_previewShowDiff: "Show text diff",
+    drive_previewHideDiff: "Hide text",
 
     // Snapshot modal
     snapshot_closeLabel: "Close modal",

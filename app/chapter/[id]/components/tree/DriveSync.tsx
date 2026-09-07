@@ -2,16 +2,24 @@
 
 import { AlertTriangle, Download, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { collectLocalData } from "@/app/(shared)/db/backup";
 import { useGoogleDrive } from "@/app/(shared)/hooks/useGoogleDrive";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import type { TranslationKey } from "@/app/(shared)/i18n/translations";
+import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import {
     getAccessToken,
     isLocalDataEmpty,
+    type RemoteBackup,
     redirectToAuth,
     savePendingAction,
 } from "@/app/(shared)/utils/googleDrive";
+import {
+    diffByProject,
+    type ProjectDiff,
+} from "@/app/(shared)/utils/projectDiff";
 import { ClientIdGuideModal } from "./ClientIdGuideModal";
+import { DriveDownloadPreview } from "./DriveDownloadPreview";
 
 const SETTINGS_KEY = "googleClientId";
 
@@ -36,6 +44,14 @@ interface UploadConfirmState {
     checked: boolean;
 }
 
+// 받기 확인 모달의 미리보기 상태.
+// authNeeded: 토큰이 없어 아직 원격을 읽을 수 없는 상태 — 받기를 누르면 로그인부터.
+type DownloadPreview =
+    | { state: "authNeeded" }
+    | { state: "loading" }
+    | { state: "error" }
+    | { state: "ready"; diffs: ProjectDiff[]; remote: RemoteBackup };
+
 export function DriveSync() {
     const t = useTranslation();
     const [clientId, setClientId] = useState<string | null>(null);
@@ -47,7 +63,12 @@ export function DriveSync() {
         isEmpty: false,
         checked: false,
     });
+    const [downloadPreview, setDownloadPreview] = useState<DownloadPreview>({
+        state: "authNeeded",
+    });
     const inputRef = useRef<HTMLInputElement>(null);
+    // 동기화 범위를 숫자로 못 박기 위한 작품 수 (0이면 문구만 표시)
+    const projectCount = useEditorStore((s) => s.projects.length);
 
     useEffect(() => {
         const saved = localStorage.getItem(SETTINGS_KEY);
@@ -76,6 +97,7 @@ export function DriveSync() {
         remoteModifiedAt,
         upload,
         download,
+        fetchRemote,
         keepLocal,
         disconnect,
     } = useGoogleDrive(clientId ?? "");
@@ -96,8 +118,28 @@ export function DriveSync() {
         setUploadConfirm({ isEmpty: empty, checked: true });
     };
 
-    const openDownloadConfirm = () => {
+    // 원격 백업을 먼저 읽어 지금 이 기기의 상태와 작품 단위로 비교해 둔다.
+    // 여기서 받아 둔 백업을 그대로 download에 넘겨 두 번 내려받지 않는다.
+    const openDownloadConfirm = async () => {
         setConfirmKind("download");
+        if (!getAccessToken()) {
+            setDownloadPreview({ state: "authNeeded" });
+            return;
+        }
+        setDownloadPreview({ state: "loading" });
+        try {
+            const [remote, local] = await Promise.all([
+                fetchRemote(),
+                collectLocalData(),
+            ]);
+            setDownloadPreview({
+                state: "ready",
+                diffs: diffByProject(local, remote.data),
+                remote,
+            });
+        } catch {
+            setDownloadPreview({ state: "error" });
+        }
     };
 
     const handleConfirmUpload = async () => {
@@ -111,13 +153,14 @@ export function DriveSync() {
     };
 
     const handleConfirmDownload = async () => {
+        const preview = downloadPreview;
         setConfirmKind(null);
         if (!getAccessToken()) {
             savePendingAction("download");
             await redirectToAuth(clientId ?? "");
             return;
         }
-        download();
+        download(preview.state === "ready" ? preview.remote : undefined);
     };
 
     const handleKeepLocal = async () => {
@@ -193,10 +236,21 @@ export function DriveSync() {
     return (
         <>
             <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        {t("drive_title")}
-                    </span>
+                <div className="mb-1.5 flex items-start justify-between">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                            {t("drive_title")}
+                        </span>
+                        {/* 백업은 DB 전체 단위다 — 지금 보고 있는 작품만 바뀐다는 오해 방지 */}
+                        <span
+                            className="text-[10px] text-zinc-400 dark:text-zinc-500"
+                            title={t("drive_scopeHint")}
+                        >
+                            {projectCount > 0
+                                ? t("drive_scopeAll", { n: projectCount })
+                                : t("drive_scopeAllUnknown")}
+                        </span>
+                    </div>
                     <div className="flex gap-2">
                         {isConnected && (
                             <button
@@ -381,18 +435,46 @@ export function DriveSync() {
                         onClick={() => setConfirmKind(null)}
                         aria-label={t("snapshot_closeLabel")}
                     />
-                    <div className="relative z-10 w-full max-w-xs rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                         <h2 className="mb-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                             {t("drive_downloadModalTitle")}
                         </h2>
-                        <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        <p className="mb-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                             {t("drive_downloadConfirm")}
                         </p>
+
+                        <div className="mb-4 min-h-0 flex-1 overflow-y-auto">
+                            <p className="mb-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                                {t("drive_previewHeading")}
+                            </p>
+                            {downloadPreview.state === "loading" && (
+                                <p className="py-6 text-center text-xs text-zinc-400">
+                                    {t("drive_previewLoading")}
+                                </p>
+                            )}
+                            {downloadPreview.state === "error" && (
+                                <p className="py-6 text-center text-xs text-red-500">
+                                    {t("drive_previewError")}
+                                </p>
+                            )}
+                            {downloadPreview.state === "authNeeded" && (
+                                <p className="py-6 text-center text-xs leading-relaxed text-zinc-400">
+                                    {t("drive_previewAuthNeeded")}
+                                </p>
+                            )}
+                            {downloadPreview.state === "ready" && (
+                                <DriveDownloadPreview
+                                    diffs={downloadPreview.diffs}
+                                />
+                            )}
+                        </div>
+
                         <div className="flex gap-2">
                             <button
                                 type="button"
                                 onClick={handleConfirmDownload}
-                                className="flex-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                                disabled={downloadPreview.state === "loading"}
+                                className="flex-1 rounded-lg bg-zinc-800 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
                             >
                                 {t("download")}
                             </button>

@@ -14,6 +14,7 @@ import {
     deleteSnapshot as deleteSnapshotFn,
     exportToDrive,
     exportToDriveWithSnapshot,
+    fetchRemoteBackup,
     getAccessToken,
     getLastSyncedAt,
     getPendingAction,
@@ -21,6 +22,7 @@ import {
     importFromDrive,
     listenForAuthToken,
     listSnapshots as listSnapshotsFn,
+    type RemoteBackup,
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
     saveLastSyncedAt,
@@ -201,14 +203,22 @@ export function useGoogleDrive(clientId?: string) {
         [withSync],
     );
 
+    // 미리보기에서 이미 내려받은 백업이 있으면 그걸 그대로 적용한다.
+    // (같은 파일을 두 번 받지 않고, 미리 보여준 내용과 실제 적용본이 어긋나지 않는다)
     const download = useCallback(
-        () =>
+        (prefetched?: RemoteBackup) =>
             withSync(async () => {
-                await importFromDrive();
+                await importFromDrive(prefetched);
                 await reloadPreservingLocation();
             }),
         [withSync, reloadPreservingLocation],
     );
+
+    // 받기 전 변경사항 미리보기용 — 로컬에는 아무것도 적용하지 않는다
+    const fetchRemote = useCallback(async (): Promise<RemoteBackup> => {
+        await ensureAuth();
+        return fetchRemoteBackup();
+    }, [ensureAuth]);
 
     // redirect 복귀 후 pending action 실행 — stale closure 방지를 위해 ref 사용
     const uploadRef = useRef(upload);
@@ -358,6 +368,7 @@ export function useGoogleDrive(clientId?: string) {
         remoteModifiedAt,
         upload,
         download,
+        fetchRemote,
         keepLocal,
         disconnect,
         loadSnapshots,
