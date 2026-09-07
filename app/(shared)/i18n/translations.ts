@@ -220,7 +220,7 @@ export const ko = {
         "다른 기기에서 더 최신 버전이 업로드되었습니다. 계속 작성하기 전에 확인하세요.",
     drive_staleWarningTime:
         "다른 기기에서 더 최신 버전({time})이 업로드되었습니다. 계속 작성하기 전에 확인하세요.",
-    drive_staleDownload: "최신 버전 받기",
+    drive_staleDownload: "변경사항 보기",
     drive_staleKeepLocal: "내 버전 유지",
     drive_lastSync: "마지막 동기화: {time}",
     drive_complete: "완료되었습니다",
@@ -597,7 +597,7 @@ export const en = {
         "A newer version was uploaded from another device. Check it before you keep writing.",
     drive_staleWarningTime:
         "A newer version ({time}) was uploaded from another device. Check it before you keep writing.",
-    drive_staleDownload: "Get latest",
+    drive_staleDownload: "See changes",
     drive_staleKeepLocal: "Keep mine",
     drive_lastSync: "Last synced: {time}",
     drive_complete: "Done",
