@@ -164,6 +164,7 @@ export function DriveSync() {
     };
 
     const handleKeepLocal = async () => {
+        setConfirmKind(null);
         if (!getAccessToken()) {
             savePendingAction("upload");
             await redirectToAuth(clientId ?? "");
@@ -312,22 +313,15 @@ export function DriveSync() {
                                     : t("drive_staleWarning")}
                             </p>
                         </div>
-                        <div className="flex gap-1.5">
-                            <button
-                                type="button"
-                                onClick={openDownloadConfirm}
-                                className="flex-1 rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-600"
-                            >
-                                {t("drive_staleDownload")}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleKeepLocal}
-                                className="flex-1 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
-                            >
-                                {t("drive_staleKeepLocal")}
-                            </button>
-                        </div>
+                        {/* 받기냐 유지냐는 무엇이 바뀌는지 본 뒤에 고르는 게 맞다.
+                            여기서는 미리보기만 열고, 실제 선택은 모달에서 한다. */}
+                        <button
+                            type="button"
+                            onClick={openDownloadConfirm}
+                            className="w-full rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-600"
+                        >
+                            {t("drive_staleDownload")}
+                        </button>
                     </div>
                 )}
                 {!isConnected && lastSyncedAt && !isSyncing && (
@@ -478,6 +472,17 @@ export function DriveSync() {
                             >
                                 {t("download")}
                             </button>
+                            {/* 원격이 더 새로울 때만. 유지를 고르면 지금 이 기기의
+                                내용을 올려 원격의 새 버전을 대체한다. */}
+                            {isRemoteStale && (
+                                <button
+                                    type="button"
+                                    onClick={handleKeepLocal}
+                                    className="flex-1 rounded-lg bg-amber-100 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
+                                >
+                                    {t("drive_staleKeepLocal")}
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setConfirmKind(null)}
