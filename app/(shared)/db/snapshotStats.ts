@@ -8,7 +8,8 @@ import type { Scene } from "./index";
 // 목록에 이름을 다 늘어놓을 수 없으니 앞의 몇 개만 저장한다.
 const SCENE_NAMES_MAX = 3;
 
-const plainLength = (html: string | undefined): number =>
+// 태그를 뺀 순수 글자 수. 타임라인과 다운로드 미리보기가 같은 기준을 쓰도록 공유한다.
+export const plainLength = (html: string | undefined): number =>
     (html ?? "").replace(/<[^>]*>/g, "").length;
 
 // 씬 제목은 비어 있을 수 있다. 표시용 문구는 로케일에 따라 달라지므로

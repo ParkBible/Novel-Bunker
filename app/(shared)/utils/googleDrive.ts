@@ -662,14 +662,28 @@ export async function exportToDriveWithSnapshot(): Promise<void> {
     await exportToDrive();
 }
 
-// ── Drive에서 다운로드 ────────────────────────────────────────
-export async function importFromDrive(): Promise<void> {
+// ── Drive 백업 읽기 (적용 전 미리보기용) ─────────────────────
+// 받기 전에 무엇이 바뀌는지 보여주려면 본문이 먼저 필요하다. 여기서 받은
+// 결과를 그대로 importFromDrive에 넘기면 같은 파일을 두 번 내려받지 않는다.
+export interface RemoteBackup {
+    data: BackupData;
+    modifiedTime: string;
+}
+
+export async function fetchRemoteBackup(): Promise<RemoteBackup> {
     const file = await findBackupFile();
     if (!file) throw new Error("Drive에 저장된 백업이 없습니다.");
-
     const res = await authFetch(`${DRIVE_API}/files/${file.id}?alt=media`);
     const data: BackupData = await res.json();
-    await applyImportedData(data);
+    return { data, modifiedTime: file.modifiedTime };
+}
+
+// ── Drive에서 다운로드 ────────────────────────────────────────
+export async function importFromDrive(
+    prefetched?: RemoteBackup,
+): Promise<void> {
+    const remote = prefetched ?? (await fetchRemoteBackup());
+    await applyImportedData(remote.data);
     // 방금 받은 버전을 "마지막 동기화 버전"으로 기록 (추가 조회 불필요)
-    saveLastSyncedModified(file.modifiedTime);
+    saveLastSyncedModified(remote.modifiedTime);
 }
