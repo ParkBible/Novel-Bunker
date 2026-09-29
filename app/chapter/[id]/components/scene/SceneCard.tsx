@@ -90,7 +90,7 @@ export function SceneCard({
         >
             <div className="group/title flex items-center border-b border-zinc-200 dark:border-zinc-800">
                 {sceneIndex && (
-                    <span className="pl-4 text-sm font-medium text-zinc-400 dark:text-zinc-500">
+                    <span className="shrink-0 pl-4 text-sm font-medium text-zinc-400 dark:text-zinc-500">
                         #{sceneIndex}
                     </span>
                 )}
@@ -100,7 +100,7 @@ export function SceneCard({
                     onChange={(e) => handleTitleChange(e.target.value)}
                     onFocus={handleTitleFocus}
                     onBlur={handleTitleBlur}
-                    className="flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-lg font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50"
                     placeholder={t("sceneCard_titlePlaceholder")}
                 />
                 <button
@@ -111,7 +111,7 @@ export function SceneCard({
                         setSelectedSceneId(scene.id);
                         setDetailPanel({ type: "scene", sceneId: scene.id });
                     }}
-                    className={`mr-1 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${
+                    className={`mr-1 shrink-0 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${
                         hasMemo || isSelected ? "opacity-100" : "opacity-0"
                     }`}
                     title={t("sceneCard_memoTitle")}
@@ -130,7 +130,7 @@ export function SceneCard({
                         e.stopPropagation();
                         setConfirmDelete(true);
                     }}
-                    className={`mr-3 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${isSelected ? "opacity-100" : "opacity-0 md:opacity-0"}`}
+                    className={`mr-3 shrink-0 rounded p-1 transition-opacity hover:bg-zinc-100 group-hover/title:opacity-100 dark:hover:bg-zinc-800 ${isSelected ? "opacity-100" : "opacity-0 md:opacity-0"}`}
                     title={t("sceneCard_deleteTitle")}
                 >
                     <Trash2 className="h-4 w-4 text-zinc-400 hover:text-red-500" />
