@@ -40,7 +40,7 @@ function DetailFrame({
                     {title}
                 </h2>
             </div>
-            <div className="flex flex-1 flex-col overflow-y-auto p-4 pb-40">
+            <div className="flex flex-1 flex-col overflow-y-auto p-4 pb-40 lg:pb-4">
                 {children}
             </div>
         </div>
