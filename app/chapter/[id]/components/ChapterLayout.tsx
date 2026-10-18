@@ -40,13 +40,13 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
         <>
             {/* Desktop: 3-panel layout */}
             <div className="hidden h-screen bg-zinc-50 lg:flex dark:bg-black">
-                <div className="w-[clamp(16rem,17vw,20rem)] flex-shrink-0">
+                <div className="w-[clamp(16rem,20vw,28rem)] flex-shrink-0">
                     <TreePanel />
                 </div>
                 <div className="editor-scroll flex-1 overflow-y-auto">
                     <ChapterContent chapterId={chapterId} />
                 </div>
-                <div className="w-[clamp(20rem,21vw,24rem)] flex-shrink-0">
+                <div className="w-[clamp(20rem,24vw,32rem)] flex-shrink-0">
                     <ContextPanel />
                 </div>
             </div>
