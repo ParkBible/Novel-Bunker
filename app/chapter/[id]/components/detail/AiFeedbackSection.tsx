@@ -8,21 +8,6 @@ import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 export type PromptOption = { labelKey: string; value: string };
 
-export const SCENE_PROMPT_OPTIONS: PromptOption[] = [
-    {
-        labelKey: "aiFeedback_spellingLabel",
-        value: "맞춤법과 비문을 검사해주세요.",
-    },
-    {
-        labelKey: "aiFeedback_characterConsistencyLabel",
-        value: "등장인물의 설정과 일관성을 검사해주세요.",
-    },
-    {
-        labelKey: "aiFeedback_plotLabel",
-        value: "전개 방식과 구성을 분석해주세요.",
-    },
-];
-
 export const CHAPTER_PROMPT_OPTIONS: PromptOption[] = [
     {
         labelKey: "aiFeedback_transitionLabel",

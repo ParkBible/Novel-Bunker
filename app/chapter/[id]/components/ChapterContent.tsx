@@ -13,6 +13,7 @@ import { useLocalSnapshots } from "@/app/(shared)/hooks/useLocalSnapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { AddSceneButton } from "./scene/AddSceneButton";
+import { InlineMemo } from "./scene/InlineMemo";
 import { SceneCard } from "./scene/SceneCard";
 
 interface ChapterContentProps {
@@ -28,6 +29,7 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
         loadData,
         loadDataForChapter,
         updateChapterTitle,
+        updateChapterMemo,
         selectedSceneId,
     } = useEditorStore();
     const t = useTranslation();
@@ -309,6 +311,17 @@ export function ChapterContent({ chapterId }: ChapterContentProps) {
                                 </button>
                             </>
                         )}
+                    </div>
+
+                    <div className="mb-4">
+                        <InlineMemo
+                            value={currentChapter.memo || ""}
+                            onSave={(memo) =>
+                                updateChapterMemo(chapterId, memo)
+                            }
+                            storageKey={`chapter:${chapterId}`}
+                            label={t("chapterItem_memoTitle")}
+                        />
                     </div>
 
                     {chapterScenes.map((scene, index) => (

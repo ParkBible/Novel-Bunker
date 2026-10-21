@@ -70,6 +70,7 @@ export const ko = {
     sceneCard_contentPlaceholder: "씬 내용을 작성하세요...",
     sceneCard_deleteTitle: "씬 삭제",
     sceneCard_memoTitle: "씬 메모",
+    sceneCard_addMemo: "메모 추가",
 
     // Scene editor toolbar
     sceneEditor_bold: "굵게 (Ctrl+B)",
@@ -84,19 +85,11 @@ export const ko = {
     chapterContent_notFound: "챕터를 찾을 수 없습니다.",
     chapterContent_newScene: "새 씬",
 
-    // Scene detail
-    sceneDetail_notFound: "씬을 찾을 수 없습니다.",
-    sceneDetail_title: "씬 정보",
-    sceneDetail_created: "생성",
-    sceneDetail_modified: "수정",
-
     // Context panel
     contextPanel_character: "등장인물",
     contextPanel_characterDetail: "인물 상세",
     contextPanel_lore: "설정집",
     contextPanel_loreDetail: "설정 상세",
-    contextPanel_scene: "씬",
-    contextPanel_sceneDetail: "씬 상세",
     contextPanel_chapter: "챕터",
     contextPanel_chapterDetail: "챕터 상세",
 
@@ -104,9 +97,6 @@ export const ko = {
     aiFeedback_title: "AI 피드백",
     aiFeedback_request: "피드백 요청",
     aiFeedback_hint: "버튼을 클릭하여 AI 피드백을 받아보세요",
-    aiFeedback_spellingLabel: "맞춤법/비문 검사",
-    aiFeedback_characterConsistencyLabel: "등장인물 설정오류 검사",
-    aiFeedback_plotLabel: "전개방식 검사",
     aiFeedback_transitionLabel: "씬 간 연결성 검사",
     aiFeedback_foreshadowingLabel: "복선/떡밥 검사",
     aiFeedback_pacingLabel: "페이싱 분석",
@@ -168,6 +158,8 @@ export const ko = {
     // Memo
     memo_title: "메모",
     memo_placeholder: "메모를 입력하세요...",
+    memo_expand: "메모 펼치기",
+    memo_collapse: "메모 접기",
 
     // Confirm dialogs
     confirm_deleteScene: '"{name}" 씬을 삭제할까요?',
@@ -459,6 +451,7 @@ export const en = {
     sceneCard_contentPlaceholder: "Write scene content...",
     sceneCard_deleteTitle: "Delete scene",
     sceneCard_memoTitle: "Scene memo",
+    sceneCard_addMemo: "Add memo",
 
     // Scene editor toolbar
     sceneEditor_bold: "Bold (Ctrl+B)",
@@ -473,19 +466,11 @@ export const en = {
     chapterContent_notFound: "Chapter not found.",
     chapterContent_newScene: "New Scene",
 
-    // Scene detail
-    sceneDetail_notFound: "Scene not found.",
-    sceneDetail_title: "Scene Info",
-    sceneDetail_created: "Created",
-    sceneDetail_modified: "Modified",
-
     // Context panel
     contextPanel_character: "Characters",
     contextPanel_characterDetail: "Character Detail",
     contextPanel_lore: "Lore",
     contextPanel_loreDetail: "Lore Detail",
-    contextPanel_scene: "Scene",
-    contextPanel_sceneDetail: "Scene Detail",
     contextPanel_chapter: "Chapter",
     contextPanel_chapterDetail: "Chapter Detail",
 
@@ -493,9 +478,6 @@ export const en = {
     aiFeedback_title: "AI Feedback",
     aiFeedback_request: "Request Feedback",
     aiFeedback_hint: "Click the button to get AI feedback",
-    aiFeedback_spellingLabel: "Spelling & Grammar",
-    aiFeedback_characterConsistencyLabel: "Character Consistency",
-    aiFeedback_plotLabel: "Plot Structure",
     aiFeedback_transitionLabel: "Scene Transitions",
     aiFeedback_foreshadowingLabel: "Foreshadowing",
     aiFeedback_pacingLabel: "Pacing Analysis",
@@ -557,6 +539,8 @@ export const en = {
     // Memo
     memo_title: "Memo",
     memo_placeholder: "Write a memo...",
+    memo_expand: "Expand memo",
+    memo_collapse: "Collapse memo",
 
     // Confirm dialogs
     confirm_deleteScene: 'Delete scene "{name}"?',

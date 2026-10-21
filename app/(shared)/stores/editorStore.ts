@@ -26,7 +26,6 @@ import { initializeDemoData } from "../utils/demoData";
 export type DetailPanel =
     | { type: "character"; characterId: number }
     | { type: "lore"; loreId: number }
-    | { type: "scene"; sceneId: number }
     | { type: "chapter"; chapterId: number };
 
 interface EditorState {
@@ -580,12 +579,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
                 selectedSceneId && deletedSceneIds.includes(selectedSceneId)
                     ? null
                     : selectedSceneId,
-            // 챕터 상세든 그 안의 씬 상세든, 사라진 대상을 가리키면 닫는다
+            // 사라진 챕터의 상세를 가리키고 있으면 닫는다
             detailPanel:
-                (detailPanel?.type === "chapter" &&
-                    detailPanel.chapterId === chapterId) ||
-                (detailPanel?.type === "scene" &&
-                    deletedSceneIds.includes(detailPanel.sceneId))
+                detailPanel?.type === "chapter" &&
+                detailPanel.chapterId === chapterId
                     ? null
                     : detailPanel,
         });
@@ -593,15 +590,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     deleteScene: async (sceneId) => {
         await sceneOps.delete(sceneId);
-        const { scenes, selectedSceneId, detailPanel } = get();
+        const { scenes, selectedSceneId } = get();
         set({
             scenes: scenes.filter((s) => s.id !== sceneId),
             selectedSceneId:
                 selectedSceneId === sceneId ? null : selectedSceneId,
-            detailPanel:
-                detailPanel?.type === "scene" && detailPanel.sceneId === sceneId
-                    ? null
-                    : detailPanel,
         });
     },
 
