@@ -178,33 +178,51 @@ export const ko = {
     // Dashboard header
     dashboard_noTitle: "제목 없음",
     dashboard_openEditor: "편집기 열기",
+    dashboard_continue: "이어 쓰기",
 
-    // Dashboard stats
-    stats_totalChapters: "총 챕터",
-    stats_totalScenes: "총 씬",
-    stats_totalChars: "총 글자 수",
-    stats_withSpaces: "공백 포함 {n}자",
-    stats_characters: "등장인물",
+    // Dashboard synopsis
+    synopsis_title: "시놉시스",
+    synopsis_placeholder:
+        "어떤 이야기인지 적어 두세요. AI 피드백을 받을 때 함께 참고합니다.",
 
-    // Dashboard chapter progress
-    chapterProgress_title: "챕터별 진행도",
+    // Dashboard recent scenes
+    recent_title: "최근 작업한 씬",
+    recent_empty: "아직 쓴 씬이 없습니다.",
+    recent_emptyScene: "비어 있는 씬",
+    time_justNow: "방금 전",
+    time_minutesAgo: "{n}분 전",
+    time_hoursAgo: "{n}시간 전",
+    time_daysAgo: "{n}일 전",
+
+    // Dashboard writing activity
+    activity_title: "집필 기록",
+    activity_today: "오늘",
+    activity_week: "최근 7일",
+    activity_streak: "연속 집필",
+    activity_chars: "+{n}자",
+    activity_days: "{n}일",
+    activity_less: "적음",
+    activity_more: "많음",
+    activity_day: "{m}월 {d}일",
+    activity_dayDetail: "{date} · +{added}자 / −{removed}자",
+    activity_dayEmpty: "{date} · 기록 없음",
+    activity_note:
+        "버전 기록이 저장될 때 함께 쌓입니다. 이 기기에서 쓴 기록만 보입니다.",
+
+    // Dashboard chapter volume
+    chapterProgress_title: "챕터별 분량",
     chapterProgress_sceneCount: "{scenes}개 씬 · {chars}자",
     chapterProgress_empty: "아직 챕터가 없습니다.",
+    chapterProgress_total:
+        "챕터 {chapters} · 씬 {scenes} · {chars}자 (공백 포함 {withSpaces}자)",
 
-    // Dashboard characters
-    characterSummary_title: "등장인물 요약",
+    // Characters (tree panel)
     characterSummary_namePlaceholder: "이름 입력...",
     characterSummary_groupPlaceholder: "그룹 이름...",
     characterSummary_addGroup: "그룹 추가",
     characterSummary_groupProtagonist: "주인공",
     characterSummary_groupSupporting: "조연",
     characterSummary_groupOther: "기타",
-
-    // Dashboard relations
-    relations_title: "등장인물 관계도",
-    relations_selectCharacter: "인물 선택",
-    relations_labelPlaceholder: "관계 라벨",
-    relations_empty: "아직 등장인물 관계가 없습니다.",
 
     // Gemini key card
     geminiKey_title: "Gemini API 키",
@@ -567,33 +585,51 @@ export const en = {
     // Dashboard header
     dashboard_noTitle: "Untitled",
     dashboard_openEditor: "Open Editor",
+    dashboard_continue: "Continue Writing",
 
-    // Dashboard stats
-    stats_totalChapters: "Chapters",
-    stats_totalScenes: "Scenes",
-    stats_totalChars: "Total Characters",
-    stats_withSpaces: "incl. spaces: {n}",
-    stats_characters: "Characters",
+    // Dashboard synopsis
+    synopsis_title: "Synopsis",
+    synopsis_placeholder:
+        "Describe what this story is about. AI feedback uses it as context.",
 
-    // Dashboard chapter progress
-    chapterProgress_title: "Chapter Progress",
+    // Dashboard recent scenes
+    recent_title: "Recently Edited",
+    recent_empty: "No scenes written yet.",
+    recent_emptyScene: "Empty scene",
+    time_justNow: "just now",
+    time_minutesAgo: "{n}m ago",
+    time_hoursAgo: "{n}h ago",
+    time_daysAgo: "{n}d ago",
+
+    // Dashboard writing activity
+    activity_title: "Writing Activity",
+    activity_today: "Today",
+    activity_week: "Last 7 days",
+    activity_streak: "Streak",
+    activity_chars: "+{n}",
+    activity_days: "{n} days",
+    activity_less: "Less",
+    activity_more: "More",
+    activity_day: "{m}/{d}",
+    activity_dayDetail: "{date} · +{added} / −{removed} chars",
+    activity_dayEmpty: "{date} · no activity",
+    activity_note:
+        "Recorded alongside version history. Shows writing on this device only.",
+
+    // Dashboard chapter volume
+    chapterProgress_title: "Chapter Length",
     chapterProgress_sceneCount: "{scenes} scenes · {chars} chars",
     chapterProgress_empty: "No chapters yet.",
+    chapterProgress_total:
+        "{chapters} chapters · {scenes} scenes · {chars} chars ({withSpaces} incl. spaces)",
 
-    // Dashboard characters
-    characterSummary_title: "Characters",
+    // Characters (tree panel)
     characterSummary_namePlaceholder: "Enter name...",
     characterSummary_groupPlaceholder: "Group name...",
     characterSummary_addGroup: "Add group",
     characterSummary_groupProtagonist: "Protagonist",
     characterSummary_groupSupporting: "Supporting",
     characterSummary_groupOther: "Other",
-
-    // Dashboard relations
-    relations_title: "Character Relations",
-    relations_selectCharacter: "Select character",
-    relations_labelPlaceholder: "Relation label",
-    relations_empty: "No character relations yet.",
 
     // Gemini key card
     geminiKey_title: "Gemini API Key",

@@ -23,7 +23,6 @@ import {
     GripVertical,
     Plus,
     Trash2,
-    Users,
     X,
 } from "lucide-react";
 import { useState } from "react";
@@ -31,7 +30,6 @@ import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import type { Character } from "@/app/(shared)/db";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
-import { DashboardCard } from "./DashboardCard";
 
 function SortableCharacterItem({
     char,
@@ -379,14 +377,5 @@ export function CharacterSummaryContent() {
                 </button>
             )}
         </div>
-    );
-}
-
-export function CharacterSummary() {
-    const t = useTranslation();
-    return (
-        <DashboardCard title={t("characterSummary_title")} icon={Users}>
-            <CharacterSummaryContent />
-        </DashboardCard>
     );
 }

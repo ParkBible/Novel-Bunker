@@ -6,6 +6,7 @@ import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { DashboardCard } from "./DashboardCard";
+import { stripTags } from "./dashboardUtils";
 
 export function ChapterProgress() {
     const t = useTranslation();
@@ -17,12 +18,11 @@ export function ChapterProgress() {
             const chapterScenes = scenes.filter(
                 (s) => s.chapterId === chapter.id,
             );
-            const charCount = chapterScenes.reduce((sum, scene) => {
-                const plainText = scene.content
-                    .replace(/<[^>]*>/g, "")
-                    .replace(/\s/g, "");
-                return sum + plainText.length;
-            }, 0);
+            const charCount = chapterScenes.reduce(
+                (sum, scene) =>
+                    sum + stripTags(scene.content).replace(/\s/g, "").length,
+                0,
+            );
             return {
                 id: chapter.id,
                 title: chapter.title,
@@ -32,9 +32,23 @@ export function ChapterProgress() {
         });
 
     const maxCharCount = Math.max(...chapterStats.map((c) => c.charCount), 1);
+    const totalChars = chapterStats.reduce((sum, c) => sum + c.charCount, 0);
+    const totalWithSpaces = scenes.reduce(
+        (sum, scene) => sum + stripTags(scene.content).length,
+        0,
+    );
 
     return (
-        <DashboardCard title={t("chapterProgress_title")} icon={List}>
+        <DashboardCard
+            title={t("chapterProgress_title")}
+            icon={List}
+            aside={t("chapterProgress_total", {
+                chapters: chapters.length,
+                scenes: scenes.length,
+                chars: totalChars.toLocaleString(),
+                withSpaces: totalWithSpaces.toLocaleString(),
+            })}
+        >
             <div className="space-y-3">
                 {chapterStats.map((stat) => (
                     <Link
