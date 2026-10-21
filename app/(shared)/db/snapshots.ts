@@ -1,6 +1,7 @@
 import { applyImportedData, type BackupData, collectLocalData } from "./backup";
 import { db, type Snapshot } from "./index";
 import { computeStats } from "./snapshotStats";
+import { recordWriting } from "./writingLog";
 
 // 목록 표시용 메타데이터. 본문은 snapshotData 테이블에 있어 여기 없다.
 export interface SnapshotMeta {
@@ -85,6 +86,21 @@ async function insertSnapshot(
     });
 }
 
+// 작품별 집필량 기록. 부가 정보라 실패해도 스냅샷 저장은 그대로 둔다.
+// 직전 스냅샷이 없으면 전체 분량이 오늘 쓴 것으로 잡히므로 건너뛴다.
+async function logWriting(
+    data: BackupData,
+    prev: BackupData | null,
+    at: Date,
+): Promise<void> {
+    if (!prev) return;
+    try {
+        await recordWriting(db.writingLog, data, prev, at);
+    } catch {
+        // 무시
+    }
+}
+
 // 직전 스냅샷의 본문 (없으면 null)
 async function latestData(): Promise<BackupData | null> {
     const latest = await db.snapshots.orderBy("createdAt").reverse().first();
@@ -101,9 +117,10 @@ export const snapshotOps = {
         const data = await collectLocalData();
         const json = JSON.stringify(data);
         const prev = await latestData();
+        const createdAt = new Date();
         const id = await insertSnapshot(
             {
-                createdAt: new Date(),
+                createdAt,
                 type,
                 label,
                 size: json.length,
@@ -111,6 +128,7 @@ export const snapshotOps = {
             },
             json,
         );
+        await logWriting(data, prev, createdAt);
         await snapshotOps.prune();
         return id;
     },
@@ -127,15 +145,17 @@ export const snapshotOps = {
                 JSON.stringify({ ...prev, exportedAt: "" });
             if (!hasChanged) return null; // 변경 없음
         }
+        const createdAt = new Date();
         const id = await insertSnapshot(
             {
-                createdAt: new Date(),
+                createdAt,
                 type: "auto",
                 size: json.length,
                 ...computeStats(data, prev),
             },
             json,
         );
+        await logWriting(data, prev, createdAt);
         await snapshotOps.prune();
         return id;
     },

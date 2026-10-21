@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable, type Transaction } from "dexie";
 import type { BackupData } from "./backup";
 import { computeStats } from "./snapshotStats";
+import { recordWriting, type WritingLogTable } from "./writingLog";
 
 // Type definitions for database entities
 
@@ -160,6 +161,7 @@ class NovelBunkerDB extends Dexie {
     snapshots!: EntityTable<Snapshot, "id">;
     snapshotData!: EntityTable<SnapshotData, "id">;
     driveCache!: EntityTable<DriveCacheRow, "key">;
+    writingLog!: WritingLogTable;
 
     constructor() {
         super("NovelBunkerDB");
@@ -429,6 +431,12 @@ class NovelBunkerDB extends Dexie {
         // v14: Drive 스냅샷 요약 계산용 캐시 테이블 추가. 기존 데이터는 손대지
         // 않으며, 캐시가 채워지기 전(첫 업로드 전)에는 요약을 생략한다.
         this.version(14).stores({ driveCache: "key" });
+
+        // v15: 작품별 하루 집필량 기록. 이미 남아 있는 스냅샷으로 과거 기록을 채운다.
+        // (오래된 스냅샷은 하루 2개만 남아 있어 그 구간은 하루 단위로만 정확하다)
+        this.version(15)
+            .stores({ writingLog: "[projectId+date], projectId" })
+            .upgrade(backfillWritingLog);
     }
 }
 
@@ -461,6 +469,39 @@ async function backfillSnapshotSummaries(
             prev = parsed;
         } catch {
             // 깨진 스냅샷이 있어도 나머지 백필은 계속한다
+            prev = null;
+        }
+    }
+}
+
+async function backfillWritingLog(
+    tx: Transaction & { table: Dexie["table"] },
+): Promise<void> {
+    const snapshots = (await tx.table("snapshots").toArray()).sort(
+        (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const table = tx.table("writingLog") as WritingLogTable;
+
+    let prev: BackupData | null = null;
+    for (const row of snapshots) {
+        if (row.id === undefined) continue;
+        const body = await tx.table("snapshotData").get(row.id);
+        if (!body) continue;
+
+        try {
+            const parsed = JSON.parse(body.data) as BackupData;
+            // 첫 스냅샷은 비교 기준이 없어 전체 분량이 하루에 몰리므로 건너뛴다
+            if (prev) {
+                await recordWriting(
+                    table,
+                    parsed,
+                    prev,
+                    new Date(row.createdAt),
+                );
+            }
+            prev = parsed;
+        } catch {
             prev = null;
         }
     }

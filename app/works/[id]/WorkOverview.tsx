@@ -7,10 +7,10 @@ import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterProgress } from "@/app/components/dashboard/ChapterProgress";
-import { CharacterSummary } from "@/app/components/dashboard/CharacterSummary";
 import { DashboardHeader } from "@/app/components/dashboard/DashboardHeader";
-import { RelationshipDiagram } from "@/app/components/dashboard/RelationshipDiagram";
-import { WorkStatistics } from "@/app/components/dashboard/WorkStatistics";
+import { RecentScenes } from "@/app/components/dashboard/RecentScenes";
+import { SynopsisCard } from "@/app/components/dashboard/SynopsisCard";
+import { WritingActivity } from "@/app/components/dashboard/WritingActivity";
 
 interface WorkOverviewProps {
     projectId: number;
@@ -51,12 +51,12 @@ export function WorkOverview({ projectId }: WorkOverviewProps) {
                     {t("work_backToGallery")}
                 </Link>
                 <DashboardHeader />
-                <WorkStatistics />
+                <SynopsisCard />
                 <div className="grid gap-6 lg:grid-cols-2">
-                    <ChapterProgress />
-                    <CharacterSummary />
+                    <RecentScenes />
+                    <WritingActivity />
                 </div>
-                <RelationshipDiagram />
+                <ChapterProgress />
             </div>
         </div>
     );

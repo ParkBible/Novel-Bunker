@@ -11,6 +11,7 @@ import {
     type Scene,
     type Setting,
 } from "./index";
+import type { WritingLog } from "./writingLog";
 
 const DEFAULT_LORE_CATEGORIES = ["세계관", "장소", "아이템"];
 const DEFAULT_CHARACTER_GROUPS = ["주인공", "조연", "기타"];
@@ -99,6 +100,7 @@ export const projectOps = {
                 db.aiConversations,
                 db.aiMessages,
                 db.characterMessages,
+                db.writingLog,
             ],
             async () => {
                 await db.chapters.where("projectId").equals(id).delete();
@@ -122,6 +124,7 @@ export const projectOps = {
                         .anyOf(characterIds)
                         .delete();
                 }
+                await db.writingLog.where("projectId").equals(id).delete();
                 await db.projects.delete(id);
             },
         );
@@ -493,5 +496,12 @@ export const settingsOps = {
 
     async getAll(): Promise<Setting[]> {
         return db.settings.toArray();
+    },
+};
+
+// 작품별 집필 기록 (스냅샷 저장 시 쌓인다)
+export const writingLogOps = {
+    async getByProject(projectId: number): Promise<WritingLog[]> {
+        return db.writingLog.where("projectId").equals(projectId).toArray();
     },
 };
