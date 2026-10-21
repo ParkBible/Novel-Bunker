@@ -7,10 +7,9 @@ import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterDetail } from "../detail/ChapterDetail";
 import { CharacterDetail } from "../detail/CharacterDetail";
 import { LoreDetail } from "../detail/LoreDetail";
-import { SceneDetail } from "../detail/SceneDetail";
 import { AiChatPanel } from "./AiChatPanel";
 
-// 인물/설정/씬 상세가 공유하는 껍데기. 뒤로가기 버튼 + 종류 배지 + 제목 구조가
+// 인물/설정/챕터 상세가 공유하는 껍데기. 뒤로가기 버튼 + 종류 배지 + 제목 구조가
 // 세 곳에서 같아서 한 곳으로 모았다.
 function DetailFrame({
     badge,
@@ -49,7 +48,7 @@ function DetailFrame({
 
 export function ContextPanel() {
     const t = useTranslation();
-    const { detailPanel, setDetailPanel, characters, lores, scenes, chapters } =
+    const { detailPanel, setDetailPanel, characters, lores, chapters } =
         useEditorStore();
     const closeDetail = () => setDetailPanel(null);
 
@@ -77,19 +76,6 @@ export function ContextPanel() {
                 onBack={closeDetail}
             >
                 <LoreDetail loreId={detailPanel.loreId} />
-            </DetailFrame>
-        );
-    }
-
-    if (detailPanel?.type === "scene") {
-        const scene = scenes.find((s) => s.id === detailPanel.sceneId);
-        return (
-            <DetailFrame
-                badge={t("contextPanel_scene")}
-                title={scene?.title ?? t("contextPanel_sceneDetail")}
-                onBack={closeDetail}
-            >
-                <SceneDetail sceneId={detailPanel.sceneId} />
             </DetailFrame>
         );
     }
