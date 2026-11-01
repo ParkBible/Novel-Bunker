@@ -1,9 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { generateFeedback } from "@/app/(shared)/utils/gemini";
+import {
+    AiServiceError,
+    generateFeedback,
+} from "@/app/(shared)/utils/deepseek";
+import { requireAiSession } from "@/app/(shared)/utils/serverAuth";
 
 export async function POST(request: NextRequest) {
+    const denied = await requireAiSession();
+    if (denied) return denied;
+
     try {
-        const { sceneContent, synopsis, characters, prompt, model, apiKey } =
+        const { sceneContent, synopsis, characters, prompt, model } =
             await request.json();
 
         if (!sceneContent) {
@@ -19,11 +26,16 @@ export async function POST(request: NextRequest) {
             characters || [],
             prompt,
             model,
-            apiKey,
         );
 
         return NextResponse.json({ feedback });
     } catch (error) {
+        if (error instanceof AiServiceError) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: error.status },
+            );
+        }
         console.error("Feedback API error:", error);
         return NextResponse.json(
             { error: "AI 피드백 생성에 실패했습니다." },

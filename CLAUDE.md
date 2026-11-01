@@ -14,7 +14,7 @@ pnpm format      # Biome 코드 포맷
 
 ## 환경 설정
 
-AI 기능(피드백, 문법 검사)을 사용하려면 `.env.local`에 `GEMINI_API_KEY`가 필요합니다.
+AI 기능을 사용하려면 `.env.local`에 `DEEPSEEK_API_KEY`가 필요합니다. 구글 로그인/AI 접근 제한용 변수(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `SESSION_SECRET`)는 `.env.example` 참고.
 
 ## 아키텍처
 
@@ -42,7 +42,8 @@ NovelBunker는 Next.js 16 App Router 기반의 로컬 우선 소설 작성 에�
 - 모든 경로는 `app/(shared)/routes.ts`에서 중앙 관리
 
 ### AI 연동
-- `app/(shared)/utils/gemini.ts`: Gemini API 래퍼 함수
+- `app/(shared)/utils/deepseek.ts`: DeepSeek Chat Completions 래퍼 함수 (키는 서버 환경변수에만)
+- `app/(shared)/utils/serverAuth.ts`: 세션 쿠키 발급/검증, 모든 `/api/ai/*`는 `requireAiSession()`으로 소유자 계정만 허용
 - `app/api/ai/feedback/route.ts`: 씬 피드백 엔드포인트
 - `app/api/ai/grammar/route.ts`: 문법 검사 엔드포인트
 

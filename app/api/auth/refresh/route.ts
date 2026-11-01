@@ -1,15 +1,26 @@
 import { cookies } from "next/headers";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import {
+    getAuthConfig,
+    getSessionEmail,
+    REFRESH_COOKIE,
+} from "@/app/(shared)/utils/serverAuth";
 
-const REFRESH_COOKIE = "gdrive_refresh_token";
-
-export async function POST(request: NextRequest) {
-    const { clientId } = await request.json();
-
-    if (!clientId) {
+export async function POST() {
+    const config = getAuthConfig();
+    if (!config) {
         return NextResponse.json(
-            { error: "clientId가 필요합니다." },
-            { status: 400 },
+            { error: "서버에 구글 로그인 설정이 완료되지 않았어요." },
+            { status: 503 },
+        );
+    }
+
+    // 유효한 세션(허용된 계정으로 로그인한 기록)이 있어야만 갱신해 준다
+    const email = await getSessionEmail(config);
+    if (!email) {
+        return NextResponse.json(
+            { error: "세션 없음 — 재로그인 필요" },
+            { status: 401 },
         );
     }
 
@@ -23,21 +34,13 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientSecret) {
-        return NextResponse.json(
-            { error: "서버에 GOOGLE_CLIENT_SECRET이 설정되지 않았습니다." },
-            { status: 500 },
-        );
-    }
-
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
             refresh_token: refreshToken,
-            client_id: clientId,
-            client_secret: clientSecret,
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
             grant_type: "refresh_token",
         }),
     });

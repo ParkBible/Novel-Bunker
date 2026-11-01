@@ -2,14 +2,12 @@
 
 import { SendHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AiLoginNotice } from "@/app/(shared)/components/AiLoginNotice";
 import { characterMessageOps } from "@/app/(shared)/db/operations";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import {
-    apiRoutes,
-    GEMINI_MODELS,
-    type GeminiModelId,
-} from "@/app/(shared)/routes";
+import { AI_MODELS, type AiModelId, apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
+import { AiAuthError, postAi } from "@/app/(shared)/utils/aiClient";
 
 interface ChatMessage {
     id?: number;
@@ -28,11 +26,11 @@ export function CharacterChatTab({
     };
 }) {
     const t = useTranslation();
-    const { geminiModel, setGeminiModel, dataVersion, geminiApiKey } =
-        useEditorStore();
+    const { aiModel, setAiModel, dataVersion } = useEditorStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [authRequired, setAuthRequired] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: dataVersion은 Drive 다운로드 후 강제 리로드 트리거용
@@ -72,20 +70,18 @@ export function CharacterChatTab({
 
         setIsLoading(true);
         try {
-            const response = await fetch(apiRoutes.characterChat, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            const data = await postAi<{ reply: string }>(
+                apiRoutes.characterChat,
+                {
                     characterName: character.name,
                     characterDescription: character.description,
                     characterTags: character.tags,
                     messages: updatedMessages,
-                    model: geminiModel,
-                    apiKey: geminiApiKey,
-                }),
-            });
-            if (!response.ok) throw new Error(await response.text());
-            const data = await response.json();
+                    model: aiModel,
+                },
+                t("characterChat_error"),
+            );
+            setAuthRequired(false);
             const replyId = await characterMessageOps.create(
                 character.id,
                 "model",
@@ -95,8 +91,16 @@ export function CharacterChatTab({
                 ...prev,
                 { id: replyId, role: "model", text: data.reply },
             ]);
-        } catch {
-            const errorText = t("characterChat_error");
+        } catch (error) {
+            // 로그인 필요는 대화에 남기지 않고 안내만 띄운다
+            if (error instanceof AiAuthError) {
+                setAuthRequired(true);
+                return;
+            }
+            const errorText =
+                error instanceof Error && error.message
+                    ? error.message
+                    : t("characterChat_error");
             const errId = await characterMessageOps.create(
                 character.id,
                 "model",
@@ -159,16 +163,17 @@ export function CharacterChatTab({
                 )}
             </div>
 
+            {authRequired && (
+                <AiLoginNotice onLoggedIn={() => setAuthRequired(false)} />
+            )}
             <div className="flex items-center gap-1.5 pb-1">
                 <select
-                    value={geminiModel}
-                    onChange={(e) =>
-                        setGeminiModel(e.target.value as GeminiModelId)
-                    }
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value as AiModelId)}
                     className="rounded px-1.5 py-0.5 text-xs bg-zinc-100 text-zinc-600 outline-none cursor-pointer hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                     title={t("chat_selectModel")}
                 >
-                    {GEMINI_MODELS.map((m) => (
+                    {AI_MODELS.map((m) => (
                         <option key={m.id} value={m.id}>
                             {m.label}
                         </option>

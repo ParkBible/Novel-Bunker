@@ -9,7 +9,6 @@ import { chapterOps, projectOps } from "@/app/(shared)/db/operations";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
-import { GeminiKeyCard } from "../dashboard/GeminiKeyCard";
 import { WorkCard, type WorkStats } from "./WorkCard";
 
 export function WorksGallery() {
@@ -122,8 +121,6 @@ export function WorksGallery() {
                         </button>
                     </div>
                 )}
-
-                <GeminiKeyCard />
             </div>
 
             {deleteTarget !== null && (

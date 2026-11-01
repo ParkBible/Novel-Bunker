@@ -10,33 +10,12 @@ import {
 } from "../db/driveCache";
 import { projectOps } from "../db/operations";
 import { computeStats, type SnapshotStats } from "../db/snapshotStats";
+import { apiRoutes } from "../routes";
 
 export class DriveAuthError extends Error {
     constructor(msg: string) {
         super(msg);
         this.name = "DriveAuthError";
-    }
-}
-
-// ── GIS 타입 선언 ──────────────────────────────────────────────
-declare global {
-    interface Window {
-        google?: {
-            accounts: {
-                oauth2: {
-                    initTokenClient(config: {
-                        client_id: string;
-                        scope: string;
-                        callback: (response: {
-                            access_token: string;
-                            error?: string;
-                        }) => void;
-                        prompt?: string;
-                        hint?: string;
-                    }): { requestAccessToken(): void };
-                };
-            };
-        };
     }
 }
 
@@ -91,6 +70,8 @@ const MAX_AUTO_SNAPSHOTS = 30;
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5분
 const LAST_AUTO_SNAPSHOT_KEY = "novelbunker_last_auto_snapshot";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+// openid email: 서버가 id_token으로 허용된 계정인지 확인하는 데 필요
+const AUTH_SCOPE = `openid email ${DRIVE_SCOPE}`;
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
@@ -110,15 +91,10 @@ export function getTokenRefreshDelayMs(): number {
 
 // 서버 API를 통한 토큰 자동 갱신 (refresh_token은 httpOnly 쿠키에 보관).
 // 성공 시 새 access_token, 실패(쿠키 없음/만료 등) 시 null.
-export async function tryRefreshTokenSilently(
-    clientId: string,
-): Promise<string | null> {
+// client ID는 서버 환경변수(GOOGLE_CLIENT_ID)를 쓰므로 보내지 않는다.
+export async function tryRefreshTokenSilently(): Promise<string | null> {
     try {
-        const res = await fetch("/api/auth/refresh", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ clientId }),
-        });
+        const res = await fetch("/api/auth/refresh", { method: "POST" });
         if (!res.ok) return null;
         const data = await res.json();
         return (data.access_token as string) ?? null;
@@ -219,8 +195,23 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
     return base64UrlEncode(new Uint8Array(hash));
 }
 
-// Authorization Code + PKCE flow → 서버가 refresh_token을 httpOnly 쿠키에 저장.
-export async function redirectToAuth(clientId: string): Promise<void> {
+// OAuth client ID는 서버가 단일 기준으로 내려준다 (사용자 입력 없음)
+let cachedClientId: string | null = null;
+
+async function fetchGoogleClientId(): Promise<string> {
+    if (cachedClientId) return cachedClientId;
+    const res = await fetch(apiRoutes.authConfig);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || typeof data.clientId !== "string") {
+        throw new Error(data.error ?? "구글 로그인 설정을 불러오지 못했어요.");
+    }
+    cachedClientId = data.clientId as string;
+    return cachedClientId;
+}
+
+// Authorization Code + PKCE flow → 서버가 refresh_token과 세션을 httpOnly 쿠키에 저장.
+// Drive 연동과 AI 기능 로그인이 같은 흐름을 쓴다.
+export async function redirectToAuth(): Promise<void> {
     sessionStorage.setItem(AUTH_RETURN_PATH_KEY, window.location.pathname);
     const redirectUri = `${window.location.origin}/auth`;
 
@@ -232,6 +223,14 @@ export async function redirectToAuth(clientId: string): Promise<void> {
         "width=520,height=650,left=100,top=100",
     );
 
+    let clientId: string;
+    try {
+        clientId = await fetchGoogleClientId();
+    } catch (e) {
+        popup?.close();
+        throw e;
+    }
+
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     // 팝업과 메인 창이 localStorage를 공유하므로 여기에 보관
@@ -241,7 +240,7 @@ export async function redirectToAuth(clientId: string): Promise<void> {
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: "code",
-        scope: DRIVE_SCOPE,
+        scope: AUTH_SCOPE,
         access_type: "offline",
         prompt: "consent", // refresh_token 항상 발급
         code_challenge: codeChallenge,
@@ -272,38 +271,6 @@ export function getAuthReturnPath(): string {
 
 export function clearAuthReturnPath(): void {
     sessionStorage.removeItem(AUTH_RETURN_PATH_KEY);
-}
-
-// ── OAuth popup (legacy, kept for reference) ──────────────────
-export function requestToken(clientId: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        if (!window.google) {
-            reject(
-                new Error("Google Identity Services가 로드되지 않았습니다."),
-            );
-            return;
-        }
-        const client = window.google.accounts.oauth2.initTokenClient({
-            client_id: clientId,
-            scope: DRIVE_SCOPE,
-            callback: (response) => {
-                if (response.error) {
-                    const msg =
-                        response.error === "popup_failed_to_open"
-                            ? "팝업이 차단되었습니다. 브라우저 주소창의 팝업 차단 아이콘을 클릭해 허용해 주세요."
-                            : response.error === "popup_closed_by_user"
-                              ? "로그인 창이 닫혔습니다. 다시 시도해 주세요."
-                              : response.error === "access_denied"
-                                ? "Drive 접근 권한이 거부되었습니다."
-                                : response.error;
-                    reject(new Error(msg));
-                } else {
-                    resolve(response.access_token);
-                }
-            },
-        });
-        client.requestAccessToken();
-    });
 }
 
 // ── 인증 fetch ────────────────────────────────────────────────

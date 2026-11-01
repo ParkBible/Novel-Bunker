@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AiLoginNotice } from "@/app/(shared)/components/AiLoginNotice";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChatHeader } from "./ChatHeader";
@@ -15,8 +16,7 @@ import { useMention } from "./useMention";
 type ViewMode = "chat" | "conversations";
 
 export function AiChatPanel() {
-    const { scenes, chapters, geminiModel, setGeminiModel, geminiApiKey } =
-        useEditorStore();
+    const { scenes, chapters, aiModel, setAiModel } = useEditorStore();
     const t = useTranslation();
     const [viewMode, setViewMode] = useState<ViewMode>("chat");
     const [input, setInput] = useState("");
@@ -37,7 +37,7 @@ export function AiChatPanel() {
         handleDelete,
     } = useConversations();
 
-    const { handleSend, isLoading } = useChat({
+    const { handleSend, isLoading, authRequired, clearAuthRequired } = useChat({
         activeConvId,
         setActiveConvId,
         setConversations,
@@ -47,8 +47,7 @@ export function AiChatPanel() {
         setInput,
         attachedCtxs,
         setAttachedCtxs,
-        geminiModel,
-        geminiApiKey,
+        aiModel,
     });
 
     const {
@@ -106,8 +105,8 @@ export function AiChatPanel() {
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <ChatHeader
                 title={activeConv?.title ?? t("chat_aiFallback")}
-                geminiModel={geminiModel}
-                onModelChange={setGeminiModel}
+                aiModel={aiModel}
+                onModelChange={setAiModel}
                 onShowConversations={() => setViewMode("conversations")}
                 onNewConversation={handleNewConversation}
             />
@@ -116,6 +115,11 @@ export function AiChatPanel() {
                 isLoading={isLoading}
                 scrollRef={scrollRef}
             />
+            {authRequired && (
+                <div className="px-3 pb-2">
+                    <AiLoginNotice onLoggedIn={clearAuthRequired} />
+                </div>
+            )}
             <ChatInput
                 input={input}
                 attachedCtxs={attachedCtxs}

@@ -2,9 +2,11 @@
 
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
+import { AiLoginNotice } from "@/app/(shared)/components/AiLoginNotice";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
+import { AiAuthError, postAi } from "@/app/(shared)/utils/aiClient";
 
 export type PromptOption = { labelKey: string; value: string };
 
@@ -39,9 +41,9 @@ export function AiFeedbackSection({
     promptOptions: PromptOption[];
 }) {
     const t = useTranslation();
-    const { synopsis, isLoadingAI, setIsLoadingAI, geminiModel, geminiApiKey } =
-        useEditorStore();
+    const { synopsis, isLoadingAI, setIsLoadingAI, aiModel } = useEditorStore();
     const [feedback, setFeedback] = useState<string>("");
+    const [authRequired, setAuthRequired] = useState(false);
     const [selectedPrompt, setSelectedPrompt] = useState<string>(
         promptOptions[0].value,
     );
@@ -50,23 +52,29 @@ export function AiFeedbackSection({
         try {
             setIsLoadingAI(true);
 
-            const response = await fetch(apiRoutes.aiFeedback, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            const data = await postAi<{ feedback: string }>(
+                apiRoutes.aiFeedback,
+                {
                     sceneContent: content,
                     synopsis,
                     prompt: selectedPrompt,
-                    model: geminiModel,
-                    apiKey: geminiApiKey,
-                }),
-            });
-
-            const data = await response.json();
+                    model: aiModel,
+                },
+                "피드백을 가져오는 중 오류가 발생했습니다.",
+            );
+            setAuthRequired(false);
             setFeedback(data.feedback);
         } catch (error) {
+            if (error instanceof AiAuthError) {
+                setAuthRequired(true);
+                return;
+            }
             console.error("AI 피드백 요청 실패:", error);
-            setFeedback("피드백을 가져오는 중 오류가 발생했습니다.");
+            setFeedback(
+                error instanceof Error && error.message
+                    ? error.message
+                    : "피드백을 가져오는 중 오류가 발생했습니다.",
+            );
         } finally {
             setIsLoadingAI(false);
         }
@@ -102,6 +110,12 @@ export function AiFeedbackSection({
                 <Sparkles className="h-3 w-3" />
                 {isLoadingAI ? t("generating") : t("aiFeedback_request")}
             </button>
+
+            {authRequired && (
+                <div className="mt-3">
+                    <AiLoginNotice onLoggedIn={() => setAuthRequired(false)} />
+                </div>
+            )}
 
             {feedback ? (
                 <div className="mt-3 rounded-lg bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">

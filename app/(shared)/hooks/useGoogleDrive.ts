@@ -33,7 +33,7 @@ import { useDebouncedCallback } from "./useDebouncedCallback";
 
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
-export function useGoogleDrive(clientId?: string) {
+export function useGoogleDrive() {
     const [isConnected, setIsConnected] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -116,8 +116,6 @@ export function useGoogleDrive(clientId?: string) {
 
     // 토큰 자동 갱신 타이머
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const clientIdRef = useRef(clientId);
-    clientIdRef.current = clientId;
 
     const scheduleTokenRefresh = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
@@ -127,8 +125,7 @@ export function useGoogleDrive(clientId?: string) {
         const delay = getTokenRefreshDelayMs();
 
         refreshTimerRef.current = setTimeout(async () => {
-            if (!clientIdRef.current) return;
-            const newToken = await tryRefreshTokenSilently(clientIdRef.current);
+            const newToken = await tryRefreshTokenSilently();
             if (newToken) {
                 setAccessToken(newToken);
                 setIsConnected(true);
@@ -240,12 +237,11 @@ export function useGoogleDrive(clientId?: string) {
     // 자동 로그인: access_token이 없으면 서버의 refresh_token 쿠키로
     // 새 토큰을 받아 UI 없이 재연결한다. (탭/브라우저 종료 후 재방문 시에도 유지)
     useEffect(() => {
-        if (!clientId) return;
         if (getAccessToken()) return; // 이미 토큰 있음
 
         let cancelled = false;
         (async () => {
-            const token = await tryRefreshTokenSilently(clientId);
+            const token = await tryRefreshTokenSilently();
             if (cancelled || !token) return; // 쿠키 없음/만료 → 수동 로그인 필요
             setAccessToken(token);
             setIsConnected(true);
@@ -263,7 +259,7 @@ export function useGoogleDrive(clientId?: string) {
         return () => {
             cancelled = true;
         };
-    }, [clientId, scheduleTokenRefresh, checkStale]);
+    }, [scheduleTokenRefresh, checkStale]);
 
     // 팝업 인증 완료 시 BroadcastChannel로 토큰 수신
     useEffect(() => {
@@ -282,7 +278,7 @@ export function useGoogleDrive(clientId?: string) {
     const disconnect = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         clearAccessToken();
-        // 서버의 refresh_token 쿠키 삭제 → 자동 재연결 방지 (연결 해제가 유지됨)
+        // 서버의 refresh_token·세션 쿠키 삭제 → 자동 재연결 방지 (AI 기능도 로그아웃됨)
         void fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         setIsConnected(false);
         setSyncStatus("idle");

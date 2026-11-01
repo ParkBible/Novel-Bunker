@@ -484,6 +484,9 @@ export const characterMessageOps = {
 };
 
 // Settings Operations
+// 더 이상 쓰지 않는 설정 키 (geminiApiKey는 비밀값이라 백업에도 포함하지 않는다)
+export const LEGACY_SETTING_KEYS = ["geminiApiKey", "geminiModel"];
+
 export const settingsOps = {
     async get(key: string): Promise<string | undefined> {
         const setting = await db.settings.get(key);
@@ -495,7 +498,12 @@ export const settingsOps = {
     },
 
     async getAll(): Promise<Setting[]> {
-        return db.settings.toArray();
+        const all = await db.settings.toArray();
+        return all.filter((s) => !LEGACY_SETTING_KEYS.includes(s.key));
+    },
+
+    async deleteMany(keys: string[]): Promise<void> {
+        await db.settings.bulkDelete(keys);
     },
 };
 
