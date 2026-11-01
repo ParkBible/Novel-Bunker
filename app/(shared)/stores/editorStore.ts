@@ -10,7 +10,6 @@ import type {
 import {
     chapterOps,
     characterOps,
-    LEGACY_SETTING_KEYS,
     loreOps,
     projectOps,
     relationshipOps,
@@ -21,12 +20,6 @@ import { type AiModelId, DEFAULT_AI_MODEL, isAiModelId } from "../routes";
 import { initializeDemoData } from "../utils/demoData";
 
 const AI_MODEL_SETTING_KEY = "aiModel";
-
-// 예전 버전이 IndexedDB에 저장한 Gemini 키/모델을 지운다.
-// (LLM 키는 이제 서버 환경변수에만 있으므로 브라우저에 남겨 둘 이유가 없음)
-async function purgeLegacySettings(): Promise<void> {
-    await settingsOps.deleteMany(LEGACY_SETTING_KEYS);
-}
 
 export type DetailPanel =
     | { type: "character"; characterId: number }
@@ -179,7 +172,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const [projects, savedAiModel] = await Promise.all([
             projectOps.getAll(),
             settingsOps.get(AI_MODEL_SETTING_KEY),
-            purgeLegacySettings(),
         ]);
         set({
             projects,
@@ -241,7 +233,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             relationshipOps.getAll(targetId),
             loreOps.getAll(targetId),
             settingsOps.get(AI_MODEL_SETTING_KEY),
-            purgeLegacySettings(),
         ]);
 
         await settingsOps.set("activeProjectId", String(targetId));

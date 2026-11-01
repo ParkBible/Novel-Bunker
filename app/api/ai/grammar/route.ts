@@ -1,12 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { AiServiceError, checkGrammar } from "@/app/(shared)/utils/deepseek";
-import { requireAiSession } from "@/app/(shared)/utils/serverAuth";
+import { NextResponse } from "next/server";
+import { withAiRoute } from "@/app/(shared)/utils/aiRoute";
+import { checkGrammar } from "@/app/(shared)/utils/deepseek";
 
-export async function POST(request: NextRequest) {
-    const denied = await requireAiSession();
-    if (denied) return denied;
-
-    try {
+export const POST = withAiRoute(
+    async (request) => {
         const { content, model } = await request.json();
 
         if (!content) {
@@ -17,19 +14,7 @@ export async function POST(request: NextRequest) {
         }
 
         const suggestions = await checkGrammar(content, model);
-
         return NextResponse.json({ suggestions });
-    } catch (error) {
-        if (error instanceof AiServiceError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.status },
-            );
-        }
-        console.error("Grammar API error:", error);
-        return NextResponse.json(
-            { error: "문법 검사에 실패했습니다." },
-            { status: 500 },
-        );
-    }
-}
+    },
+    { logLabel: "Grammar API", fallbackError: "문법 검사에 실패했습니다." },
+);

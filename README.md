@@ -43,7 +43,9 @@ pnpm install
 | `SESSION_SECRET` | 세션 쿠키 서명용 비밀값, 32자 이상 (`openssl rand -base64 32`) |
 
 - AI API(`/api/ai/*`)는 `ALLOWED_EMAILS`에 있는 계정으로 구글 로그인(Drive 백업 로그인과 동일)한 경우에만 동작합니다.
-- 배포 환경(`NODE_ENV=production` 또는 Vercel)에서 인증 변수가 빠져 있으면 AI API는 503으로 막힙니다. 로컬 개발에서 인증 변수를 모두 비워 두면 로그인 없이 AI API를 쓸 수 있습니다.
+- 배포 환경(`NODE_ENV=production` 또는 Vercel)에서 인증 변수가 빠져 있으면 AI API는 503으로 막힙니다.
+- 구글 로그인(Drive 백업 포함)은 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `SESSION_SECRET`가 **모두** 있어야 동작합니다. 소유자 전용 앱이라 Drive 백업도 허용된 계정만 쓸 수 있습니다.
+- 로컬 개발에서 인증 변수를 비워 두면 AI API만 로그인 없이 열리고(`DEEPSEEK_API_KEY`는 필요), Drive 백업은 쓸 수 없습니다. Drive까지 로컬에서 확인하려면 인증 변수를 모두 채우세요.
 
 #### Google Cloud Console 설정
 

@@ -1,15 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
-import {
-    AiServiceError,
-    generateAiChatReply,
-} from "@/app/(shared)/utils/deepseek";
-import { requireAiSession } from "@/app/(shared)/utils/serverAuth";
+import { NextResponse } from "next/server";
+import { withAiRoute } from "@/app/(shared)/utils/aiRoute";
+import { generateAiChatReply } from "@/app/(shared)/utils/deepseek";
 
-export async function POST(request: NextRequest) {
-    const denied = await requireAiSession();
-    if (denied) return denied;
-
-    try {
+export const POST = withAiRoute(
+    async (request) => {
         const { messages, context, model } = await request.json();
 
         if (!Array.isArray(messages) || messages.length === 0) {
@@ -21,17 +15,6 @@ export async function POST(request: NextRequest) {
 
         const reply = await generateAiChatReply(messages, context, model);
         return NextResponse.json({ reply });
-    } catch (error) {
-        if (error instanceof AiServiceError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.status },
-            );
-        }
-        console.error("AI chat API error:", error);
-        return NextResponse.json(
-            { error: "AI 응답 생성에 실패했습니다." },
-            { status: 500 },
-        );
-    }
-}
+    },
+    { logLabel: "AI chat API", fallbackError: "AI 응답 생성에 실패했습니다." },
+);

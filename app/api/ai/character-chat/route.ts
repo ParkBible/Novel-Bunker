@@ -1,15 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
-import {
-    AiServiceError,
-    chatWithCharacter,
-} from "@/app/(shared)/utils/deepseek";
-import { requireAiSession } from "@/app/(shared)/utils/serverAuth";
+import { NextResponse } from "next/server";
+import { withAiRoute } from "@/app/(shared)/utils/aiRoute";
+import { chatWithCharacter } from "@/app/(shared)/utils/deepseek";
 
-export async function POST(request: NextRequest) {
-    const denied = await requireAiSession();
-    if (denied) return denied;
-
-    try {
+export const POST = withAiRoute(
+    async (request) => {
         const {
             characterName,
             characterDescription,
@@ -38,17 +32,9 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({ reply });
-    } catch (error) {
-        if (error instanceof AiServiceError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.status },
-            );
-        }
-        console.error("Character chat API error:", error);
-        return NextResponse.json(
-            { error: "캐릭터 대화 생성에 실패했습니다." },
-            { status: 500 },
-        );
-    }
-}
+    },
+    {
+        logLabel: "Character chat API",
+        fallbackError: "캐릭터 대화 생성에 실패했습니다.",
+    },
+);

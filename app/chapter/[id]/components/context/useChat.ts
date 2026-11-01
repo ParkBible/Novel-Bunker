@@ -40,6 +40,8 @@ export function useChat({
     const [isLoading, setIsLoading] = useState(false);
     // 401(로그인 필요) 응답을 받으면 true → 패널에 로그인 안내 표시
     const [authRequired, setAuthRequired] = useState(false);
+    // 일반 오류는 대화 기록에 남기지 않고 화면에만 잠깐 보여준다 (LLM 기록으로 재전송 방지)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const activeProjectId = useEditorStore((s) => s.activeProjectId);
 
     const handleSend = async () => {
@@ -119,9 +121,11 @@ export function useChat({
                           .join("\n\n---\n\n"),
                   }
                 : undefined;
+        const sentCtxs = attachedCtxs;
         setAttachedCtxs([]);
 
         setIsLoading(true);
+        setErrorMessage(null);
         try {
             const data = await postAi<{ reply: string }>(
                 apiRoutes.aiChat,
@@ -153,30 +157,20 @@ export function useChat({
                 },
             ]);
         } catch (error) {
-            // 로그인 필요는 대화에 남기지 않고 안내만 띄운다
+            // 로그인 필요: 보낸 메시지를 되돌리고 입력창에 복원해 로그인 후 다시 보낼 수 있게 한다
             if (error instanceof AiAuthError) {
+                await aiMessageOps.delete(userMsgId);
+                setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
+                setInput(trimmed);
+                setAttachedCtxs(sentCtxs);
                 setAuthRequired(true);
                 return;
             }
-            const errorText =
+            setErrorMessage(
                 error instanceof Error && error.message
                     ? error.message
-                    : "응답을 생성하지 못했습니다.";
-            const errorMsgId = await aiMessageOps.create(
-                convId,
-                "model",
-                errorText,
+                    : "응답을 생성하지 못했습니다.",
             );
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: errorMsgId,
-                    conversationId: convId!,
-                    role: "model",
-                    text: errorText,
-                    createdAt: new Date(),
-                },
-            ]);
         } finally {
             setIsLoading(false);
         }
@@ -187,5 +181,6 @@ export function useChat({
         isLoading,
         authRequired,
         clearAuthRequired: () => setAuthRequired(false),
+        errorMessage,
     };
 }

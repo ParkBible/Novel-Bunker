@@ -6,12 +6,15 @@ import {
     type CharacterMessage,
     type CharacterRelationship,
     db,
+    LEGACY_SETTING_KEYS,
     type Lore,
     type Project,
     type Scene,
     type Setting,
 } from "./index";
 import type { WritingLog } from "./writingLog";
+
+export { LEGACY_SETTING_KEYS };
 
 const DEFAULT_LORE_CATEGORIES = ["세계관", "장소", "아이템"];
 const DEFAULT_CHARACTER_GROUPS = ["주인공", "조연", "기타"];
@@ -189,6 +192,11 @@ export const aiMessageOps = {
             createdAt: new Date(),
         });
         return id as number;
+    },
+
+    // 로그인 필요로 전송이 취소된 메시지를 되돌릴 때 사용
+    async delete(id: number): Promise<void> {
+        await db.aiMessages.delete(id);
     },
 };
 
@@ -475,6 +483,10 @@ export const characterMessageOps = {
         return id as number;
     },
 
+    async delete(id: number): Promise<void> {
+        await db.characterMessages.delete(id);
+    },
+
     async clearByCharacter(characterId: number): Promise<void> {
         await db.characterMessages
             .where("characterId")
@@ -484,9 +496,6 @@ export const characterMessageOps = {
 };
 
 // Settings Operations
-// 더 이상 쓰지 않는 설정 키 (geminiApiKey는 비밀값이라 백업에도 포함하지 않는다)
-export const LEGACY_SETTING_KEYS = ["geminiApiKey", "geminiModel"];
-
 export const settingsOps = {
     async get(key: string): Promise<string | undefined> {
         const setting = await db.settings.get(key);
@@ -500,10 +509,6 @@ export const settingsOps = {
     async getAll(): Promise<Setting[]> {
         const all = await db.settings.toArray();
         return all.filter((s) => !LEGACY_SETTING_KEYS.includes(s.key));
-    },
-
-    async deleteMany(keys: string[]): Promise<void> {
-        await db.settings.bulkDelete(keys);
     },
 };
 

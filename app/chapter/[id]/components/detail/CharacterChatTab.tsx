@@ -31,6 +31,8 @@ export function CharacterChatTab({
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [authRequired, setAuthRequired] = useState(false);
+    // 일반 오류는 대화 기록에 남기지 않고 화면에만 보여준다 (LLM 기록으로 재전송 방지)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: dataVersion은 Drive 다운로드 후 강제 리로드 트리거용
@@ -69,6 +71,7 @@ export function CharacterChatTab({
         setInput("");
 
         setIsLoading(true);
+        setErrorMessage(null);
         try {
             const data = await postAi<{ reply: string }>(
                 apiRoutes.characterChat,
@@ -92,28 +95,19 @@ export function CharacterChatTab({
                 { id: replyId, role: "model", text: data.reply },
             ]);
         } catch (error) {
-            // 로그인 필요는 대화에 남기지 않고 안내만 띄운다
+            // 로그인 필요: 보낸 메시지를 되돌리고 입력창에 복원해 로그인 후 다시 보낼 수 있게 한다
             if (error instanceof AiAuthError) {
+                await characterMessageOps.delete(savedId);
+                setMessages((prev) => prev.filter((m) => m.id !== savedId));
+                setInput(trimmed);
                 setAuthRequired(true);
                 return;
             }
-            const errorText =
+            setErrorMessage(
                 error instanceof Error && error.message
                     ? error.message
-                    : t("characterChat_error");
-            const errId = await characterMessageOps.create(
-                character.id,
-                "model",
-                errorText,
+                    : t("characterChat_error"),
             );
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: errId,
-                    role: "model",
-                    text: errorText,
-                },
-            ]);
         } finally {
             setIsLoading(false);
         }
@@ -163,6 +157,9 @@ export function CharacterChatTab({
                 )}
             </div>
 
+            {errorMessage && (
+                <p className="text-xs text-red-500">{errorMessage}</p>
+            )}
             {authRequired && (
                 <AiLoginNotice onLoggedIn={() => setAuthRequired(false)} />
             )}

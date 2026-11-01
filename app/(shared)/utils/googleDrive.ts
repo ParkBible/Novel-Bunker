@@ -89,17 +89,28 @@ export function getTokenRefreshDelayMs(): number {
     return Math.max(0, TOKEN_TTL_MS - TOKEN_REFRESH_MARGIN_MS - elapsed);
 }
 
+// 무음 갱신 결과. sessionRequired: refresh 쿠키는 있지만 세션이 없어 재로그인이 필요한 경우
+// (세션 쿠키 도입 전에 로그인한 기존 Drive 사용자 등)
+export interface SilentRefreshResult {
+    token: string | null;
+    sessionRequired: boolean;
+}
+
 // 서버 API를 통한 토큰 자동 갱신 (refresh_token은 httpOnly 쿠키에 보관).
-// 성공 시 새 access_token, 실패(쿠키 없음/만료 등) 시 null.
 // client ID는 서버 환경변수(GOOGLE_CLIENT_ID)를 쓰므로 보내지 않는다.
-export async function tryRefreshTokenSilently(): Promise<string | null> {
+export async function tryRefreshTokenSilently(): Promise<SilentRefreshResult> {
     try {
         const res = await fetch("/api/auth/refresh", { method: "POST" });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return (data.access_token as string) ?? null;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || typeof data.access_token !== "string") {
+            return {
+                token: null,
+                sessionRequired: data.code === "session_required",
+            };
+        }
+        return { token: data.access_token, sessionRequired: false };
     } catch {
-        return null;
+        return { token: null, sessionRequired: false };
     }
 }
 
@@ -125,30 +136,70 @@ export function clearAccessToken(): void {
 }
 
 // ── OAuth redirect flow ───────────────────────────────────────
+// 보류 액션(로그인 후 이어서 할 업로드/다운로드)은 그 액션을 만든 로그인에만 묶는다.
+// loginId는 OAuth state로 왕복하며, 같은 loginId의 로그인이 끝났을 때만 실행된다.
+// (AI 로그인·무음 갱신·실패한 로그인 뒤에 남은 다운로드가 로컬 데이터를 덮어쓰지 않도록)
 const PENDING_ACTION_KEY = "drivePendingAction";
+const COMPLETED_LOGIN_KEY = "driveCompletedLoginId";
 const AUTH_RETURN_PATH_KEY = "driveAuthReturnPath";
 
-export function savePendingAction(action: "upload" | "download"): void {
-    sessionStorage.setItem(PENDING_ACTION_KEY, action);
+export type PendingAction = "upload" | "download";
+
+function readPending(): { action: PendingAction; loginId: string } | null {
+    try {
+        const raw = sessionStorage.getItem(PENDING_ACTION_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (
+            (parsed?.action === "upload" || parsed?.action === "download") &&
+            typeof parsed.loginId === "string"
+        ) {
+            return parsed;
+        }
+    } catch {
+        // 예전 형식(문자열만 저장) 등은 무시
+    }
+    return null;
 }
 
-export function getPendingAction(): "upload" | "download" | null {
-    return sessionStorage.getItem(PENDING_ACTION_KEY) as
-        | "upload"
-        | "download"
-        | null;
+export function hasPendingAction(): boolean {
+    return readPending() !== null;
 }
 
 export function clearPendingAction(): void {
     sessionStorage.removeItem(PENDING_ACTION_KEY);
 }
 
+// 해당 로그인이 만든 보류 액션만 지운다 (그 사이 새로 시작된 로그인의 액션은 유지)
+function clearPendingActionFor(loginId: string): void {
+    if (readPending()?.loginId === loginId) clearPendingAction();
+}
+
+// 완료된 로그인과 짝이 맞는 보류 액션만 꺼낸다. 꺼내면 지운다.
+export function takePendingActionFor(loginId: string): PendingAction | null {
+    const pending = readPending();
+    if (!pending || pending.loginId !== loginId) return null;
+    clearPendingAction();
+    return pending.action;
+}
+
+// 전체 페이지 리다이렉트로 로그인한 경우, 돌아온 페이지가 확인할 완료 표시
+export function markLoginCompleted(loginId: string): void {
+    sessionStorage.setItem(COMPLETED_LOGIN_KEY, loginId);
+}
+
+export function takeCompletedLoginId(): string | null {
+    const id = sessionStorage.getItem(COMPLETED_LOGIN_KEY);
+    sessionStorage.removeItem(COMPLETED_LOGIN_KEY);
+    return id;
+}
+
 const AUTH_CHANNEL = "novelbunker_drive_auth";
 
-export function broadcastAuthToken(token: string): void {
+export function broadcastAuthToken(token: string, loginId: string): void {
     try {
         const bc = new BroadcastChannel(AUTH_CHANNEL);
-        bc.postMessage({ type: "auth_complete", token });
+        bc.postMessage({ type: "auth_complete", token, loginId });
         bc.close();
     } catch {
         // BroadcastChannel 미지원 환경 무시
@@ -156,19 +207,30 @@ export function broadcastAuthToken(token: string): void {
 }
 
 export function listenForAuthToken(
-    callback: (token: string) => void,
+    callback: (token: string, loginId: string) => void,
 ): () => void {
     try {
         const bc = new BroadcastChannel(AUTH_CHANNEL);
         bc.onmessage = (e: MessageEvent) => {
             if (e.data?.type === "auth_complete" && e.data.token) {
-                callback(e.data.token as string);
+                callback(e.data.token as string, String(e.data.loginId ?? ""));
             }
         };
         return () => bc.close();
     } catch {
         return () => {};
     }
+}
+
+// 팝업이 로그인 없이 닫히면(취소·거절 화면에서 닫기) 그 로그인의 보류 액션을 버린다.
+// 성공 시에는 팝업이 닫히기 전에 토큰을 브로드캐스트하므로, 메시지 처리가 끝날
+// 여유를 둔 뒤 정리한다 (이미 꺼내 쓴 경우엔 지울 게 없음).
+function watchPopupClosed(popup: Window, loginId: string): void {
+    const timer = setInterval(() => {
+        if (!popup.closed) return;
+        clearInterval(timer);
+        setTimeout(() => clearPendingActionFor(loginId), 1500);
+    }, 500);
 }
 
 // ── PKCE 헬퍼 ────────────────────────────────────────────────
@@ -211,7 +273,18 @@ async function fetchGoogleClientId(): Promise<string> {
 
 // Authorization Code + PKCE flow → 서버가 refresh_token과 세션을 httpOnly 쿠키에 저장.
 // Drive 연동과 AI 기능 로그인이 같은 흐름을 쓴다.
-export async function redirectToAuth(): Promise<void> {
+// pendingAction: Drive 버튼에서 시작한 로그인만 넘긴다. 없으면(AI 로그인 등) 기존 보류 액션을 지운다.
+export async function redirectToAuth(
+    options: { pendingAction?: PendingAction } = {},
+): Promise<void> {
+    const loginId = generateCodeVerifier(); // 무작위 값 (OAuth state)
+    clearPendingAction();
+    if (options.pendingAction) {
+        sessionStorage.setItem(
+            PENDING_ACTION_KEY,
+            JSON.stringify({ action: options.pendingAction, loginId }),
+        );
+    }
     sessionStorage.setItem(AUTH_RETURN_PATH_KEY, window.location.pathname);
     const redirectUri = `${window.location.origin}/auth`;
 
@@ -224,15 +297,18 @@ export async function redirectToAuth(): Promise<void> {
     );
 
     let clientId: string;
+    let codeVerifier: string;
+    let codeChallenge: string;
     try {
         clientId = await fetchGoogleClientId();
+        codeVerifier = generateCodeVerifier();
+        codeChallenge = await generateCodeChallenge(codeVerifier);
     } catch (e) {
+        // 로그인을 시작하지 못했으면 보류 액션도 남기지 않는다
         popup?.close();
+        clearPendingActionFor(loginId);
         throw e;
     }
-
-    const codeVerifier = generateCodeVerifier();
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
     // 팝업과 메인 창이 localStorage를 공유하므로 여기에 보관
     localStorage.setItem(PKCE_VERIFIER_KEY, codeVerifier);
 
@@ -246,11 +322,13 @@ export async function redirectToAuth(): Promise<void> {
         code_challenge: codeChallenge,
         code_challenge_method: "S256",
         include_granted_scopes: "true",
+        state: loginId,
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 
     if (popup) {
         popup.location.href = authUrl;
+        watchPopupClosed(popup, loginId);
     } else {
         // 팝업 차단 시 전체 페이지 리다이렉트 폴백
         window.location.href = authUrl;

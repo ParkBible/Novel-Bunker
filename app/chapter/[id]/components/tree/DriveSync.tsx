@@ -12,7 +12,6 @@ import {
     isLocalDataEmpty,
     type RemoteBackup,
     redirectToAuth,
-    savePendingAction,
 } from "@/app/(shared)/utils/googleDrive";
 import {
     diffByProject,
@@ -64,6 +63,7 @@ export function DriveSync() {
 
     const {
         isConnected,
+        needsRelogin,
         syncStatus,
         errorMessage,
         lastSyncedAt,
@@ -120,9 +120,9 @@ export function DriveSync() {
     const [authError, setAuthError] = useState<string | null>(null);
     const startAuth = async (action: "upload" | "download") => {
         setAuthError(null);
-        savePendingAction(action);
         try {
-            await redirectToAuth();
+            // 보류 액션은 이 로그인에만 묶이고, 실패·팝업 닫힘 시 함께 지워진다
+            await redirectToAuth({ pendingAction: action });
         } catch (e) {
             setAuthError(e instanceof Error ? e.message : String(e));
         }
@@ -236,11 +236,14 @@ export function DriveSync() {
                         </button>
                     </div>
                 )}
-                {!isConnected && lastSyncedAt && !isSyncing && (
-                    <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
-                        {t("drive_paused")}
-                    </p>
-                )}
+                {!isConnected &&
+                    !needsRelogin &&
+                    lastSyncedAt &&
+                    !isSyncing && (
+                        <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
+                            {t("drive_paused")}
+                        </p>
+                    )}
                 {isConnected &&
                     lastSyncedAt &&
                     !isSyncing &&
@@ -259,6 +262,12 @@ export function DriveSync() {
                 {syncStatus === "success" && (
                     <p className="mt-1 text-center text-xs text-emerald-500">
                         {t("drive_complete")}
+                    </p>
+                )}
+                {/* 세션 없이 refresh 쿠키만 남은 기존 사용자: 조용히 끊긴 것처럼 보이지 않게 안내 */}
+                {needsRelogin && !isConnected && (
+                    <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
+                        {t("drive_reloginRequired")}
                     </p>
                 )}
                 {authError && (

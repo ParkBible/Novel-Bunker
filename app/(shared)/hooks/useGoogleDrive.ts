@@ -8,7 +8,6 @@ import { useEditorStore } from "../stores/editorStore";
 import {
     checkRemoteNewer,
     clearAccessToken,
-    clearPendingAction,
     createAutoSnapshot,
     DriveAuthError,
     deleteSnapshot as deleteSnapshotFn,
@@ -17,16 +16,19 @@ import {
     fetchRemoteBackup,
     getAccessToken,
     getLastSyncedAt,
-    getPendingAction,
     getTokenRefreshDelayMs,
+    hasPendingAction,
     importFromDrive,
     listenForAuthToken,
     listSnapshots as listSnapshotsFn,
+    type PendingAction,
     type RemoteBackup,
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
     saveLastSyncedAt,
     setAccessToken,
+    takeCompletedLoginId,
+    takePendingActionFor,
     tryRefreshTokenSilently,
 } from "../utils/googleDrive";
 import { useDebouncedCallback } from "./useDebouncedCallback";
@@ -35,6 +37,8 @@ type SyncStatus = "idle" | "syncing" | "success" | "error";
 
 export function useGoogleDrive() {
     const [isConnected, setIsConnected] = useState(false);
+    // refresh 쿠키는 있지만 세션이 없어 무음 갱신이 거절된 경우 (기존 Drive 사용자 등)
+    const [needsRelogin, setNeedsRelogin] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -125,11 +129,13 @@ export function useGoogleDrive() {
         const delay = getTokenRefreshDelayMs();
 
         refreshTimerRef.current = setTimeout(async () => {
-            const newToken = await tryRefreshTokenSilently();
-            if (newToken) {
-                setAccessToken(newToken);
+            const result = await tryRefreshTokenSilently();
+            if (result.token) {
+                setAccessToken(result.token);
                 setIsConnected(true);
                 scheduleTokenRefresh(); // 다음 갱신 재예약
+            } else if (result.sessionRequired) {
+                setNeedsRelogin(true);
             }
             // 실패 시: 토큰 만료 후 자연스럽게 연결 끊김 처리됨
         }, delay);
@@ -149,7 +155,7 @@ export function useGoogleDrive() {
             scheduleTokenRefresh();
             // 보류 액션이 있으면 곧 업로드/다운로드로 상태가 갱신되므로 stale 확인을 건너뛴다
             // (병렬 실행 시 checkStale이 뒤늦게 끝나 stale을 잘못 되살리는 경쟁 상태 방지)
-            if (!getPendingAction()) checkStale();
+            if (!hasPendingAction()) checkStale();
         }
     }, [scheduleTokenRefresh, checkStale]);
 
@@ -223,16 +229,20 @@ export function useGoogleDrive() {
     uploadRef.current = upload;
     downloadRef.current = download;
 
-    useEffect(() => {
-        if (!getAccessToken()) return;
-        const pending = getPendingAction();
-        if (!pending) return;
-        clearPendingAction();
-        setIsConnected(true);
-        scheduleTokenRefresh(); // redirect 복귀 후 자동 갱신 시작
+    const runPending = useCallback((pending: PendingAction | null) => {
         if (pending === "upload") uploadRef.current();
         else if (pending === "download") downloadRef.current();
-    }, [scheduleTokenRefresh]); // mount 시 1회만 실행
+    }, []);
+
+    // 전체 페이지 리다이렉트로 로그인하고 돌아온 경우: 그 로그인이 만든 보류 액션만 실행
+    useEffect(() => {
+        const completedLoginId = takeCompletedLoginId();
+        if (!completedLoginId || !getAccessToken()) return;
+        setIsConnected(true);
+        setNeedsRelogin(false);
+        scheduleTokenRefresh(); // redirect 복귀 후 자동 갱신 시작
+        runPending(takePendingActionFor(completedLoginId));
+    }, [scheduleTokenRefresh, runPending]); // mount 시 1회만 실행
 
     // 자동 로그인: access_token이 없으면 서버의 refresh_token 쿠키로
     // 새 토큰을 받아 UI 없이 재연결한다. (탭/브라우저 종료 후 재방문 시에도 유지)
@@ -241,20 +251,18 @@ export function useGoogleDrive() {
 
         let cancelled = false;
         (async () => {
-            const token = await tryRefreshTokenSilently();
-            if (cancelled || !token) return; // 쿠키 없음/만료 → 수동 로그인 필요
-            setAccessToken(token);
-            setIsConnected(true);
-            scheduleTokenRefresh();
-            // 보류 중인 동작이 있으면 이어서 실행 (그 경우 stale 확인은 건너뜀)
-            const pending = getPendingAction();
-            if (!pending) {
-                checkStale(); // 자동 재연결 시에도 원격 최신본 확인
+            const result = await tryRefreshTokenSilently();
+            if (cancelled) return;
+            if (!result.token) {
+                // 쿠키 없음/만료 → 수동 로그인 필요. 세션만 없는 경우엔 안내를 띄운다
+                if (result.sessionRequired) setNeedsRelogin(true);
                 return;
             }
-            clearPendingAction();
-            if (pending === "upload") uploadRef.current();
-            else if (pending === "download") downloadRef.current();
+            setAccessToken(result.token);
+            setIsConnected(true);
+            scheduleTokenRefresh();
+            // 무음 갱신은 사용자가 시작한 로그인이 아니므로 보류 액션을 실행하지 않는다
+            checkStale(); // 자동 재연결 시에도 원격 최신본 확인
         })();
         return () => {
             cancelled = true;
@@ -263,17 +271,15 @@ export function useGoogleDrive() {
 
     // 팝업 인증 완료 시 BroadcastChannel로 토큰 수신
     useEffect(() => {
-        return listenForAuthToken((token) => {
+        return listenForAuthToken((token, loginId) => {
             setAccessToken(token);
             setIsConnected(true);
+            setNeedsRelogin(false);
             scheduleTokenRefresh(); // 인증 완료 후 자동 갱신 시작
-            const pending = getPendingAction();
-            if (!pending) return;
-            clearPendingAction();
-            if (pending === "upload") uploadRef.current();
-            else if (pending === "download") downloadRef.current();
+            // 이 로그인이 만든 보류 액션만 실행 (AI 로그인이면 없음)
+            runPending(takePendingActionFor(loginId));
         });
-    }, [scheduleTokenRefresh]);
+    }, [scheduleTokenRefresh, runPending]);
 
     const disconnect = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
@@ -357,6 +363,7 @@ export function useGoogleDrive() {
 
     return {
         isConnected,
+        needsRelogin,
         syncStatus,
         errorMessage,
         lastSyncedAt,

@@ -37,7 +37,13 @@ export function AiChatPanel() {
         handleDelete,
     } = useConversations();
 
-    const { handleSend, isLoading, authRequired, clearAuthRequired } = useChat({
+    const {
+        handleSend,
+        isLoading,
+        authRequired,
+        clearAuthRequired,
+        errorMessage,
+    } = useChat({
         activeConvId,
         setActiveConvId,
         setConversations,
@@ -115,6 +121,9 @@ export function AiChatPanel() {
                 isLoading={isLoading}
                 scrollRef={scrollRef}
             />
+            {errorMessage && (
+                <p className="px-3 pb-2 text-xs text-red-500">{errorMessage}</p>
+            )}
             {authRequired && (
                 <div className="px-3 pb-2">
                     <AiLoginNotice onLoggedIn={clearAuthRequired} />

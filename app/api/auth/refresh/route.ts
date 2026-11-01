@@ -15,17 +15,21 @@ export async function POST() {
         );
     }
 
-    // 유효한 세션(허용된 계정으로 로그인한 기록)이 있어야만 갱신해 준다
+    const cookieStore = await cookies();
+    const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+
+    // 유효한 세션(허용된 계정으로 로그인한 기록)이 있어야만 갱신해 준다.
+    // refresh 쿠키만 있고 세션이 없으면(세션 도입 전 로그인 등) 재로그인 안내용 코드를 준다.
     const email = await getSessionEmail(config);
     if (!email) {
         return NextResponse.json(
-            { error: "세션 없음 — 재로그인 필요" },
+            {
+                error: "세션 없음 — 재로그인 필요",
+                ...(refreshToken ? { code: "session_required" } : {}),
+            },
             { status: 401 },
         );
     }
-
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
 
     if (!refreshToken) {
         return NextResponse.json(

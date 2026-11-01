@@ -30,9 +30,18 @@ export class AiServiceError extends Error {
     }
 }
 
-function resolveModel(modelId: unknown): AiModelId {
+function resolveModel(modelId: unknown, jsonMode?: boolean): AiModelId {
+    // deepseek-reasoner는 response_format(JSON 모드)을 지원하지 않으므로 chat 모델로 고정
+    if (jsonMode) return "deepseek-chat";
     return isAiModelId(modelId) ? modelId : DEFAULT_AI_MODEL;
 }
+
+// 예전 버전이 실패 시 대화 기록에 'model' 메시지로 저장하던 오류 문구.
+// LLM에 대화 기록으로 다시 보내지 않도록 걸러낸다.
+const LEGACY_ERROR_REPLIES = new Set([
+    "응답을 생성하지 못했습니다.",
+    "Failed to generate a response.",
+]);
 
 // 업스트림 상태 코드를 사용자에게 보여줄 메시지로 변환.
 // DeepSeek의 401은 서버 키 문제이므로 클라이언트에 401(로그인 필요)로 넘기지 않는다.
@@ -83,6 +92,9 @@ function mergeConsecutive(messages: ChatMessage[]): ChatMessage[] {
 function toChatMessages(messages: ClientMessage[]): ChatMessage[] {
     return messages
         .filter((m) => typeof m?.text === "string" && m.text.trim() !== "")
+        .filter(
+            (m) => !(m.role === "model" && LEGACY_ERROR_REPLIES.has(m.text)),
+        )
         .map((m) => ({
             role: m.role === "model" ? "assistant" : "user",
             content: m.text,
@@ -110,7 +122,7 @@ async function createChatCompletion(
                 Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: resolveModel(options.model),
+                model: resolveModel(options.model, options.jsonMode),
                 messages: mergeConsecutive(messages),
                 stream: false,
                 ...(options.jsonMode

@@ -1,15 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
-import {
-    AiServiceError,
-    generateFeedback,
-} from "@/app/(shared)/utils/deepseek";
-import { requireAiSession } from "@/app/(shared)/utils/serverAuth";
+import { NextResponse } from "next/server";
+import { withAiRoute } from "@/app/(shared)/utils/aiRoute";
+import { generateFeedback } from "@/app/(shared)/utils/deepseek";
 
-export async function POST(request: NextRequest) {
-    const denied = await requireAiSession();
-    if (denied) return denied;
-
-    try {
+export const POST = withAiRoute(
+    async (request) => {
         const { sceneContent, synopsis, characters, prompt, model } =
             await request.json();
 
@@ -29,17 +23,9 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({ feedback });
-    } catch (error) {
-        if (error instanceof AiServiceError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.status },
-            );
-        }
-        console.error("Feedback API error:", error);
-        return NextResponse.json(
-            { error: "AI 피드백 생성에 실패했습니다." },
-            { status: 500 },
-        );
-    }
-}
+    },
+    {
+        logLabel: "Feedback API",
+        fallbackError: "AI 피드백 생성에 실패했습니다.",
+    },
+);

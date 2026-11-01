@@ -220,8 +220,16 @@ export const ko = {
     aiAuth_required: "AI 기능은 구글 로그인 후에 쓸 수 있어요.",
     aiAuth_login: "구글 계정으로 로그인",
 
+    // OAuth 콜백 페이지
+    auth_returning: "인증 완료, 돌아가는 중...",
+    auth_loginFailed: "로그인에 실패했어요. 다시 시도해 주세요.",
+    auth_close: "닫기",
+    auth_back: "돌아가기",
+
     // Drive sync
     drive_title: "Google Drive 백업",
+    drive_reloginRequired:
+        "로그인 정보가 만료됐어요. 다시 로그인해 주세요. (업로드·받기를 누르면 로그인 창이 열려요)",
     drive_uploadTitle: "로컬 데이터를 Drive에 업로드",
     drive_downloadTitle: "Drive에서 로컬로 다운로드",
     drive_versionHistory: "버전 기록",
@@ -584,8 +592,16 @@ export const en = {
     aiAuth_required: "Sign in with Google to use AI features.",
     aiAuth_login: "Sign in with Google",
 
+    // OAuth callback page
+    auth_returning: "Signed in, returning...",
+    auth_loginFailed: "Sign-in failed. Please try again.",
+    auth_close: "Close",
+    auth_back: "Go back",
+
     // Drive sync
     drive_title: "Google Drive Backup",
+    drive_reloginRequired:
+        "Your sign-in has expired. Please sign in again (Upload or Download opens the sign-in window).",
     drive_uploadTitle: "Upload local data to Drive",
     drive_downloadTitle: "Download from Drive to local",
     drive_versionHistory: "Version history",
