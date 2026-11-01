@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useDriveAutoUpload } from "@/app/(shared)/hooks/useDriveAutoUpload";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -20,6 +21,8 @@ export function WorkOverview({ projectId }: WorkOverviewProps) {
     const t = useTranslation();
     const { loadData, activeProjectId, isInitialized } = useEditorStore();
     const [ready, setReady] = useState(false);
+    // 시놉시스처럼 대시보드에서 고치는 내용도 Drive에 올라가도록
+    useDriveAutoUpload();
 
     useEffect(() => {
         let cancelled = false;

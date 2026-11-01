@@ -82,6 +82,39 @@ function saveLastSyncedModified(modifiedTime: string): void {
     }
 }
 
+// ── 아직 Drive에 올리지 못한 로컬 변경 (localStorage) ─────────
+// 자동 업로드는 30초 디바운스라 그 사이 화면을 옮기거나 탭을 닫으면 대기 중인
+// 업로드가 사라진다. 변경 시각을 남겨 두고 다음에 자동 업로드가 붙는 화면에서 이어 올린다.
+const UNSYNCED_SINCE_KEY = "novelbunker_drive_unsynced_since";
+
+export function markUnsyncedChanges(): void {
+    try {
+        localStorage.setItem(UNSYNCED_SINCE_KEY, Date.now().toString());
+    } catch {
+        // ignore
+    }
+}
+
+export function getUnsyncedSince(): string | null {
+    try {
+        return localStorage.getItem(UNSYNCED_SINCE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @param since 업로드를 시작할 때 읽은 값. 그 뒤에 또 바뀌었으면 지우지 않는다
+ */
+export function clearUnsyncedChanges(since?: string | null): void {
+    try {
+        if (since !== undefined && getUnsyncedSince() !== since) return;
+        localStorage.removeItem(UNSYNCED_SINCE_KEY);
+    } catch {
+        // ignore
+    }
+}
+
 // ── 상수 ──────────────────────────────────────────────────────
 const DRIVE_FILE_NAME = "novelbunker-data.json";
 const MANUAL_SNAPSHOT_PREFIX = "novelbunker-snapshot-manual-";
