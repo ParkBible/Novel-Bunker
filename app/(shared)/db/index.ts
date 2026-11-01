@@ -3,6 +3,9 @@ import type { BackupData } from "./backup";
 import { computeStats } from "./snapshotStats";
 import { recordWriting, type WritingLogTable } from "./writingLog";
 
+// 더 이상 쓰지 않는 설정 키. geminiApiKey는 비밀값이라 백업에도 포함/복원하지 않는다.
+export const LEGACY_SETTING_KEYS = ["geminiApiKey", "geminiModel"];
+
 // Type definitions for database entities
 
 // 작품(프로젝트) — 챕터/씬/인물/설정집/관계/AI대화의 최상위 소속 단위
@@ -437,6 +440,12 @@ class NovelBunkerDB extends Dexie {
         this.version(15)
             .stores({ writingLog: "[projectId+date], projectId" })
             .upgrade(backfillWritingLog);
+
+        // v16: LLM 키가 서버 환경변수로 옮겨가면서, 예전에 브라우저에 저장된
+        // Gemini 키/모델 설정을 한 번만 지운다.
+        this.version(16).upgrade((tx) =>
+            tx.table("settings").bulkDelete(LEGACY_SETTING_KEYS),
+        );
     }
 }
 

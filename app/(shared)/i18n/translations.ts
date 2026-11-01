@@ -216,23 +216,20 @@ export const ko = {
     characterSummary_groupSupporting: "조연",
     characterSummary_groupOther: "기타",
 
-    // Gemini key card
-    geminiKey_title: "Gemini API 키",
-    geminiKey_configured: "설정됨",
-    geminiKey_help: "AI 피드백, 문법 검사, 캐릭터 대화 기능에 사용됩니다.",
-    geminiKey_studioLink: "Google AI Studio",
-    geminiKey_studioSuffix: "에서 무료로 발급받을 수 있습니다.",
-    geminiKey_placeholder: "AIza...",
-    geminiKey_save: "저장",
-    geminiKey_saved: "저장됨",
+    // AI 로그인 안내
+    aiAuth_required: "AI 기능은 구글 로그인 후에 쓸 수 있어요.",
+    aiAuth_login: "구글 계정으로 로그인",
+
+    // OAuth 콜백 페이지
+    auth_returning: "인증 완료, 돌아가는 중...",
+    auth_loginFailed: "로그인에 실패했어요. 다시 시도해 주세요.",
+    auth_close: "닫기",
+    auth_back: "돌아가기",
 
     // Drive sync
     drive_title: "Google Drive 백업",
-    drive_howToGet: "발급 방법",
-    drive_howToGetTitle: "발급 방법 안내",
-    drive_clientIdHelp:
-        "Google Cloud Console에서 발급한 OAuth 2.0 클라이언트 ID를 입력하세요.",
-    drive_clientIdPlaceholder: "xxxxx.apps.googleusercontent.com",
+    drive_reloginRequired:
+        "로그인 정보가 만료됐어요. 다시 로그인해 주세요. (업로드·받기를 누르면 로그인 창이 열려요)",
     drive_uploadTitle: "로컬 데이터를 Drive에 업로드",
     drive_downloadTitle: "Drive에서 로컬로 다운로드",
     drive_versionHistory: "버전 기록",
@@ -326,30 +323,6 @@ export const ko = {
     version_restoreError: "복원 실패",
     version_scopeCloud: "기기간 공유",
     version_scopeLocal: "이 기기",
-
-    // Client ID guide modal
-    guide_closeLabel: "모달 닫기",
-    guide_title: "Google OAuth 클라이언트 ID 발급",
-    guide_subtitle: "본인 구글 계정으로 직접 Drive 백업을 연동할 수 있습니다",
-    guide_step1Title: "Google Cloud Console 접속",
-    guide_step1Desc: "Google 계정으로 로그인한 뒤 새 프로젝트를 만드세요.",
-    guide_step1Link: "console.cloud.google.com 열기",
-    guide_step2Title: "Google Drive API 활성화",
-    guide_step2Desc:
-        '좌측 메뉴에서 "API 및 서비스 → 라이브러리"를 열고 Google Drive API를 검색해 사용 설정하세요.',
-    guide_step2Link: "Drive API 라이브러리 열기",
-    guide_step3Title: "OAuth 동의 화면 설정",
-    guide_step3Desc:
-        '"API 및 서비스 → OAuth 동의 화면"에서 User Type을 외부로 선택하고 앱 이름과 이메일을 입력하세요. 테스트 사용자 섹션에 본인 구글 계정을 추가하세요.',
-    guide_step3Link: "OAuth 동의 화면 열기",
-    guide_step3Warning: "앱을 게시하지 말고 테스트 모드를 유지하세요.",
-    guide_step4Title: "OAuth 클라이언트 ID 발급",
-    guide_step4Desc:
-        '"API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID"를 선택하세요. 애플리케이션 유형은 웹 애플리케이션으로 선택하고, 승인된 JavaScript 원본과 승인된 리디렉션 URI에 아래 두 주소를 각각 추가하세요.',
-    guide_step4Link: "사용자 인증 정보 열기",
-    guide_step5Title: "클라이언트 ID 복사 후 입력",
-    guide_step5Desc:
-        '"생성된 클라이언트 ID는 "xxxxx.apps.googleusercontent.com" 형태입니다. 복사해서 아래 입력란에 붙여넣으세요.',
 
     // Legacy context panel (chapter/[id]/components/ContextPanel)
     contextPanel_selectScene: "씬을 선택하여 세부 정보를 확인하세요",
@@ -615,23 +588,20 @@ export const en = {
     characterSummary_groupSupporting: "Supporting",
     characterSummary_groupOther: "Other",
 
-    // Gemini key card
-    geminiKey_title: "Gemini API Key",
-    geminiKey_configured: "Configured",
-    geminiKey_help: "Used for AI feedback, grammar check, and character chat.",
-    geminiKey_studioLink: "Google AI Studio",
-    geminiKey_studioSuffix: " — get a free key here.",
-    geminiKey_placeholder: "AIza...",
-    geminiKey_save: "Save",
-    geminiKey_saved: "Saved",
+    // AI login notice
+    aiAuth_required: "Sign in with Google to use AI features.",
+    aiAuth_login: "Sign in with Google",
+
+    // OAuth callback page
+    auth_returning: "Signed in, returning...",
+    auth_loginFailed: "Sign-in failed. Please try again.",
+    auth_close: "Close",
+    auth_back: "Go back",
 
     // Drive sync
     drive_title: "Google Drive Backup",
-    drive_howToGet: "How to get",
-    drive_howToGetTitle: "How to get a Client ID",
-    drive_clientIdHelp:
-        "Enter the OAuth 2.0 Client ID from Google Cloud Console.",
-    drive_clientIdPlaceholder: "xxxxx.apps.googleusercontent.com",
+    drive_reloginRequired:
+        "Your sign-in has expired. Please sign in again (Upload or Download opens the sign-in window).",
     drive_uploadTitle: "Upload local data to Drive",
     drive_downloadTitle: "Download from Drive to local",
     drive_versionHistory: "Version history",
@@ -726,31 +696,6 @@ export const en = {
     version_restoreError: "Failed to restore",
     version_scopeCloud: "Synced across devices",
     version_scopeLocal: "This device only",
-
-    // Client ID guide modal
-    guide_closeLabel: "Close modal",
-    guide_title: "Get Google OAuth Client ID",
-    guide_subtitle: "Connect your own Google Drive for backups",
-    guide_step1Title: "Go to Google Cloud Console",
-    guide_step1Desc:
-        "Sign in with your Google account and create a new project.",
-    guide_step1Link: "Open console.cloud.google.com",
-    guide_step2Title: "Enable Google Drive API",
-    guide_step2Desc:
-        'Open "APIs & Services → Library" from the left menu, search for Google Drive API, and enable it.',
-    guide_step2Link: "Open Drive API Library",
-    guide_step3Title: "Configure OAuth Consent Screen",
-    guide_step3Desc:
-        'In "APIs & Services → OAuth consent screen", set User Type to External, enter your app name and email. Add your Google account to the Test Users section.',
-    guide_step3Link: "Open OAuth consent screen",
-    guide_step3Warning: "Keep the app in testing mode — do not publish.",
-    guide_step4Title: "Create OAuth Client ID",
-    guide_step4Desc:
-        'Go to "APIs & Services → Credentials → Create Credentials → OAuth client ID". Select Web application, then add both addresses below — one to Authorized JavaScript origins and one to Authorized redirect URIs.',
-    guide_step4Link: "Open Credentials",
-    guide_step5Title: "Copy and paste your Client ID",
-    guide_step5Desc:
-        'Your Client ID will look like "xxxxx.apps.googleusercontent.com". Copy and paste it into the field below.',
 
     // Legacy context panel
     contextPanel_selectScene: "Select a scene to view details",

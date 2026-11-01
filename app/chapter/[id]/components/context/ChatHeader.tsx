@@ -2,19 +2,19 @@
 
 import { List, Plus, Sparkles } from "lucide-react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import { GEMINI_MODELS, type GeminiModelId } from "@/app/(shared)/routes";
+import { AI_MODELS, type AiModelId } from "@/app/(shared)/routes";
 
 interface Props {
     title: string;
-    geminiModel: GeminiModelId;
-    onModelChange: (model: GeminiModelId) => void;
+    aiModel: AiModelId;
+    onModelChange: (model: AiModelId) => void;
     onShowConversations: () => void;
     onNewConversation: () => void;
 }
 
 export function ChatHeader({
     title,
-    geminiModel,
+    aiModel,
     onModelChange,
     onShowConversations,
     onNewConversation,
@@ -37,12 +37,12 @@ export function ChatHeader({
                 </span>
             </div>
             <select
-                value={geminiModel}
-                onChange={(e) => onModelChange(e.target.value as GeminiModelId)}
+                value={aiModel}
+                onChange={(e) => onModelChange(e.target.value as AiModelId)}
                 className="rounded px-1.5 py-0.5 text-xs bg-zinc-100 text-zinc-600 outline-none cursor-pointer hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                 title={t("chat_selectModel")}
             >
-                {GEMINI_MODELS.map((m) => (
+                {AI_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
                         {m.label}
                     </option>

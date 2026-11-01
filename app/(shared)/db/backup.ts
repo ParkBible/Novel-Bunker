@@ -11,7 +11,7 @@ import type {
     Setting,
 } from ".";
 import { db } from ".";
-import { settingsOps } from "./operations";
+import { LEGACY_SETTING_KEYS, settingsOps } from "./operations";
 
 // 프로젝트 전체 백업 데이터 (Drive 파일 / 로컬 스냅샷 공용 포맷)
 export interface BackupData {
@@ -173,7 +173,12 @@ export async function applyImportedData(data: BackupData): Promise<void> {
             await db.characters.bulkAdd(characters);
             await db.characterRelationships.bulkAdd(characterRelationships);
             await db.lores.bulkAdd(lores);
-            await db.settings.bulkAdd(data.settings);
+            // 예전 백업에 들어 있을 수 있는 API 키 등은 복원하지 않는다
+            await db.settings.bulkAdd(
+                data.settings.filter(
+                    (s) => !LEGACY_SETTING_KEYS.includes(s.key),
+                ),
+            );
             if (aiConversations.length > 0)
                 await db.aiConversations.bulkAdd(aiConversations);
             if (aiMessages.length > 0) await db.aiMessages.bulkAdd(aiMessages);

@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Download, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { collectLocalData } from "@/app/(shared)/db/backup";
 import { useGoogleDrive } from "@/app/(shared)/hooks/useGoogleDrive";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -12,16 +12,12 @@ import {
     isLocalDataEmpty,
     type RemoteBackup,
     redirectToAuth,
-    savePendingAction,
 } from "@/app/(shared)/utils/googleDrive";
 import {
     diffByProject,
     type ProjectDiff,
 } from "@/app/(shared)/utils/projectDiff";
-import { ClientIdGuideModal } from "./ClientIdGuideModal";
 import { DriveDownloadPreview } from "./DriveDownloadPreview";
-
-const SETTINGS_KEY = "googleClientId";
 
 type TFunction = (
     key: TranslationKey,
@@ -54,10 +50,6 @@ type DownloadPreview =
 
 export function DriveSync() {
     const t = useTranslation();
-    const [clientId, setClientId] = useState<string | null>(null);
-    const [isEditingClientId, setIsEditingClientId] = useState(false);
-    const [inputValue, setInputValue] = useState("");
-    const [showGuide, setShowGuide] = useState(false);
     const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
     const [uploadConfirm, setUploadConfirm] = useState<UploadConfirmState>({
         isEmpty: false,
@@ -66,30 +58,12 @@ export function DriveSync() {
     const [downloadPreview, setDownloadPreview] = useState<DownloadPreview>({
         state: "authNeeded",
     });
-    const inputRef = useRef<HTMLInputElement>(null);
     // 동기화 범위를 숫자로 못 박기 위한 작품 수 (0이면 문구만 표시)
     const projectCount = useEditorStore((s) => s.projects.length);
 
-    useEffect(() => {
-        const saved = localStorage.getItem(SETTINGS_KEY);
-        if (saved) setClientId(saved);
-    }, []);
-
-    useEffect(() => {
-        if (isEditingClientId) inputRef.current?.focus();
-    }, [isEditingClientId]);
-
-    const handleSaveClientId = () => {
-        const trimmed = inputValue.trim();
-        if (!trimmed) return;
-        localStorage.setItem(SETTINGS_KEY, trimmed);
-        setClientId(trimmed);
-        setIsEditingClientId(false);
-        setInputValue("");
-    };
-
     const {
         isConnected,
+        needsRelogin,
         syncStatus,
         errorMessage,
         lastSyncedAt,
@@ -100,7 +74,7 @@ export function DriveSync() {
         fetchRemote,
         keepLocal,
         disconnect,
-    } = useGoogleDrive(clientId ?? "");
+    } = useGoogleDrive();
 
     const [, forceUpdate] = useState(0);
     useEffect(() => {
@@ -142,11 +116,22 @@ export function DriveSync() {
         }
     };
 
+    // 로그인 시작 실패(서버 설정 누락 등)는 동기화 에러 문구 자리에 보여준다
+    const [authError, setAuthError] = useState<string | null>(null);
+    const startAuth = async (action: "upload" | "download") => {
+        setAuthError(null);
+        try {
+            // 보류 액션은 이 로그인에만 묶이고, 실패·팝업 닫힘 시 함께 지워진다
+            await redirectToAuth({ pendingAction: action });
+        } catch (e) {
+            setAuthError(e instanceof Error ? e.message : String(e));
+        }
+    };
+
     const handleConfirmUpload = async () => {
         setConfirmKind(null);
         if (!getAccessToken()) {
-            savePendingAction("upload");
-            await redirectToAuth(clientId ?? "");
+            await startAuth("upload");
             return;
         }
         upload();
@@ -156,8 +141,7 @@ export function DriveSync() {
         const preview = downloadPreview;
         setConfirmKind(null);
         if (!getAccessToken()) {
-            savePendingAction("download");
-            await redirectToAuth(clientId ?? "");
+            await startAuth("download");
             return;
         }
         download(preview.state === "ready" ? preview.remote : undefined);
@@ -166,73 +150,11 @@ export function DriveSync() {
     const handleKeepLocal = async () => {
         setConfirmKind(null);
         if (!getAccessToken()) {
-            savePendingAction("upload");
-            await redirectToAuth(clientId ?? "");
+            await startAuth("upload");
             return;
         }
         keepLocal();
     };
-
-    if (!clientId || isEditingClientId) {
-        return (
-            <>
-                <div className="border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                    <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                            {t("drive_title")}
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowGuide(true)}
-                                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                                title={t("drive_howToGetTitle")}
-                            >
-                                {t("drive_howToGet")}
-                            </button>
-                            {isEditingClientId && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsEditingClientId(false);
-                                        setInputValue("");
-                                    }}
-                                    className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                                >
-                                    {t("cancel")}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-500">
-                        {t("drive_clientIdHelp")}
-                    </p>
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={(e) =>
-                            e.key === "Enter" && handleSaveClientId()
-                        }
-                        placeholder={t("drive_clientIdPlaceholder")}
-                        className="mb-1.5 w-full rounded border border-zinc-200 bg-transparent px-2 py-1 text-xs text-zinc-700 placeholder-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:placeholder-zinc-600"
-                    />
-                    <button
-                        type="button"
-                        onClick={handleSaveClientId}
-                        disabled={!inputValue.trim()}
-                        className="w-full rounded bg-zinc-100 px-2 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                        {t("save")}
-                    </button>
-                </div>
-                {showGuide && (
-                    <ClientIdGuideModal onClose={() => setShowGuide(false)} />
-                )}
-            </>
-        );
-    }
 
     return (
         <>
@@ -262,16 +184,6 @@ export function DriveSync() {
                                 {t("disconnect")}
                             </button>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setInputValue(clientId);
-                                setIsEditingClientId(true);
-                            }}
-                            className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                        >
-                            {t("settings")}
-                        </button>
                     </div>
                 </div>
 
@@ -324,11 +236,14 @@ export function DriveSync() {
                         </button>
                     </div>
                 )}
-                {!isConnected && lastSyncedAt && !isSyncing && (
-                    <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
-                        {t("drive_paused")}
-                    </p>
-                )}
+                {!isConnected &&
+                    !needsRelogin &&
+                    lastSyncedAt &&
+                    !isSyncing && (
+                        <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
+                            {t("drive_paused")}
+                        </p>
+                    )}
                 {isConnected &&
                     lastSyncedAt &&
                     !isSyncing &&
@@ -347,6 +262,17 @@ export function DriveSync() {
                 {syncStatus === "success" && (
                     <p className="mt-1 text-center text-xs text-emerald-500">
                         {t("drive_complete")}
+                    </p>
+                )}
+                {/* 세션 없이 refresh 쿠키만 남은 기존 사용자: 조용히 끊긴 것처럼 보이지 않게 안내 */}
+                {needsRelogin && !isConnected && (
+                    <p className="mt-1 text-center text-xs text-amber-500 dark:text-amber-400">
+                        {t("drive_reloginRequired")}
+                    </p>
+                )}
+                {authError && (
+                    <p className="mt-1 text-xs text-red-500" title={authError}>
+                        {authError}
                     </p>
                 )}
                 {syncStatus === "error" && errorMessage && (
@@ -495,10 +421,6 @@ export function DriveSync() {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {showGuide && (
-                <ClientIdGuideModal onClose={() => setShowGuide(false)} />
             )}
         </>
     );

@@ -5,7 +5,7 @@
 ## 특징
 
 - ✍️ **NovelCrafter 스타일의 계층형 에디터**: 챕터와 씬을 관리하는 직관적인 3단 레이아웃
-- 🤖 **AI 기반 피드백**: Gemini API를 활용한 시놉시스/캐릭터 설정 기반 소설 피드백
+- 🤖 **AI 기반 피드백**: DeepSeek API를 활용한 시놉시스/캐릭터 설정 기반 소설 피드백
 - 💾 **Local-first 아키텍처**: Dexie.js를 통해 브라우저에 안전하게 저장
 - 🎨 **미니멀한 디자인**: Tailwind CSS 4로 구현한 깔끔한 UI
 
@@ -16,7 +16,7 @@
 - UI/UX: Tailwind CSS 4.0
 - Editor: TipTap
 - Database: Dexie.js (IndexedDB)
-- AI Engine: Gemini 2.0 Flash API
+- AI Engine: DeepSeek API (`deepseek-chat`, `deepseek-reasoner`)
 - Icon: Lucide React
 - State Management: Zustand
 
@@ -32,13 +32,29 @@ pnpm install
 
 ### 2. 환경 변수 설정
 
-프로젝트 루트에 `.env.local` 파일을 생성하고 Gemini API 키를 추가하세요:
+`.env.example`을 `.env.local`로 복사한 뒤 값을 채우세요. Vercel에 배포할 때는 같은 값을 프로젝트 환경변수(Production)에 넣습니다.
 
-```bash
-GEMINI_API_KEY=your_api_key_here
-```
+| 변수 | 설명 |
+| --- | --- |
+| `DEEPSEEK_API_KEY` | DeepSeek API 키 ([platform.deepseek.com](https://platform.deepseek.com/api_keys)). 서버에만 있고 브라우저로 내려가지 않습니다. |
+| `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID (웹 애플리케이션). 클라이언트는 `/api/auth/config`로 이 값을 받아 씁니다. |
+| `GOOGLE_CLIENT_SECRET` | 같은 OAuth 클라이언트의 보안 비밀 |
+| `ALLOWED_EMAILS` | AI 기능을 쓸 수 있는 구글 계정 (쉼표로 구분) |
+| `SESSION_SECRET` | 세션 쿠키 서명용 비밀값, 32자 이상 (`openssl rand -base64 32`) |
 
-> Gemini API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 무료로 발급받을 수 있습니다.
+- AI API(`/api/ai/*`)는 `ALLOWED_EMAILS`에 있는 계정으로 구글 로그인(Drive 백업 로그인과 동일)한 경우에만 동작합니다.
+- 배포 환경(`NODE_ENV=production` 또는 Vercel)에서 인증 변수가 빠져 있으면 AI API는 503으로 막힙니다.
+- 구글 로그인(Drive 백업 포함)은 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `SESSION_SECRET`가 **모두** 있어야 동작합니다. 소유자 전용 앱이라 Drive 백업도 허용된 계정만 쓸 수 있습니다.
+- 로컬 개발에서 인증 변수를 비워 두면 AI API만 로그인 없이 열리고(`DEEPSEEK_API_KEY`는 필요), Drive 백업은 쓸 수 없습니다. Drive까지 로컬에서 확인하려면 인증 변수를 모두 채우세요.
+
+#### Google Cloud Console 설정
+
+1. Google Drive API를 사용 설정합니다.
+2. OAuth 동의 화면: 범위에 `openid`, `.../auth/userinfo.email`, `.../auth/drive.appdata`를 추가합니다.
+   - 게시 상태를 **"프로덕션 단계(In production)"** 로 바꾸세요. "테스트" 상태에서는 refresh token이 7일 뒤 만료되어 매주 다시 로그인해야 합니다. (본인만 쓰는 앱이면 검증 없이 경고 화면만 넘기면 됩니다)
+3. 사용자 인증 정보 → OAuth 클라이언트 ID (웹 애플리케이션)
+   - 승인된 JavaScript 원본: `https://<배포 도메인>`, `http://localhost:3000`
+   - 승인된 리디렉션 URI: `https://<배포 도메인>/auth`, `http://localhost:3000/auth`
 
 ### 3. 개발 서버 실행
 

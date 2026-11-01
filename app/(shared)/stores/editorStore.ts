@@ -16,12 +16,10 @@ import {
     sceneOps,
     settingsOps,
 } from "../db/operations";
-import {
-    DEFAULT_GEMINI_MODEL,
-    GEMINI_MODELS,
-    type GeminiModelId,
-} from "../routes";
+import { type AiModelId, DEFAULT_AI_MODEL, isAiModelId } from "../routes";
 import { initializeDemoData } from "../utils/demoData";
+
+const AI_MODEL_SETTING_KEY = "aiModel";
 
 export type DetailPanel =
     | { type: "character"; characterId: number }
@@ -48,8 +46,7 @@ interface EditorState {
     expandedChapterIds: Set<number>;
     isLoadingAI: boolean;
     isInitialized: boolean;
-    geminiModel: GeminiModelId;
-    geminiApiKey: string;
+    aiModel: AiModelId;
     dataVersion: number;
 
     // Actions
@@ -66,8 +63,7 @@ interface EditorState {
     setActiveProject: (id: number) => Promise<void>;
     updateSynopsis: (synopsis: string) => Promise<void>;
     addChapter: (title: string) => Promise<number>;
-    setGeminiModel: (model: GeminiModelId) => Promise<void>;
-    setGeminiApiKey: (key: string) => Promise<void>;
+    setAiModel: (model: AiModelId) => Promise<void>;
     setSelectedSceneId: (id: number | null) => void;
     setDetailPanel: (panel: DetailPanel | null) => void;
     setIsLoadingAI: (loading: boolean) => void;
@@ -166,26 +162,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     expandedChapterIds: new Set<number>(),
     isLoadingAI: false,
     isInitialized: false,
-    geminiModel: DEFAULT_GEMINI_MODEL,
-    geminiApiKey: "",
+    aiModel: DEFAULT_AI_MODEL,
     dataVersion: 0,
 
     // Actions
     // 갤러리용: 데모 데이터 보장 후 작품 목록 + 전역 설정 로드
     loadProjects: async () => {
         await initializeDemoData();
-        const [projects, savedGeminiModel, savedGeminiApiKey] =
-            await Promise.all([
-                projectOps.getAll(),
-                settingsOps.get("geminiModel"),
-                settingsOps.get("geminiApiKey"),
-            ]);
+        const [projects, savedAiModel] = await Promise.all([
+            projectOps.getAll(),
+            settingsOps.get(AI_MODEL_SETTING_KEY),
+        ]);
         set({
             projects,
-            geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
-                ? (savedGeminiModel as GeminiModelId)
-                : DEFAULT_GEMINI_MODEL,
-            geminiApiKey: savedGeminiApiKey || "",
+            aiModel: isAiModelId(savedAiModel)
+                ? savedAiModel
+                : DEFAULT_AI_MODEL,
         });
         return projects;
     },
@@ -232,8 +224,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             characters,
             relationships,
             lores,
-            savedGeminiModel,
-            savedGeminiApiKey,
+            savedAiModel,
         ] = await Promise.all([
             projectOps.get(targetId),
             chapterOps.getAll(targetId),
@@ -241,8 +232,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             characterOps.getAll(targetId),
             relationshipOps.getAll(targetId),
             loreOps.getAll(targetId),
-            settingsOps.get("geminiModel"),
-            settingsOps.get("geminiApiKey"),
+            settingsOps.get(AI_MODEL_SETTING_KEY),
         ]);
 
         await settingsOps.set("activeProjectId", String(targetId));
@@ -290,10 +280,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             synopsis: project?.synopsis ?? "",
             novelTitle: project?.title ?? "",
             isInitialized: true,
-            geminiModel: GEMINI_MODELS.some((m) => m.id === savedGeminiModel)
-                ? (savedGeminiModel as GeminiModelId)
-                : DEFAULT_GEMINI_MODEL,
-            geminiApiKey: savedGeminiApiKey || "",
+            aiModel: isAiModelId(savedAiModel)
+                ? savedAiModel
+                : DEFAULT_AI_MODEL,
             dataVersion: get().dataVersion + 1,
             // DB에서 불러온 레코드이므로 id는 항상 존재
             expandedChapterIds: new Set(chapters.map((c) => c.id!)),
@@ -400,14 +389,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return id;
     },
 
-    setGeminiModel: async (geminiModel) => {
-        await settingsOps.set("geminiModel", geminiModel);
-        set({ geminiModel });
-    },
-
-    setGeminiApiKey: async (geminiApiKey) => {
-        await settingsOps.set("geminiApiKey", geminiApiKey);
-        set({ geminiApiKey });
+    setAiModel: async (aiModel) => {
+        await settingsOps.set(AI_MODEL_SETTING_KEY, aiModel);
+        set({ aiModel });
     },
 
     setSelectedSceneId: (selectedSceneId) => set({ selectedSceneId }),

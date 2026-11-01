@@ -4,11 +4,12 @@ import { useState } from "react";
 import type { AiConversation, AiMessage } from "@/app/(shared)/db";
 import { aiConversationOps, aiMessageOps } from "@/app/(shared)/db/operations";
 import {
+    type AiModelId,
     apiRoutes,
-    DEFAULT_GEMINI_MODEL,
-    type GeminiModelId,
+    DEFAULT_AI_MODEL,
 } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
+import { AiAuthError, postAi } from "@/app/(shared)/utils/aiClient";
 import type { AttachedContext } from "./types";
 
 interface Options {
@@ -21,8 +22,7 @@ interface Options {
     setInput: (val: string) => void;
     attachedCtxs: AttachedContext[];
     setAttachedCtxs: React.Dispatch<React.SetStateAction<AttachedContext[]>>;
-    geminiModel?: GeminiModelId;
-    geminiApiKey?: string;
+    aiModel?: AiModelId;
 }
 
 export function useChat({
@@ -35,10 +35,13 @@ export function useChat({
     setInput,
     attachedCtxs,
     setAttachedCtxs,
-    geminiModel = DEFAULT_GEMINI_MODEL,
-    geminiApiKey = "",
+    aiModel = DEFAULT_AI_MODEL,
 }: Options) {
     const [isLoading, setIsLoading] = useState(false);
+    // 401(로그인 필요) 응답을 받으면 true → 패널에 로그인 안내 표시
+    const [authRequired, setAuthRequired] = useState(false);
+    // 일반 오류는 대화 기록에 남기지 않고 화면에만 잠깐 보여준다 (LLM 기록으로 재전송 방지)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const activeProjectId = useEditorStore((s) => s.activeProjectId);
 
     const handleSend = async () => {
@@ -118,25 +121,25 @@ export function useChat({
                           .join("\n\n---\n\n"),
                   }
                 : undefined;
+        const sentCtxs = attachedCtxs;
         setAttachedCtxs([]);
 
         setIsLoading(true);
+        setErrorMessage(null);
         try {
-            const res = await fetch(apiRoutes.aiChat, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            const data = await postAi<{ reply: string }>(
+                apiRoutes.aiChat,
+                {
                     messages: updatedMessages.map((m) => ({
                         role: m.role,
                         text: m.text,
                     })),
                     context: ctxForApi,
-                    model: geminiModel,
-                    apiKey: geminiApiKey,
-                }),
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const data = await res.json();
+                    model: aiModel,
+                },
+                "응답을 생성하지 못했습니다.",
+            );
+            setAuthRequired(false);
 
             const modelMsgId = await aiMessageOps.create(
                 convId,
@@ -153,26 +156,31 @@ export function useChat({
                     createdAt: new Date(),
                 },
             ]);
-        } catch {
-            const errorMsgId = await aiMessageOps.create(
-                convId,
-                "model",
-                "응답을 생성하지 못했습니다.",
+        } catch (error) {
+            // 로그인 필요: 보낸 메시지를 되돌리고 입력창에 복원해 로그인 후 다시 보낼 수 있게 한다
+            if (error instanceof AiAuthError) {
+                await aiMessageOps.delete(userMsgId);
+                setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
+                setInput(trimmed);
+                setAttachedCtxs(sentCtxs);
+                setAuthRequired(true);
+                return;
+            }
+            setErrorMessage(
+                error instanceof Error && error.message
+                    ? error.message
+                    : "응답을 생성하지 못했습니다.",
             );
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: errorMsgId,
-                    conversationId: convId!,
-                    role: "model",
-                    text: "응답을 생성하지 못했습니다.",
-                    createdAt: new Date(),
-                },
-            ]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    return { handleSend, isLoading };
+    return {
+        handleSend,
+        isLoading,
+        authRequired,
+        clearAuthRequired: () => setAuthRequired(false),
+        errorMessage,
+    };
 }

@@ -1,9 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { generateFeedback } from "@/app/(shared)/utils/gemini";
+import { NextResponse } from "next/server";
+import { withAiRoute } from "@/app/(shared)/utils/aiRoute";
+import { generateFeedback } from "@/app/(shared)/utils/deepseek";
 
-export async function POST(request: NextRequest) {
-    try {
-        const { sceneContent, synopsis, characters, prompt, model, apiKey } =
+export const POST = withAiRoute(
+    async (request) => {
+        const { sceneContent, synopsis, characters, prompt, model } =
             await request.json();
 
         if (!sceneContent) {
@@ -19,15 +20,12 @@ export async function POST(request: NextRequest) {
             characters || [],
             prompt,
             model,
-            apiKey,
         );
 
         return NextResponse.json({ feedback });
-    } catch (error) {
-        console.error("Feedback API error:", error);
-        return NextResponse.json(
-            { error: "AI 피드백 생성에 실패했습니다." },
-            { status: 500 },
-        );
-    }
-}
+    },
+    {
+        logLabel: "Feedback API",
+        fallbackError: "AI 피드백 생성에 실패했습니다.",
+    },
+);
