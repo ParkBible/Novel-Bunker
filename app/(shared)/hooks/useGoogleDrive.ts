@@ -8,10 +8,9 @@ import { useEditorStore } from "../stores/editorStore";
 import {
     checkRemoteNewer,
     clearAccessToken,
-    createAutoSnapshot,
+    clearUnsyncedChanges,
     DriveAuthError,
     deleteSnapshot as deleteSnapshotFn,
-    exportToDrive,
     exportToDriveWithSnapshot,
     fetchRemoteBackup,
     getAccessToken,
@@ -31,7 +30,7 @@ import {
     takePendingActionFor,
     tryRefreshTokenSilently,
 } from "../utils/googleDrive";
-import { useDebouncedCallback } from "./useDebouncedCallback";
+import { useDriveAutoUpload } from "./useDriveAutoUpload";
 
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
@@ -182,6 +181,8 @@ export function useGoogleDrive() {
                     throw e;
                 }
                 setSyncStatus("success");
+                // 업로드/다운로드 후엔 로컬과 원격이 같으므로 밀린 자동 업로드도 없다
+                clearUnsyncedChanges();
                 const now = new Date();
                 saveLastSyncedAt(now);
                 setLastSyncedAt(now);
@@ -313,46 +314,20 @@ export function useGoogleDrive() {
         [ensureAuth],
     );
 
-    // 자동 업로드 — 토큰이 있을 때만 실행
-    const autoUploadCore = useCallback(async () => {
-        if (!getAccessToken()) return;
-        // 다른 기기의 최신본이 해소되지 않았으면 자동 업로드를 막아 덮어쓰기 방지
-        if (isRemoteStaleRef.current) return;
-        try {
-            await createAutoSnapshot();
-            await exportToDrive();
-            const now = new Date();
-            saveLastSyncedAt(now);
-            setLastSyncedAt(now);
-        } catch (e) {
-            if (e instanceof DriveAuthError) {
-                clearAccessToken();
-                setIsConnected(false);
-            }
-        }
-    }, []);
-
-    // 언마운트 시 자동 업로드 flush는 하지 않음 (teardown 중 예기치 않은 업로드 방지)
-    const autoUpload = useDebouncedCallback(autoUploadCore, 30_000, {
-        flushOnUnmount: false,
+    useDriveAutoUpload({
+        isBlocked: () => isRemoteStaleRef.current,
+        onRemoteStale: (modifiedTime) => {
+            if (!isMountedRef.current) return;
+            setIsRemoteStale(true);
+            setRemoteModifiedAt(modifiedTime);
+        },
+        onUploaded: (at) => {
+            if (isMountedRef.current) setLastSyncedAt(at);
+        },
+        onAuthError: () => {
+            if (isMountedRef.current) setIsConnected(false);
+        },
     });
-
-    useEffect(() => {
-        const unsubscribe = useEditorStore.subscribe((state, prevState) => {
-            const changed =
-                state.chapters !== prevState.chapters ||
-                state.scenes !== prevState.scenes ||
-                state.characters !== prevState.characters ||
-                state.relationships !== prevState.relationships ||
-                state.lores !== prevState.lores ||
-                state.novelTitle !== prevState.novelTitle ||
-                state.synopsis !== prevState.synopsis ||
-                state.loreCategories !== prevState.loreCategories ||
-                state.characterGroups !== prevState.characterGroups;
-            if (changed) autoUpload();
-        });
-        return unsubscribe;
-    }, [autoUpload]);
 
     // 원격 최신본을 무시하고 내 로컬 버전을 최신으로 올림 (덮어쓰기)
     const keepLocal = useCallback(() => {
