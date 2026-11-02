@@ -25,6 +25,7 @@ export const ko = {
     // Works gallery
     gallery_title: "내 작품들",
     gallery_newWork: "새 작품",
+    gallery_hub: "허브",
     gallery_newWorkDefault: "새 작품",
     gallery_untitled: "제목 없는 작품",
     gallery_empty: "아직 작품이 없습니다. 새 작품을 만들어 시작하세요.",
@@ -49,6 +50,7 @@ export const ko = {
     // Novel title header
     novelTitle_editTitle: "제목 편집",
     novelTitle_dashboard: "대시보드",
+    novelTitle_hub: "허브로 이동",
     novelTitle_addChapter: "챕터 추가",
 
     // Tree panel
@@ -397,6 +399,7 @@ export const en = {
     // Works gallery
     gallery_title: "My Works",
     gallery_newWork: "New Work",
+    gallery_hub: "Hub",
     gallery_newWorkDefault: "New Work",
     gallery_untitled: "Untitled Work",
     gallery_empty: "No works yet. Create one to get started.",
@@ -421,6 +424,7 @@ export const en = {
     // Novel title header
     novelTitle_editTitle: "Edit title",
     novelTitle_dashboard: "Dashboard",
+    novelTitle_hub: "Go to hub",
     novelTitle_addChapter: "Add chapter",
 
     // Tree panel

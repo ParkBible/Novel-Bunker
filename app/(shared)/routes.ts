@@ -5,6 +5,9 @@ export const routes = {
     chapterPrefix: "/chapter/",
 } as const;
 
+// 내 서비스 모음 대시보드 (Park-Hub)
+export const HUB_URL = "https://park-hub-blush.vercel.app";
+
 export const apiRoutes = {
     aiFeedback: "/api/ai/feedback",
     aiChat: "/api/ai/chat",

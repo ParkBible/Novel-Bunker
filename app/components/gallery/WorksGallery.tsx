@@ -1,13 +1,13 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { LayoutGrid, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
 import { chapterOps, projectOps } from "@/app/(shared)/db/operations";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import { routes } from "@/app/(shared)/routes";
+import { HUB_URL, routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { WorkCard, type WorkStats } from "./WorkCard";
 
@@ -76,6 +76,13 @@ export function WorksGallery() {
                     </h1>
                     <div className="flex items-center gap-2">
                         <ThemeToggle />
+                        <a
+                            href={HUB_URL}
+                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        >
+                            <LayoutGrid className="h-4 w-4" />
+                            {t("gallery_hub")}
+                        </a>
                         <button
                             type="button"
                             onClick={handleNewWork}

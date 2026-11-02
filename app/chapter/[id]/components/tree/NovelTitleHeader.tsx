@@ -1,11 +1,11 @@
 "use client";
 
-import { LayoutDashboard, Pencil, Plus } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
-import { routes } from "@/app/(shared)/routes";
+import { HUB_URL, routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 
 interface NovelTitleHeaderProps {
@@ -91,6 +91,13 @@ export function NovelTitleHeader({
             </div>
             <div className="ml-2 flex shrink-0 items-center gap-1">
                 <ThemeToggle />
+                <a
+                    href={HUB_URL}
+                    className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    title={t("novelTitle_hub")}
+                >
+                    <LayoutGrid className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                </a>
                 <Link
                     href={
                         activeProjectId !== null
