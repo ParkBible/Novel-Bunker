@@ -1,7 +1,8 @@
 "use client";
 
 import { HelpCircle, Lightbulb, X } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { MarkdownField } from "@/app/(shared)/components/MarkdownField";
 import type { Character } from "@/app/(shared)/db";
 import { useDraftValue } from "@/app/(shared)/hooks/useDraftValue";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
@@ -23,9 +24,9 @@ const inlineInputClass =
     "w-full bg-transparent text-sm text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
 const inlineTextareaClass =
-    "w-full resize-none bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
+    "min-h-[4.5rem] w-full bg-transparent text-sm leading-relaxed text-zinc-700 outline-none placeholder:text-zinc-300 hover:bg-zinc-50 focus:bg-zinc-50 rounded px-1 py-0.5 -mx-1 transition-colors dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800";
 
-function AutoResizeTextarea({
+function GuidedMarkdownField({
     value,
     placeholder,
     onChange,
@@ -41,19 +42,6 @@ function AutoResizeTextarea({
     showGuide?: boolean;
 }) {
     const t = useTranslation();
-    const { draft, handleChange, handleFocus, handleBlur } = useDraftValue(
-        value,
-        onChange,
-    );
-    const ref = useRef<HTMLTextAreaElement>(null);
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: draft 변경 시 textarea 높이 재조정 트리거
-    useLayoutEffect(() => {
-        if (ref.current && !CSS.supports("field-sizing", "content")) {
-            ref.current.style.height = "auto";
-            ref.current.style.height = `${ref.current.scrollHeight}px`;
-        }
-    }, [draft]);
 
     return (
         <div className="flex flex-col gap-1">
@@ -87,15 +75,11 @@ function AutoResizeTextarea({
                     </div>
                 </div>
             )}
-            <textarea
-                ref={ref}
-                value={draft}
-                rows={3}
+            <MarkdownField
+                value={value}
                 placeholder={placeholder}
-                onChange={(e) => handleChange(e.target.value)}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                className={`${inlineTextareaClass} field-sizing-content`}
+                onChange={onChange}
+                className={inlineTextareaClass}
             />
         </div>
     );
@@ -219,7 +203,7 @@ function LongField({
                     <HelpCircle className="h-3.5 w-3.5" />
                 </button>
             </div>
-            <AutoResizeTextarea
+            <GuidedMarkdownField
                 value={(character[fieldKey] as string) ?? ""}
                 placeholder={t("characterInfo_contentPlaceholder")}
                 onChange={(val) => onSave({ [fieldKey]: val })}
