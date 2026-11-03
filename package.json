@@ -16,6 +16,7 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@tiptap/extension-placeholder": "^3.17.1",
+        "@tiptap/markdown": "3.17.1",
         "@tiptap/react": "^3.17.1",
         "@tiptap/starter-kit": "^3.17.1",
         "d3-force": "^3.0.0",

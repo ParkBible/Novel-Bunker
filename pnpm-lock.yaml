@@ -23,6 +23,9 @@ importers:
       '@tiptap/extension-placeholder':
         specifier: ^3.17.1
         version: 3.17.1(@tiptap/extensions@3.17.1(@tiptap/core@3.17.1(@tiptap/pm@3.17.1))(@tiptap/pm@3.17.1))
+      '@tiptap/markdown':
+        specifier: 3.17.1
+        version: 3.17.1(@tiptap/core@3.17.1(@tiptap/pm@3.17.1))(@tiptap/pm@3.17.1)
       '@tiptap/react':
         specifier: ^3.17.1
         version: 3.17.1(@floating-ui/dom@1.7.4)(@tiptap/core@3.17.1(@tiptap/pm@3.17.1))(@tiptap/pm@3.17.1)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -739,6 +742,12 @@ packages:
       '@tiptap/core': ^3.17.1
       '@tiptap/pm': ^3.17.1
 
+  '@tiptap/markdown@3.17.1':
+    resolution: {integrity: sha512-GyjSTF0TabmlVryf2o98QNYCtqbfPn2CpKdGeNONF6npvT7+aHRE1j7LR8jK34nkQmHYUVuSfoYRzKfIsJ/vBA==}
+    peerDependencies:
+      '@tiptap/core': ^3.17.1
+      '@tiptap/pm': ^3.17.1
+
   '@tiptap/pm@3.17.1':
     resolution: {integrity: sha512-UyVLkN8axV/zop6Se2DCBJRu5DM21X0XEQvwEC5P/vk8eC9OcQZ3FLtxeYy2ZjpAZUzBGLw0/BGsmEip/n7olw==}
 
@@ -1423,6 +1432,11 @@ packages:
 
   markdown-it@14.1.0:
     resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
+    hasBin: true
+
+  marked@15.0.12:
+    resolution: {integrity: sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA==}
+    engines: {node: '>= 18'}
     hasBin: true
 
   mdurl@2.0.0:
@@ -2528,6 +2542,12 @@ snapshots:
       '@tiptap/core': 3.17.1(@tiptap/pm@3.17.1)
       '@tiptap/pm': 3.17.1
 
+  '@tiptap/markdown@3.17.1(@tiptap/core@3.17.1(@tiptap/pm@3.17.1))(@tiptap/pm@3.17.1)':
+    dependencies:
+      '@tiptap/core': 3.17.1(@tiptap/pm@3.17.1)
+      '@tiptap/pm': 3.17.1
+      marked: 15.0.12
+
   '@tiptap/pm@3.17.1':
     dependencies:
       prosemirror-changeset: 2.3.1
@@ -3216,6 +3236,8 @@ snapshots:
       mdurl: 2.0.0
       punycode.js: 2.3.1
       uc.micro: 2.1.0
+
+  marked@15.0.12: {}
 
   mdurl@2.0.0: {}
 
