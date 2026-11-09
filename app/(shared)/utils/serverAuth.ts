@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 
 // 서버 전용 인증 헬퍼: 소유자 구글 계정만 AI API를 쓸 수 있도록 세션 쿠키를 발급/검증한다.
 
-export const REFRESH_COOKIE = "gdrive_refresh_token";
-export const SESSION_COOKIE = "nb_session";
+// 세션·refresh 쿠키는 허브·레시피노트·메모노트와 같은 이름·형식(Hono 서명 쿠키)·SESSION_SECRET 으로 함께 쓴다.
+// COOKIE_DOMAIN(예: park-bible.com)을 주면 하위 도메인 전체에 걸려 한 곳에서 로그인하면 다른 앱도 로그인된다
+export const REFRESH_COOKIE = "pb_refresh";
+export const SESSION_COOKIE = "pb_session";
 export const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 30; // 30일 (refresh 쿠키와 동일)
 
 export const AI_LOGIN_REQUIRED_MESSAGE =
@@ -51,8 +53,11 @@ export function isEmailAllowed(email: string, config: AuthConfig): boolean {
     return config.allowedEmails.includes(email.trim().toLowerCase());
 }
 
+const cookieDomain = () => process.env.COOKIE_DOMAIN?.trim() || undefined;
+
 export function cookieOptions() {
     return {
+        domain: cookieDomain(),
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax" as const,
@@ -61,17 +66,44 @@ export function cookieOptions() {
     };
 }
 
-function sign(payload: string, secret: string): string {
-    return createHmac("sha256", secret).update(payload).digest("base64url");
+// 쿠키 삭제도 같은 domain 으로 해야 하위 도메인 공용 쿠키가 지워진다
+export function deleteAuthCookie(
+    cookieStore: Awaited<ReturnType<typeof cookies>>,
+    name: string,
+) {
+    cookieStore.delete({ name, path: "/", domain: cookieDomain() });
 }
 
-// 세션 값: base64url("email|expiryMs") + "." + HMAC-SHA256 서명
+// Hono setSignedCookie 와 같은 형식: "값.base64(HMAC-SHA256)" — 허브·레시피노트 서버와 서로 읽을 수 있어야 한다
+function sign(value: string, secret: string): string {
+    return createHmac("sha256", secret).update(value).digest("base64");
+}
+
+export function signCookieValue(value: string, secret: string): string {
+    return `${value}.${sign(value, secret)}`;
+}
+
+// 서명이 맞으면 원래 값, 아니면 null. 서명은 상수 시간 비교.
+export function readSignedValue(
+    signed: string | undefined,
+    secret: string,
+): string | null {
+    if (!signed) return null;
+    const dot = signed.lastIndexOf(".");
+    if (dot <= 0) return null;
+    const value = signed.slice(0, dot);
+    const given = Buffer.from(signed.slice(dot + 1));
+    const expected = Buffer.from(sign(value, secret));
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+        return null;
+    }
+    return value;
+}
+
+// 세션 값: "email|expiryMs" 를 서명한 것
 export function createSessionValue(email: string, secret: string): string {
     const expiryMs = Date.now() + COOKIE_MAX_AGE_SEC * 1000;
-    const payload = Buffer.from(`${email.toLowerCase()}|${expiryMs}`).toString(
-        "base64url",
-    );
-    return `${payload}.${sign(payload, secret)}`;
+    return signCookieValue(`${email.toLowerCase()}|${expiryMs}`, secret);
 }
 
 // 유효하면 이메일, 아니면 null. 서명은 상수 시간 비교.
@@ -79,17 +111,8 @@ export function verifySessionValue(
     value: string | undefined,
     config: AuthConfig,
 ): string | null {
-    if (!value) return null;
-    const dot = value.lastIndexOf(".");
-    if (dot <= 0) return null;
-    const payload = value.slice(0, dot);
-    const given = Buffer.from(value.slice(dot + 1));
-    const expected = Buffer.from(sign(payload, config.sessionSecret));
-    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
-        return null;
-    }
-
-    const decoded = Buffer.from(payload, "base64url").toString("utf8");
+    const decoded = readSignedValue(value, config.sessionSecret);
+    if (!decoded) return null;
     const sep = decoded.lastIndexOf("|");
     if (sep <= 0) return null;
     const email = decoded.slice(0, sep);

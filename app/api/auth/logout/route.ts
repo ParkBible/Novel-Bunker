@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import {
+    deleteAuthCookie,
     REFRESH_COOKIE,
     SESSION_COOKIE,
 } from "@/app/(shared)/utils/serverAuth";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
         );
     }
     const cookieStore = await cookies();
-    cookieStore.delete(REFRESH_COOKIE);
-    cookieStore.delete(SESSION_COOKIE);
+    deleteAuthCookie(cookieStore, REFRESH_COOKIE);
+    deleteAuthCookie(cookieStore, SESSION_COOKIE);
     return NextResponse.json({ ok: true });
 }

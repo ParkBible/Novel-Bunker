@@ -7,6 +7,7 @@ import {
     isEmailAllowed,
     REFRESH_COOKIE,
     SESSION_COOKIE,
+    signCookieValue,
 } from "@/app/(shared)/utils/serverAuth";
 
 const NOT_ALLOWED_MESSAGE =
@@ -111,7 +112,11 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     // refresh_token은 httpOnly 쿠키에 안전하게 저장
     if (data.refresh_token) {
-        cookieStore.set(REFRESH_COOKIE, data.refresh_token, cookieOptions());
+        cookieStore.set(
+            REFRESH_COOKIE,
+            signCookieValue(data.refresh_token, config.sessionSecret),
+            cookieOptions(),
+        );
     }
     // AI API 접근용 세션 (email|만료시각, HMAC 서명)
     cookieStore.set(

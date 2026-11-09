@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
+    deleteAuthCookie,
     getAuthConfig,
     getSessionEmail,
     REFRESH_COOKIE,
+    readSignedValue,
 } from "@/app/(shared)/utils/serverAuth";
 
 export async function POST() {
@@ -16,7 +18,10 @@ export async function POST() {
     }
 
     const cookieStore = await cookies();
-    const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+    const refreshToken = readSignedValue(
+        cookieStore.get(REFRESH_COOKIE)?.value,
+        config.sessionSecret,
+    );
 
     // 유효한 세션(허용된 계정으로 로그인한 기록)이 있어야만 갱신해 준다.
     // refresh 쿠키만 있고 세션이 없으면(세션 도입 전 로그인 등) 재로그인 안내용 코드를 준다.
@@ -54,7 +59,7 @@ export async function POST() {
     if (!tokenRes.ok || data.error) {
         // 토큰이 만료/폐기된 경우 쿠키 삭제
         if (data.error === "invalid_grant") {
-            cookieStore.delete(REFRESH_COOKIE);
+            deleteAuthCookie(cookieStore, REFRESH_COOKIE);
         }
         return NextResponse.json(
             { error: data.error_description ?? data.error ?? "갱신 실패" },
