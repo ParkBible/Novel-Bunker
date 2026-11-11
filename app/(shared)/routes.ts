@@ -6,7 +6,7 @@ export const routes = {
 } as const;
 
 // 내 서비스 모음 대시보드 (Park-Hub)
-export const HUB_URL = "https://park-hub-blush.vercel.app";
+export const HUB_URL = "https://park-bible.com";
 
 export const apiRoutes = {
     aiFeedback: "/api/ai/feedback",
