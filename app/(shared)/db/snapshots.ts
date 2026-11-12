@@ -133,23 +133,36 @@ export const snapshotOps = {
         return id;
     },
 
-    // 마지막 스냅샷과 내용이 같으면 건너뛰는 자동 스냅샷
-    async createAutoIfChanged(): Promise<number | null> {
+    // 마지막 스냅샷과 내용이 같으면 건너뛰는 자동 스냅샷.
+    // label을 붙이면 구간별 정리에서 빠진다 (덮어쓰기 직전 보존본이 곧바로 밀려나지 않게)
+    async createAutoIfChanged(label?: string): Promise<number | null> {
         const data = await collectLocalData();
         const json = JSON.stringify(data);
-        const prev = await latestData();
+        const latest = await db.snapshots
+            .orderBy("createdAt")
+            .reverse()
+            .first();
+        const prev =
+            latest?.id !== undefined ? await readData(latest.id) : null;
         if (prev) {
             // exportedAt은 수집 시각이라 매번 달라지므로 비교에서 제외
             const hasChanged =
                 JSON.stringify({ ...data, exportedAt: "" }) !==
                 JSON.stringify({ ...prev, exportedAt: "" });
-            if (!hasChanged) return null; // 변경 없음
+            if (!hasChanged) {
+                // 같은 내용이 이미 있으면 그 스냅샷에 이름을 붙여 정리 대상에서 뺀다
+                if (label && latest?.id !== undefined && !latest.label) {
+                    await db.snapshots.update(latest.id, { label });
+                }
+                return null;
+            }
         }
         const createdAt = new Date();
         const id = await insertSnapshot(
             {
                 createdAt,
                 type: "auto",
+                label,
                 size: json.length,
                 ...computeStats(data, prev),
             },
@@ -189,7 +202,7 @@ export const snapshotOps = {
         );
     },
 
-    // 보관 정책 적용: 수동은 최대 개수, 자동은 구간별 씨닝
+    // 보관 정책 적용: 수동은 최대 개수, 자동은 구간별 씨닝 (이름 붙은 자동은 기간만)
     async prune(): Promise<void> {
         const all = await db.snapshots.orderBy("createdAt").reverse().toArray();
         const now = Date.now();
@@ -216,6 +229,8 @@ export const snapshotOps = {
                 toDelete.push(s.id);
                 return;
             }
+            // 이름 붙은 자동 스냅샷(Drive 받기 직전 보존본 등)은 보관 기간 동안 솎지 않는다
+            if (s.label) return;
             // 가장 최신 한 건은 어떤 경우에도 남긴다
             if (seenBuckets.has(bucket) && index > 0) toDelete.push(s.id);
             else seenBuckets.add(bucket);

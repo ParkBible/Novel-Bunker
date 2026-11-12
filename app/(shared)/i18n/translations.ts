@@ -243,6 +243,7 @@ export const ko = {
     drive_staleDownload: "변경사항 보기",
     drive_staleKeepLocal: "내 버전으로 덮어쓰기",
     drive_lastSync: "마지막 동기화: {time}",
+    drive_autoPulled: "다른 기기에서 바뀐 내용을 받아왔어요 · {time}",
     drive_complete: "완료되었습니다",
     drive_uploadModalTitle: "Drive에 업로드",
     drive_emptyWarning:
@@ -316,6 +317,7 @@ export const ko = {
     version_legendRemoved: "이 버전에만 있던 문단",
     version_legendAdded: "이후에 추가된 문단",
     version_manualPinned: "직접 저장한 버전",
+    version_beforeDriveDownload: "Drive에서 받기 전",
     version_sceneCount: "씬 {n}개",
     version_sceneMore: "외 {n}개",
     version_untitledScene: "제목 없는 씬",
@@ -617,6 +619,7 @@ export const en = {
     drive_staleDownload: "See changes",
     drive_staleKeepLocal: "Overwrite with mine",
     drive_lastSync: "Last synced: {time}",
+    drive_autoPulled: "Pulled changes from another device · {time}",
     drive_complete: "Done",
     drive_uploadModalTitle: "Upload to Drive",
     drive_emptyWarning:
@@ -691,6 +694,7 @@ export const en = {
     version_legendRemoved: "Only in this version",
     version_legendAdded: "Added since",
     version_manualPinned: "Saved manually",
+    version_beforeDriveDownload: "Before Drive download",
     version_sceneCount: "{n} scenes",
     version_sceneMore: "and {n} more",
     version_untitledScene: "Untitled scene",

@@ -10,7 +10,9 @@ import {
 } from "../db/driveCache";
 import { projectOps } from "../db/operations";
 import { computeStats, type SnapshotStats } from "../db/snapshotStats";
+import { snapshotOps } from "../db/snapshots";
 import { apiRoutes } from "../routes";
+import { contentFingerprint } from "./syncFingerprint";
 
 export class DriveAuthError extends Error {
     constructor(msg: string) {
@@ -59,6 +61,34 @@ function saveLastSyncedModified(modifiedTime: string): void {
     } catch {
         // ignore
     }
+}
+
+// ── 마지막으로 동기화한 내용의 지문 (localStorage) ─────────────
+// "이 기기에서 고쳤는가"를 판단하는 기준. 작품을 열기만 해도 스토어가 바뀌어
+// 아래의 미동기화 표시가 켜지므로, 그 표시 대신 실제 내용을 비교한다.
+const SYNCED_FINGERPRINT_KEY = "novelbunker_drive_synced_fingerprint";
+
+function getSyncedFingerprint(): string | null {
+    try {
+        return localStorage.getItem(SYNCED_FINGERPRINT_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function saveSyncedFingerprint(fingerprint: string): void {
+    try {
+        localStorage.setItem(SYNCED_FINGERPRINT_KEY, fingerprint);
+    } catch {
+        // ignore
+    }
+}
+
+/** 마지막 업로드·받기 이후 이 기기 내용이 바뀌었는지. 기준이 없으면(첫 동기화 전) 바뀐 것으로 본다 */
+export async function hasLocalChangesSinceSync(): Promise<boolean> {
+    const synced = getSyncedFingerprint();
+    if (synced === null) return true;
+    return (await contentFingerprint(await collectLocalData())) !== synced;
 }
 
 // ── 아직 Drive에 올리지 못한 로컬 변경 (localStorage) ─────────
@@ -423,19 +453,50 @@ export async function findBackupFile(): Promise<{
     );
 }
 
-// ── 원격이 로컬보다 최신인지 확인 ────────────────────────────
-// 다른 기기에서 이 기기가 마지막으로 동기화한 이후에 업로드했으면 true.
-export async function checkRemoteNewer(): Promise<{
-    stale: boolean;
-    modifiedTime: Date | null;
-}> {
+// ── 원격 상태 확인 ────────────────────────────────────────────
+// nothingNew: 받을 게 없음 (원격이 그대로이거나, 올라온 내용이 이미 아는 내용)
+// remoteAhead: 다른 기기만 바꿨다 → 그대로 받아도 이 기기에서 잃는 게 없다
+// diverged: 이 기기와 다른 기기가 둘 다 바꿨다 → 사용자가 골라야 한다
+export type RemoteState =
+    | { kind: "nothingNew" }
+    | { kind: "remoteAhead"; remote: RemoteBackup; modifiedTime: Date }
+    | { kind: "diverged"; modifiedTime: Date };
+
+export async function inspectRemote(): Promise<RemoteState> {
     const file = await findBackupFile();
-    if (!file) return { stale: false, modifiedTime: null };
-    const lastSynced = getLastSyncedModified();
+    if (!file || file.modifiedTime === getLastSyncedModified()) {
+        return { kind: "nothingNew" };
+    }
+    const [json, local] = await Promise.all([
+        downloadFileText(file.id),
+        collectLocalData(),
+    ]);
+    const data = JSON.parse(json) as BackupData;
+    const [remoteFingerprint, localFingerprint] = await Promise.all([
+        contentFingerprint(data),
+        contentFingerprint(local),
+    ]);
+    const syncedFingerprint = getSyncedFingerprint();
     const modifiedTime = new Date(file.modifiedTime);
-    // 한 번도 동기화한 적이 없는데 Drive에 백업이 있으면 stale로 간주
-    const stale = lastSynced === null || file.modifiedTime !== lastSynced;
-    return { stale, modifiedTime };
+
+    if (remoteFingerprint === localFingerprint) {
+        saveLastSyncedModified(file.modifiedTime);
+        saveSyncedFingerprint(localFingerprint);
+        return { kind: "nothingNew" };
+    }
+    // 수정 시각만 바뀌고 내용은 마지막 동기화 그대로 → 이 기기 변경만 남아 있다
+    if (remoteFingerprint === syncedFingerprint) {
+        saveLastSyncedModified(file.modifiedTime);
+        return { kind: "nothingNew" };
+    }
+    if (localFingerprint === syncedFingerprint) {
+        return {
+            kind: "remoteAhead",
+            remote: { data, modifiedTime: file.modifiedTime },
+            modifiedTime,
+        };
+    }
+    return { kind: "diverged", modifiedTime };
 }
 
 // ── 스냅샷 요약값 (Drive 파일 메타에 저장) ────────────────────
@@ -705,7 +766,10 @@ export async function isLocalDataEmpty(): Promise<boolean> {
 export async function exportToDrive(): Promise<void> {
     const data = await collectLocalData();
     const json = JSON.stringify(data);
-    const file = await findBackupFile();
+    const [file, fingerprint] = await Promise.all([
+        findBackupFile(),
+        contentFingerprint(data),
+    ]);
 
     // 업로드 응답에서 새 modifiedTime을 직접 받아 추가 조회 없이 기록한다.
     let modifiedTime: string | null = null;
@@ -725,6 +789,7 @@ export async function exportToDrive(): Promise<void> {
     }
     // 방금 올린 버전을 "마지막 동기화 버전"으로 기록 → stale 오탐 방지
     if (modifiedTime) saveLastSyncedModified(modifiedTime);
+    saveSyncedFingerprint(fingerprint);
     // 다음 스냅샷의 본문은 지금 올린 이 내용이다 (스냅샷은 Drive 파일의 사본).
     // 요약 계산에 쓰려고 캐시해 둔다 — 실패해도 업로드 자체는 성공 처리한다.
     try {
@@ -757,11 +822,20 @@ export async function fetchRemoteBackup(): Promise<RemoteBackup> {
 }
 
 // ── Drive에서 다운로드 ────────────────────────────────────────
+/**
+ * 덮어쓰기 직전 상태를 로컬 버전 기록에 먼저 남긴다 (저장에 실패하면 받지 않는다).
+ * @param backupLabel 붙이면 그 기록은 구간별 정리에서 빠진다. 아직 안 올라간 내용이
+ *   있을 수 있는 직접 받기에만 쓴다 — 자동 받기마다 붙이면 전체 사본이 계속 쌓인다.
+ */
 export async function importFromDrive(
     prefetched?: RemoteBackup,
+    backupLabel?: string,
 ): Promise<void> {
     const remote = prefetched ?? (await fetchRemoteBackup());
+    await snapshotOps.createAutoIfChanged(backupLabel);
     await applyImportedData(remote.data);
     // 방금 받은 버전을 "마지막 동기화 버전"으로 기록 (추가 조회 불필요)
     saveLastSyncedModified(remote.modifiedTime);
+    // 받은 그대로가 아니라 적용된 결과로 지문을 잡는다 (구버전 백업은 적용하며 형태가 바뀐다)
+    saveSyncedFingerprint(await contentFingerprint(await collectLocalData()));
 }

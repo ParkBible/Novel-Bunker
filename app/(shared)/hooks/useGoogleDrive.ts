@@ -3,10 +3,11 @@
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chapterOps } from "../db/operations";
+import { useTranslation } from "../i18n/TranslationProvider";
 import { routes } from "../routes";
+import { useDriveSyncStore } from "../stores/driveSyncStore";
 import { useEditorStore } from "../stores/editorStore";
 import {
-    checkRemoteNewer,
     clearAccessToken,
     clearUnsyncedChanges,
     DriveAuthError,
@@ -35,15 +36,19 @@ import { useDriveAutoUpload } from "./useDriveAutoUpload";
 type SyncStatus = "idle" | "syncing" | "success" | "error";
 
 export function useGoogleDrive() {
+    const t = useTranslation();
     const [isConnected, setIsConnected] = useState(false);
     // refresh 쿠키는 있지만 세션이 없어 무음 갱신이 거절된 경우 (기존 Drive 사용자 등)
     const [needsRelogin, setNeedsRelogin] = useState(false);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-    // 다른 기기에서 더 최신 버전이 올라왔는지 여부
-    const [isRemoteStale, setIsRemoteStale] = useState(false);
-    const [remoteModifiedAt, setRemoteModifiedAt] = useState<Date | null>(null);
+    // 이 기기와 다른 기기가 둘 다 바뀌었는지 (여러 패널이 같이 보도록 공용 스토어)
+    const isRemoteStale = useDriveSyncStore((s) => s.isRemoteStale);
+    const remoteModifiedAt = useDriveSyncStore((s) => s.remoteModifiedAt);
+    const autoPulledAt = useDriveSyncStore((s) => s.autoPulledAt);
+    const clearRemoteStale = useDriveSyncStore((s) => s.clearRemoteStale);
+    const setAutoPulled = useDriveSyncStore((s) => s.setAutoPulled);
     const { loadData } = useEditorStore();
     const router = useRouter();
     const params = useParams();
@@ -98,24 +103,11 @@ export function useGoogleDrive() {
         };
     }, []);
 
-    // autoUpload 가드용 — stale일 때 자동 업로드로 원격 최신본을 덮어쓰지 않도록
-    const isRemoteStaleRef = useRef(false);
+    // 직접 연결을 끊지 않은 상태 — 토큰만 만료됐으면 탭 복귀 때 조용히 다시 받는다
+    const isConnectedRef = useRef(false);
     useEffect(() => {
-        isRemoteStaleRef.current = isRemoteStale;
-    }, [isRemoteStale]);
-
-    // 원격이 로컬보다 최신인지 확인 (토큰이 있을 때만)
-    const checkStale = useCallback(async () => {
-        if (!getAccessToken()) return;
-        try {
-            const { stale, modifiedTime } = await checkRemoteNewer();
-            if (!isMountedRef.current) return;
-            setIsRemoteStale(stale);
-            setRemoteModifiedAt(modifiedTime);
-        } catch {
-            // 조용히 무시 — 확인 실패가 작업을 막아서는 안 됨
-        }
-    }, []);
+        isConnectedRef.current = isConnected;
+    }, [isConnected]);
 
     // 토큰 자동 갱신 타이머
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,17 +138,34 @@ export function useGoogleDrive() {
         };
     }, []);
 
+    const { syncNow } = useDriveAutoUpload({
+        reloadAfterPull: reloadPreservingLocation,
+        canReconnect: () => isConnectedRef.current,
+        onReconnected: () => {
+            if (!isMountedRef.current) return;
+            setIsConnected(true);
+            setNeedsRelogin(false);
+            scheduleTokenRefresh();
+        },
+        onSynced: (at) => {
+            if (isMountedRef.current) setLastSyncedAt(at);
+        },
+        onAuthError: () => {
+            if (isMountedRef.current) setIsConnected(false);
+        },
+    });
+
     useEffect(() => {
         const connected = !!getAccessToken();
         setIsConnected(connected);
         setLastSyncedAt(getLastSyncedAt());
         if (connected) {
             scheduleTokenRefresh();
-            // 보류 액션이 있으면 곧 업로드/다운로드로 상태가 갱신되므로 stale 확인을 건너뛴다
-            // (병렬 실행 시 checkStale이 뒤늦게 끝나 stale을 잘못 되살리는 경쟁 상태 방지)
-            if (!hasPendingAction()) checkStale();
+            // 보류 액션이 있으면 곧 업로드/다운로드로 상태가 갱신되므로 원격 확인을 건너뛴다
+            // (병렬 실행 시 확인이 뒤늦게 끝나 stale을 잘못 되살리는 경쟁 상태 방지)
+            if (!hasPendingAction()) syncNow();
         }
-    }, [scheduleTokenRefresh, checkStale]);
+    }, [scheduleTokenRefresh, syncNow]);
 
     // redirect 인증 완료 후 토큰이 sessionStorage에 있으면 연결 상태 갱신
     const ensureAuth = useCallback(async (): Promise<void> => {
@@ -169,6 +178,7 @@ export function useGoogleDrive() {
         async (action: () => Promise<void>) => {
             setSyncStatus("syncing");
             setErrorMessage(null);
+            setAutoPulled(null);
             try {
                 await ensureAuth();
                 try {
@@ -187,8 +197,7 @@ export function useGoogleDrive() {
                 saveLastSyncedAt(now);
                 setLastSyncedAt(now);
                 // 업로드/다운로드 후에는 로컬과 원격이 같은 버전이 됨
-                setIsRemoteStale(false);
-                setRemoteModifiedAt(null);
+                clearRemoteStale();
             } catch (e) {
                 const msg = e instanceof Error ? e.message : "알 수 없는 오류";
                 setErrorMessage(msg);
@@ -199,7 +208,7 @@ export function useGoogleDrive() {
                 }
             }
         },
-        [ensureAuth],
+        [ensureAuth, clearRemoteStale, setAutoPulled],
     );
 
     const upload = useCallback(
@@ -212,10 +221,13 @@ export function useGoogleDrive() {
     const download = useCallback(
         (prefetched?: RemoteBackup) =>
             withSync(async () => {
-                await importFromDrive(prefetched);
+                await importFromDrive(
+                    prefetched,
+                    t("version_beforeDriveDownload"),
+                );
                 await reloadPreservingLocation();
             }),
-        [withSync, reloadPreservingLocation],
+        [withSync, reloadPreservingLocation, t],
     );
 
     // 받기 전 변경사항 미리보기용 — 로컬에는 아무것도 적용하지 않는다
@@ -263,12 +275,12 @@ export function useGoogleDrive() {
             setIsConnected(true);
             scheduleTokenRefresh();
             // 무음 갱신은 사용자가 시작한 로그인이 아니므로 보류 액션을 실행하지 않는다
-            checkStale(); // 자동 재연결 시에도 원격 최신본 확인
+            syncNow(); // 자동 재연결 시에도 원격 최신본 확인
         })();
         return () => {
             cancelled = true;
         };
-    }, [scheduleTokenRefresh, checkStale]);
+    }, [scheduleTokenRefresh, syncNow]);
 
     // 팝업 인증 완료 시 BroadcastChannel로 토큰 수신
     useEffect(() => {
@@ -314,27 +326,11 @@ export function useGoogleDrive() {
         [ensureAuth],
     );
 
-    useDriveAutoUpload({
-        isBlocked: () => isRemoteStaleRef.current,
-        onRemoteStale: (modifiedTime) => {
-            if (!isMountedRef.current) return;
-            setIsRemoteStale(true);
-            setRemoteModifiedAt(modifiedTime);
-        },
-        onUploaded: (at) => {
-            if (isMountedRef.current) setLastSyncedAt(at);
-        },
-        onAuthError: () => {
-            if (isMountedRef.current) setIsConnected(false);
-        },
-    });
-
     // 원격 최신본을 무시하고 내 로컬 버전을 최신으로 올림 (덮어쓰기)
     const keepLocal = useCallback(() => {
-        setIsRemoteStale(false);
-        setRemoteModifiedAt(null);
+        clearRemoteStale();
         upload();
-    }, [upload]);
+    }, [upload, clearRemoteStale]);
 
     return {
         isConnected,
@@ -344,6 +340,7 @@ export function useGoogleDrive() {
         lastSyncedAt,
         isRemoteStale,
         remoteModifiedAt,
+        autoPulledAt,
         upload,
         download,
         fetchRemote,

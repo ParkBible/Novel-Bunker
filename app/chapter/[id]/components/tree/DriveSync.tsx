@@ -69,6 +69,7 @@ export function DriveSync() {
         lastSyncedAt,
         isRemoteStale,
         remoteModifiedAt,
+        autoPulledAt,
         upload,
         download,
         fetchRemote,
@@ -78,10 +79,10 @@ export function DriveSync() {
 
     const [, forceUpdate] = useState(0);
     useEffect(() => {
-        if (!lastSyncedAt) return;
+        if (!lastSyncedAt && !autoPulledAt) return;
         const id = setInterval(() => forceUpdate((n) => n + 1), 60_000);
         return () => clearInterval(id);
-    }, [lastSyncedAt]);
+    }, [lastSyncedAt, autoPulledAt]);
 
     const isSyncing = syncStatus === "syncing";
 
@@ -247,6 +248,7 @@ export function DriveSync() {
                 {isConnected &&
                     lastSyncedAt &&
                     !isSyncing &&
+                    !autoPulledAt &&
                     syncStatus !== "success" && (
                         <p className="mt-1 text-center text-xs text-zinc-400 dark:text-zinc-500">
                             {t("drive_lastSync", {
@@ -259,7 +261,15 @@ export function DriveSync() {
                         {t("syncing")}
                     </p>
                 )}
-                {syncStatus === "success" && (
+                {/* 묻지 않고 받아 왔으니 화면이 바뀐 이유를 남겨 둔다 */}
+                {autoPulledAt && !isSyncing && syncStatus !== "error" && (
+                    <p className="mt-1 text-center text-xs text-emerald-500">
+                        {t("drive_autoPulled", {
+                            time: formatRelativeTime(autoPulledAt, t),
+                        })}
+                    </p>
+                )}
+                {syncStatus === "success" && !autoPulledAt && (
                     <p className="mt-1 text-center text-xs text-emerald-500">
                         {t("drive_complete")}
                     </p>
