@@ -345,6 +345,8 @@ export const ko = {
     // ChapterLayout tabs
     chapterLayout_toc: "목차",
     chapterLayout_edit: "편집",
+    chapterLayout_resizeContextPanel:
+        "끌어서 패널 너비 조절 · 더블클릭하면 원래대로",
 
     // Export
     export_open: "내보내기",
@@ -722,6 +724,8 @@ export const en = {
     // ChapterLayout tabs
     chapterLayout_toc: "Contents",
     chapterLayout_edit: "Edit",
+    chapterLayout_resizeContextPanel:
+        "Drag to resize the panel · Double-click to reset",
 
     // Export
     export_open: "Export",

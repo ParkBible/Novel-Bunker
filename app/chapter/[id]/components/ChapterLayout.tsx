@@ -6,6 +6,7 @@ import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import { ChapterContent } from "./ChapterContent";
 import { ContextPanel } from "./context/ContextPanel";
+import { ResizableRightPanel } from "./ResizableRightPanel";
 import { TreePanel } from "./tree/TreePanel";
 
 type MobileTab = "tree" | "editor" | "context";
@@ -46,9 +47,9 @@ export function ChapterLayout({ chapterId }: ChapterLayoutProps) {
                 <div className="editor-scroll flex-1 overflow-y-auto">
                     <ChapterContent chapterId={chapterId} />
                 </div>
-                <div className="w-[clamp(20rem,24vw,32rem)] flex-shrink-0">
+                <ResizableRightPanel>
                     <ContextPanel />
-                </div>
+                </ResizableRightPanel>
             </div>
 
             {/* Mobile/tablet: tab switching */}
