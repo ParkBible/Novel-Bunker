@@ -16,6 +16,7 @@ import {
     importFromDrive,
     inspectRemote,
     markUnsyncedChanges,
+    preserveLocalOnDrive,
     saveLastSyncedAt,
     setAccessToken,
     tryRefreshTokenSilently,
@@ -144,22 +145,39 @@ export function useDriveAutoUpload(options: Options = {}) {
                 setRemoteStale(state.modifiedTime);
                 return false;
             }
+            const hasLocalMoved = async () =>
+                editing.edited() || (await hasLocalChangesSinceSync());
+            // 자동으로 못 받았으면 직접 받을 수 있게 알림으로 넘긴다
+            const handOver = (e: unknown) => {
+                if (!(e instanceof DriveAuthError)) {
+                    setRemoteStale(state.modifiedTime);
+                }
+                return e;
+            };
             releaseEditingFocus();
             // 포커스를 놓으며 대기 중이던 저장이 끝났을 수 있어 한 번 더 확인
-            if (editing.edited() || (await hasLocalChangesSinceSync())) {
+            if (await hasLocalMoved()) {
+                setRemoteStale(state.modifiedTime);
+                return false;
+            }
+            // 받기 직전 모습은 Drive 기록에 칸 정리 없이 남긴다. 이 기기 기록엔 이름 없이
+            // 남기는데, 같은 내용이 Drive에 있어 사본을 쌓을 필요가 없다.
+            // 올리는 동안 입력을 잠그지 않도록 갈아끼우기 전에 따로 한다.
+            try {
+                await preserveLocalOnDrive("pull");
+            } catch (e) {
+                throw handOver(e);
+            }
+            // 올리는 사이 입력이 시작됐으면 방금 남긴 모습이 옛것이라 받지 않는다
+            if (await hasLocalMoved()) {
                 setRemoteStale(state.modifiedTime);
                 return false;
             }
             await replaceContent(async () => {
                 try {
-                    // 이 기기 내용은 이미 Drive에 올라간 상태라 이름 붙은 보존본까지는 필요 없다
                     await importFromDrive(state.remote);
                 } catch (e) {
-                    // 자동으로 못 받았으면 직접 받을 수 있게 알림으로 넘긴다
-                    if (!(e instanceof DriveAuthError)) {
-                        setRemoteStale(state.modifiedTime);
-                    }
-                    throw e;
+                    throw handOver(e);
                 }
                 clearUnsyncedChanges();
                 const now = new Date();

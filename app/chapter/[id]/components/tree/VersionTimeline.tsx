@@ -2,6 +2,7 @@
 
 import { Pin, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import type { TranslationKey } from "@/app/(shared)/i18n/translations";
 
 // 로컬/Drive 공통 타임라인 항목. 요약 필드는 없을 수 있다
 // (요약을 심기 전에 만들어진 Drive 스냅샷).
@@ -10,6 +11,8 @@ export interface TimelineEntry {
     createdAt: Date;
     type: "manual" | "auto";
     label?: string;
+    // label이 없을 때 쓰는 번역 문구 (Drive 보존본은 기기 언어에 맞춰 보여준다)
+    labelKey?: TranslationKey;
     added?: number;
     removed?: number;
     scenesChanged?: number;
@@ -86,6 +89,9 @@ export function VersionTimeline({
             {entries.map((entry, index) => {
                 const isSelected = selectedId === entry.id;
                 const isPinned = entry.type === "manual";
+                const label =
+                    entry.label?.trim() ||
+                    (entry.labelKey ? t(entry.labelKey) : "");
                 const showDay =
                     index === 0 ||
                     dayKey(entries[index - 1].createdAt) !==
@@ -122,10 +128,9 @@ export function VersionTimeline({
                                         />
                                     )}
                                     <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                                        {entry.label?.trim() ||
-                                            formatTime(entry.createdAt)}
+                                        {label || formatTime(entry.createdAt)}
                                     </span>
-                                    {entry.label?.trim() && (
+                                    {label && (
                                         <span className="text-[10px] text-zinc-400">
                                             {formatTime(entry.createdAt)}
                                         </span>

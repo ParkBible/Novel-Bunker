@@ -23,6 +23,7 @@ import {
     listenForAuthToken,
     listSnapshots as listSnapshotsFn,
     type PendingAction,
+    preserveLocalOnDrive,
     type RemoteBackup,
     restoreSnapshot as restoreSnapshotFn,
     type SnapshotInfo,
@@ -223,6 +224,8 @@ export function useGoogleDrive() {
         (prefetched?: RemoteBackup) =>
             withSync(() =>
                 replaceContent(async () => {
+                    // 아직 안 올라간 이 기기 글이 덮일 수 있어 Drive 기록에도 남긴다
+                    await preserveLocalOnDrive("download");
                     await importFromDrive(
                         prefetched,
                         t("version_beforeDriveDownload"),
@@ -316,6 +319,7 @@ export function useGoogleDrive() {
         (fileId: string) =>
             withSync(() =>
                 replaceContent(async () => {
+                    await preserveLocalOnDrive("restore");
                     await restoreSnapshotFn(fileId);
                     await reloadPreservingLocation();
                 }),

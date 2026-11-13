@@ -1,5 +1,6 @@
 import { applyImportedData, type BackupData, collectLocalData } from "./backup";
 import { db, type Snapshot } from "./index";
+import { DAY_MS, selectExpired } from "./retention";
 import { computeStats } from "./snapshotStats";
 import { recordWriting } from "./writingLog";
 
@@ -20,38 +21,9 @@ export interface SnapshotMeta {
 }
 
 // ── 보관 정책 ────────────────────────────────────────────────
-// 최근 1시간은 5분 간격으로 촘촘히, 오늘 것은 1시간 간격으로 통합,
-// 어제 이전은 하루 대표 2개(오전/오후)만 남긴다.
+// 자동 버전은 retention.ts 의 칸 규칙으로 솎는다
 const MANUAL_MAX = 20; // 직접 저장한 버전 최대 개수
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-const FINE_WINDOW_MS = HOUR_MS; // 세밀 보관 구간 (최근 1시간)
-const FINE_BUCKET_MS = 5 * MINUTE_MS;
-const TODAY_BUCKET_MS = HOUR_MS;
 const MAX_AGE_MS = 90 * DAY_MS;
-
-/**
- * 자동 스냅샷이 속할 보관 구간 키. 같은 키를 가진 것들 중 최신 하나만 남는다.
- * null이면 보관 기간을 넘겨 삭제 대상.
- */
-export function retentionBucket(
-    at: number,
-    now: number,
-    todayStart: number,
-): string | null {
-    const age = now - at;
-    if (age > MAX_AGE_MS) return null;
-    // 최근 1시간: 5분 간격
-    if (age <= FINE_WINDOW_MS) return `f${Math.floor(at / FINE_BUCKET_MS)}`;
-    // 오늘(자정 이후): 1시간 간격
-    if (at >= todayStart) return `t${Math.floor(at / TODAY_BUCKET_MS)}`;
-    // 어제 이전: 하루 2개(오전/오후). epoch를 12시간으로 나누면 UTC 기준이라
-    // 시간대에 따라 하루가 셋으로 쪼개진다 → 로컬 날짜로 버킷을 만든다.
-    const d = new Date(at);
-    const half = d.getHours() < 12 ? "a" : "p";
-    return `o${d.getFullYear()}-${d.getMonth()}-${d.getDate()}${half}`;
-}
 
 function toMeta(s: Snapshot): SnapshotMeta {
     return {
@@ -209,10 +181,6 @@ export const snapshotOps = {
     // 보관 정책 적용: 수동은 최대 개수, 자동은 구간별 씨닝 (이름 붙은 자동은 기간만)
     async prune(): Promise<void> {
         const all = await db.snapshots.orderBy("createdAt").reverse().toArray();
-        const now = Date.now();
-        const midnight = new Date();
-        midnight.setHours(0, 0, 0, 0);
-        const todayStart = midnight.getTime();
         const toDelete: number[] = [];
 
         const manuals = all.filter((s) => s.type === "manual");
@@ -220,25 +188,19 @@ export const snapshotOps = {
             if (s.id !== undefined) toDelete.push(s.id);
         }
 
-        const autos = all.filter((s) => s.type === "auto");
-        const seenBuckets = new Set<string>();
-        autos.forEach((s, index) => {
-            if (s.id === undefined) return;
-            const bucket = retentionBucket(
-                s.createdAt.getTime(),
-                now,
-                todayStart,
-            );
-            if (bucket === null) {
-                toDelete.push(s.id);
-                return;
-            }
-            // 이름 붙은 자동 스냅샷(Drive 받기 직전 보존본 등)은 보관 기간 동안 솎지 않는다
-            if (s.label) return;
-            // 가장 최신 한 건은 어떤 경우에도 남긴다
-            if (seenBuckets.has(bucket) && index > 0) toDelete.push(s.id);
-            else seenBuckets.add(bucket);
-        });
+        const autos = all.flatMap((s) =>
+            s.type === "auto" && s.id !== undefined
+                ? [
+                      {
+                          id: s.id,
+                          createdAt: s.createdAt,
+                          // 이름 붙은 자동 스냅샷(Drive 받기 직전 보존본 등)
+                          isPreserved: !!s.label,
+                      },
+                  ]
+                : [],
+        );
+        toDelete.push(...selectExpired(autos, MAX_AGE_MS));
 
         if (toDelete.length > 0) {
             await db.transaction(

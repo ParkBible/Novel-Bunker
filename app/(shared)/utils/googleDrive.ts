@@ -9,6 +9,7 @@ import {
     writeDriveCacheJson,
 } from "../db/driveCache";
 import { projectOps } from "../db/operations";
+import { DAY_MS, selectExpired } from "../db/retention";
 import { computeStats, type SnapshotStats } from "../db/snapshotStats";
 import { snapshotOps } from "../db/snapshots";
 import { apiRoutes } from "../routes";
@@ -129,8 +130,10 @@ const DRIVE_FILE_NAME = "novelbunker-data.json";
 const MANUAL_SNAPSHOT_PREFIX = "novelbunker-snapshot-manual-";
 const AUTO_SNAPSHOT_PREFIX = "novelbunker-snapshot-auto-";
 const MAX_MANUAL_SNAPSHOTS = 5;
-const MAX_AUTO_SNAPSHOTS = 30;
+const AUTO_SNAPSHOT_MAX_AGE_MS = 30 * DAY_MS;
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5분
+// 통째로 바뀌기 직전 보존본에 붙이는 표시. 값은 바뀐 이유 (PreservedReason)
+const PRESERVED_PROPERTY = "nbKeep";
 const LAST_AUTO_SNAPSHOT_KEY = "novelbunker_last_auto_snapshot";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 // openid email: 서버가 id_token으로 허용된 계정인지 확인하는 데 필요
@@ -598,11 +601,21 @@ async function prepareSnapshotStats(): Promise<{
 }
 
 // ── 스냅샷 목록 조회 ──────────────────────────────────────────
+// 통째로 바뀌기 직전 모습을 남긴 이유: 다른 기기 내용 자동 받기 / 직접 받기 / 버전 되돌리기
+export type PreservedReason = "pull" | "download" | "restore";
+const PRESERVED_REASONS: readonly PreservedReason[] = [
+    "pull",
+    "download",
+    "restore",
+];
+
 export interface SnapshotInfo {
     id: string;
     name: string;
     createdAt: Date;
     type: "manual" | "auto";
+    // 있으면 칸 정리에서 빠지고 보관 기간만 지킨다
+    preservedReason?: PreservedReason;
     // 타임라인 표시용 요약 (요약 도입 전 스냅샷에는 없다)
     added?: number;
     removed?: number;
@@ -612,18 +625,36 @@ export interface SnapshotInfo {
     charactersChanged?: number;
 }
 
+interface SnapshotFile {
+    id: string;
+    name: string;
+    createdTime: string;
+    appProperties?: Record<string, string>;
+}
+
+function decodePreservedReason(
+    props: Record<string, string> | undefined,
+): PreservedReason | undefined {
+    const raw = props?.[PRESERVED_PROPERTY];
+    return PRESERVED_REASONS.find((reason) => reason === raw);
+}
+
 export async function listSnapshots(): Promise<SnapshotInfo[]> {
     const q = encodeURIComponent("name contains 'novelbunker-snapshot-'");
-    const res = await authFetch(
-        `${DRIVE_API}/files?spaces=appDataFolder&q=${q}&fields=files(id,name,createdTime,appProperties)`,
-    );
-    const data = await res.json();
-    const files = (data.files ?? []) as {
-        id: string;
-        name: string;
-        createdTime: string;
-        appProperties?: Record<string, string>;
-    }[];
+    const files: SnapshotFile[] = [];
+    let pageToken: string | undefined;
+    // 시간대별로 30일치를 남기면 한 페이지 기본값(100개)을 넘을 수 있다
+    do {
+        const pageParam = pageToken
+            ? `&pageToken=${encodeURIComponent(pageToken)}`
+            : "";
+        const res = await authFetch(
+            `${DRIVE_API}/files?spaces=appDataFolder&q=${q}&pageSize=1000&fields=nextPageToken,files(id,name,createdTime,appProperties)${pageParam}`,
+        );
+        const data = await res.json();
+        files.push(...((data.files ?? []) as SnapshotFile[]));
+        pageToken = data.nextPageToken as string | undefined;
+    } while (pageToken);
     return files
         .map((f) => ({
             id: f.id,
@@ -632,6 +663,7 @@ export async function listSnapshots(): Promise<SnapshotInfo[]> {
             type: f.name.startsWith(MANUAL_SNAPSHOT_PREFIX)
                 ? ("manual" as const)
                 : ("auto" as const),
+            preservedReason: decodePreservedReason(f.appProperties),
             ...decodeSnapshotStats(f.appProperties),
         }))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -647,8 +679,13 @@ async function downloadFileText(fileId: string): Promise<string> {
 async function uploadNewFile(
     name: string,
     json: string,
+    appProperties?: Record<string, string>,
 ): Promise<string | null> {
-    const metadata = JSON.stringify({ name, parents: ["appDataFolder"] });
+    const metadata = JSON.stringify({
+        name,
+        parents: ["appDataFolder"],
+        ...(appProperties ? { appProperties } : {}),
+    });
     const boundary = "novelbunker_boundary";
     const body =
         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n` +
@@ -668,18 +705,32 @@ async function uploadNewFile(
     return (data.modifiedTime as string | undefined) ?? null;
 }
 
-// ── 타입별 오래된 스냅샷 정리 ────────────────────────────────
-async function pruneSnapshots(prefix: string, max: number): Promise<void> {
-    const all = await listSnapshots();
-    const typed = all.filter((s) => s.name.startsWith(prefix));
-    if (typed.length <= max) return;
+// ── 오래된 스냅샷 정리 ───────────────────────────────────────
+async function deleteFiles(ids: string[]): Promise<void> {
     await Promise.allSettled(
-        typed
-            .slice(max)
-            .map((s) =>
-                authFetch(`${DRIVE_API}/files/${s.id}`, { method: "DELETE" }),
-            ),
+        ids.map((id) =>
+            authFetch(`${DRIVE_API}/files/${id}`, { method: "DELETE" }),
+        ),
     );
+}
+
+async function pruneManualSnapshots(): Promise<void> {
+    const all = await listSnapshots();
+    const manuals = all.filter((s) => s.type === "manual");
+    await deleteFiles(manuals.slice(MAX_MANUAL_SNAPSHOTS).map((s) => s.id));
+}
+
+// 자동 스냅샷은 이 기기 기록과 같은 시간대별 칸 규칙으로 솎는다 (보관 기간만 30일)
+async function pruneAutoSnapshots(): Promise<void> {
+    const all = await listSnapshots();
+    const autos = all
+        .filter((s) => s.type === "auto")
+        .map((s) => ({
+            id: s.id,
+            createdAt: s.createdAt,
+            isPreserved: s.preservedReason !== undefined,
+        }));
+    await deleteFiles(selectExpired(autos, AUTO_SNAPSHOT_MAX_AGE_MS));
 }
 
 // ── 서버 측 파일 복사 (files.copy) ──────────────────────────
@@ -716,7 +767,7 @@ export async function createManualSnapshot(): Promise<void> {
     if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     await copySnapshotWithStats(file.id, `${MANUAL_SNAPSHOT_PREFIX}${ts}.json`);
-    await pruneSnapshots(MANUAL_SNAPSHOT_PREFIX, MAX_MANUAL_SNAPSHOTS);
+    await pruneManualSnapshots();
 }
 
 // ── 자동 스냅샷 생성 (5분 쓰로틀) ─────────────────────────
@@ -734,11 +785,41 @@ export async function createAutoSnapshot(): Promise<void> {
     if (!file) return;
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     await copySnapshotWithStats(file.id, `${AUTO_SNAPSHOT_PREFIX}${ts}.json`);
-    await pruneSnapshots(AUTO_SNAPSHOT_PREFIX, MAX_AUTO_SNAPSHOTS);
+    await pruneAutoSnapshots();
     try {
         localStorage.setItem(LAST_AUTO_SNAPSHOT_KEY, new Date().toISOString());
     } catch {
         // ignore
+    }
+}
+
+/**
+ * 이 기기 내용을 통째로 갈아끼우기 직전에, 지금 모습을 Drive 기록에 올려 둔다.
+ * 칸 정리에서 빠져 보관 기간(30일) 동안 남는다. 다른 기기에서도 찾을 수 있게
+ * Drive 파일 사본이 아니라 이 기기 내용을 그대로 올린다 (아직 안 올라간 글이 있을 수 있다).
+ * 올리기에 실패하면 던진다 — 호출부는 갈아끼우기를 멈춰야 한다.
+ */
+export async function preserveLocalOnDrive(
+    reason: PreservedReason,
+): Promise<void> {
+    const data = await collectLocalData();
+    let statsProps: Record<string, string> = {};
+    try {
+        const baseline = await readDriveCache("baseline");
+        statsProps = encodeSnapshotStats(computeStats(data, baseline));
+    } catch {
+        // 요약이 없어도 보존본은 남긴다
+    }
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    await uploadNewFile(
+        `${AUTO_SNAPSHOT_PREFIX}${ts}.json`,
+        JSON.stringify(data),
+        { ...statsProps, [PRESERVED_PROPERTY]: reason },
+    );
+    try {
+        await pruneAutoSnapshots();
+    } catch {
+        // 정리는 다음 스냅샷 때 다시 한다
     }
 }
 

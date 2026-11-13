@@ -317,6 +317,8 @@ export const ko = {
     version_legendAdded: "이후에 추가된 문단",
     version_manualPinned: "직접 저장한 버전",
     version_beforeDriveDownload: "Drive에서 받기 전",
+    version_beforeAutoPull: "다른 기기 내용 받기 전",
+    version_beforeRestore: "되돌리기 전",
     version_sceneCount: "씬 {n}개",
     version_sceneMore: "외 {n}개",
     version_untitledScene: "제목 없는 씬",
@@ -329,7 +331,7 @@ export const ko = {
     version_footer:
         "최근 1시간은 5분 간격 · 오늘은 1시간 간격 · 어제 이전은 하루 2개 보관",
     version_footerCloud:
-        "자동 저장은 최근 30개, 직접 저장은 5개까지 보관 · 지난 날짜는 '이 기기'에서 찾아보세요",
+        "최근 1시간은 5분 간격 · 오늘은 1시간 간격 · 어제 이전은 하루 2개씩 30일 보관 · 직접 저장은 5개까지",
     version_loadError: "불러오기 실패",
     version_restoreError: "복원 실패",
     version_scopeCloud: "기기간 공유",
@@ -703,6 +705,8 @@ export const en = {
     version_legendAdded: "Added since",
     version_manualPinned: "Saved manually",
     version_beforeDriveDownload: "Before Drive download",
+    version_beforeAutoPull: "Before syncing from another device",
+    version_beforeRestore: "Before restore",
     version_sceneCount: "{n} scenes",
     version_sceneMore: "and {n} more",
     version_untitledScene: "Untitled scene",
@@ -715,7 +719,7 @@ export const en = {
     version_footer:
         "Last hour every 5 min · today hourly · older days keep 2 each",
     version_footerCloud:
-        "Keeps the latest 30 auto and 5 manual versions · Older days are under 'This device only'",
+        "Last hour every 5 min · today hourly · older days keep 2 each for 30 days · up to 5 manual saves",
     version_loadError: "Failed to load",
     version_restoreError: "Failed to restore",
     version_scopeCloud: "Synced across devices",

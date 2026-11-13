@@ -26,6 +26,8 @@ import {
     getAccessToken,
     getSnapshotData,
     listSnapshots,
+    type PreservedReason,
+    preserveLocalOnDrive,
     restoreSnapshot,
 } from "@/app/(shared)/utils/googleDrive";
 import { LONG_FIELDS } from "../../constants/characterGuideData";
@@ -48,6 +50,12 @@ const CHARACTER_FIELD_LABELS: Partial<
     mbti: "characterInfo_mbti",
     tags: "characterInfo_tags",
     relationships: "version_fieldRelationship",
+};
+
+const PRESERVED_LABELS: Record<PreservedReason, TranslationKey> = {
+    pull: "version_beforeAutoPull",
+    download: "version_beforeDriveDownload",
+    restore: "version_beforeRestore",
 };
 
 function formatDate(date: Date): string {
@@ -106,6 +114,9 @@ const cloudSource: HistorySource = {
             id: s.id,
             createdAt: s.createdAt,
             type: s.type,
+            labelKey: s.preservedReason
+                ? PRESERVED_LABELS[s.preservedReason]
+                : undefined,
             added: s.added,
             removed: s.removed,
             scenesChanged: s.scenesChanged,
@@ -137,8 +148,8 @@ export function VersionHistoryModal({ onClose }: Props) {
     const router = useRouter();
     const { loadData } = useEditorStore();
 
-    // Drive에 연결돼 있으면 기기간 공유 기록을 먼저 보여준다. 이 기기에만 남는 기록
-    // (Drive 받기 직전 보존본, 하루 2개씩 남는 지난 버전)도 찾을 수 있게 전환을 둔다.
+    // Drive에 연결돼 있으면 기기간 공유 기록을 먼저 보여준다. Drive에 못 올라간 글
+    // (연결이 끊긴 동안 쓴 글 등)은 이 기기 기록에만 있어 전환을 둔다.
     const isCloudAvailable = useMemo(() => !!getAccessToken(), []);
     const [scope, setScope] = useState<"cloud" | "local">(
         isCloudAvailable ? "cloud" : "local",
@@ -238,8 +249,10 @@ export function VersionHistoryModal({ onClose }: Props) {
         setBusy(true);
         setError(null);
         try {
-            // 복원 전 현재 상태를 로컬 히스토리에 보존 (덮어쓰기 대비 안전망)
-            await snapshotOps.createAutoIfChanged();
+            // 되돌리기 전 모습을 이 기기·Drive 기록 양쪽에 칸 정리 없이 남긴다.
+            // Drive에 못 남기면 되돌리지 않는다 (다른 기기에서 되찾을 길이 없어진다)
+            await snapshotOps.createAutoIfChanged(t("version_beforeRestore"));
+            if (getAccessToken()) await preserveLocalOnDrive("restore");
             await replaceContent(async () => {
                 await source.restore(id);
 
@@ -286,54 +299,52 @@ export function VersionHistoryModal({ onClose }: Props) {
                 aria-label={t("snapshot_closeLabel")}
             />
             <div className="relative z-10 flex max-h-[85vh] w-full max-w-5xl flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                {/* 헤더 */}
-                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+                {/* 헤더: 좁은 화면에선 전환 버튼이 제목 줄에 다 안 들어가 아랫줄로 내린다 */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
                         <History className="size-4 text-zinc-400" />
-                        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                        <h2 className="whitespace-nowrap text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                             {t("version_title")}
                         </h2>
-                        {isCloudAvailable ? (
-                            <div className="flex items-center rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800">
-                                {(["cloud", "local"] as const).map((option) => (
-                                    <button
-                                        key={option}
-                                        type="button"
-                                        onClick={() =>
-                                            handleScopeChange(option)
-                                        }
-                                        disabled={busy}
-                                        aria-pressed={scope === option}
-                                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40 ${
-                                            scope === option
-                                                ? "bg-white text-zinc-700 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
-                                                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                                        }`}
-                                    >
-                                        {option === "cloud" ? (
-                                            <Cloud className="size-3" />
-                                        ) : (
-                                            <Laptop className="size-3" />
-                                        )}
-                                        {option === "cloud"
-                                            ? t("version_scopeCloud")
-                                            : t("version_scopeLocal")}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                                <Laptop className="size-3" />
-                                {t("version_scopeLocal")}
-                            </span>
-                        )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    {isCloudAvailable ? (
+                        <div className="order-last flex w-full items-center rounded-full bg-zinc-100 p-0.5 sm:order-none sm:w-auto dark:bg-zinc-800">
+                            {(["cloud", "local"] as const).map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => handleScopeChange(option)}
+                                    disabled={busy}
+                                    aria-pressed={scope === option}
+                                    className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium transition-colors disabled:opacity-40 sm:flex-none sm:py-0.5 sm:text-[10px] ${
+                                        scope === option
+                                            ? "bg-white text-zinc-700 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
+                                            : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                    }`}
+                                >
+                                    {option === "cloud" ? (
+                                        <Cloud className="size-3" />
+                                    ) : (
+                                        <Laptop className="size-3" />
+                                    )}
+                                    {option === "cloud"
+                                        ? t("version_scopeCloud")
+                                        : t("version_scopeLocal")}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                            <Laptop className="size-3" />
+                            {t("version_scopeLocal")}
+                        </span>
+                    )}
+                    <div className="ml-auto flex items-center gap-1">
                         <button
                             type="button"
                             onClick={handleSaveNow}
                             disabled={busy}
-                            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                            className="flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                         >
                             <Save className="size-3.5" />
                             {busy ? t("version_saving") : t("version_saveNow")}
