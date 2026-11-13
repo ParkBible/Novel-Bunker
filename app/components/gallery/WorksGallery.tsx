@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "@/app/(shared)/components/ConfirmDialog";
 import { ThemeToggle } from "@/app/(shared)/components/ThemeToggle";
-import { chapterOps, projectOps } from "@/app/(shared)/db/operations";
+import { chapterOps, projectOps, sceneOps } from "@/app/(shared)/db/operations";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { HUB_URL, routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
+import { recentScenes } from "../dashboard/dashboardUtils";
 import { WorkCard, type WorkStats } from "./WorkCard";
 
 export function WorksGallery() {
@@ -21,6 +22,7 @@ export function WorksGallery() {
         renameProject,
         deleteProject,
         setActiveProject,
+        setSelectedSceneId,
     } = useEditorStore();
 
     const [ready, setReady] = useState(false);
@@ -47,12 +49,21 @@ export function WorksGallery() {
         };
     }, [loadProjects]);
 
+    // 마지막으로 고친 씬이 있으면 그 자리로 연다 (대시보드 '이어 쓰기'와 같은 기준)
     const openProject = async (projectId: number) => {
-        const chapters = await chapterOps.getAll(projectId);
-        let chapterId = chapters[0]?.id;
+        const [chapters, scenes] = await Promise.all([
+            chapterOps.getAll(projectId),
+            sceneOps.getAll(projectId),
+        ]);
+        const lastScene = recentScenes(scenes, 1)[0];
+        const lastSceneChapter = chapters.find(
+            (c) => c.id === lastScene?.chapterId,
+        );
+        let chapterId = lastSceneChapter?.id ?? chapters[0]?.id;
         if (chapterId === undefined) {
             chapterId = await chapterOps.create(projectId, "1장");
         }
+        setSelectedSceneId(lastSceneChapter ? (lastScene?.id ?? null) : null);
         await setActiveProject(projectId);
         router.push(routes.chapter(chapterId));
     };
