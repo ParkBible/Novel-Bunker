@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, MessageSquareText, TextQuote } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import { useContentReplaceStore } from "@/app/(shared)/stores/contentReplaceStore";
 import { CommentMark } from "@/app/(shared)/tiptap/CommentMark";
 import { COMMENT_ATTRIBUTE } from "@/app/(shared)/tiptap/comment";
 
@@ -16,6 +17,8 @@ interface SceneEditorProps {
     onReady?: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
+    /** 바뀌면 입력 중이어도 content로 갈아끼운다 (Drive 받기·복원 직후) */
+    syncKey?: number;
 }
 
 // 주석 팝오버가 겨냥한 본문 구간. 팝오버에 입력하는 동안 에디터가 blur되어
@@ -36,6 +39,7 @@ export function SceneEditor({
     onReady,
     onFocus,
     onBlur,
+    syncKey = 0,
 }: SceneEditorProps) {
     const t = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -213,15 +217,26 @@ export function SceneEditor({
         };
     }, [editor, updateBubbleMenu]);
 
+    // 데이터를 통째로 갈아끼우는 동안 친 글자는 곧 버려지므로 아예 못 치게 막는다
+    const isReplacing = useContentReplaceStore((s) => s.replacingCount > 0);
+    useEffect(() => {
+        editor?.setEditable(!isReplacing, false);
+    }, [editor, isReplacing]);
+
+    const appliedSyncKeyRef = useRef(syncKey);
     useEffect(() => {
         if (!editor) return;
-        if (editor.isFocused) return; // 타이핑 중 외부 content 반영 차단 → 스크롤 버그 방지
+        const isForced = appliedSyncKeyRef.current !== syncKey;
+        appliedSyncKeyRef.current = syncKey;
+        // 타이핑 중 외부 content 반영 차단 → 스크롤 버그 방지.
+        // 단 갈아끼우기 직후엔 옛 내용을 든 채 저장하면 새 내용이 덮어써지므로 반영한다
+        if (editor.isFocused && !isForced) return;
         if (content !== editor.getHTML()) {
             // 문서가 통째로 갈리면 팝오버가 겨냥한 from/to가 무의미해진다
             setCommentDraft(null);
             editor.commands.setContent(content);
         }
-    }, [content, editor]);
+    }, [content, editor, syncKey]);
 
     const toolbarButtonClass = (isActive: boolean) =>
         `rounded p-1.5 transition-colors ${

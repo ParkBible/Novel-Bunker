@@ -328,6 +328,8 @@ export const ko = {
     version_fieldRelationship: "관계",
     version_footer:
         "최근 1시간은 5분 간격 · 오늘은 1시간 간격 · 어제 이전은 하루 2개 보관",
+    version_footerCloud:
+        "자동 저장은 최근 30개, 직접 저장은 5개까지 보관 · 지난 날짜는 '이 기기'에서 찾아보세요",
     version_loadError: "불러오기 실패",
     version_restoreError: "복원 실패",
     version_scopeCloud: "기기간 공유",
@@ -712,6 +714,8 @@ export const en = {
     version_fieldRelationship: "Relationship",
     version_footer:
         "Last hour every 5 min · today hourly · older days keep 2 each",
+    version_footerCloud:
+        "Keeps the latest 30 auto and 5 manual versions · Older days are under 'This device only'",
     version_loadError: "Failed to load",
     version_restoreError: "Failed to restore",
     version_scopeCloud: "Synced across devices",

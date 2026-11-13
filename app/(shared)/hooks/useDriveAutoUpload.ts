@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { replaceContent } from "../stores/contentReplaceStore";
 import { useDriveSyncStore } from "../stores/driveSyncStore";
 import { useEditorStore } from "../stores/editorStore";
 import {
@@ -149,22 +150,24 @@ export function useDriveAutoUpload(options: Options = {}) {
                 setRemoteStale(state.modifiedTime);
                 return false;
             }
-            try {
-                // 이 기기 내용은 이미 Drive에 올라간 상태라 이름 붙은 보존본까지는 필요 없다
-                await importFromDrive(state.remote);
-            } catch (e) {
-                // 자동으로 못 받았으면 직접 받을 수 있게 알림으로 넘긴다
-                if (!(e instanceof DriveAuthError)) {
-                    setRemoteStale(state.modifiedTime);
+            await replaceContent(async () => {
+                try {
+                    // 이 기기 내용은 이미 Drive에 올라간 상태라 이름 붙은 보존본까지는 필요 없다
+                    await importFromDrive(state.remote);
+                } catch (e) {
+                    // 자동으로 못 받았으면 직접 받을 수 있게 알림으로 넘긴다
+                    if (!(e instanceof DriveAuthError)) {
+                        setRemoteStale(state.modifiedTime);
+                    }
+                    throw e;
                 }
-                throw e;
-            }
-            clearUnsyncedChanges();
-            const now = new Date();
-            saveLastSyncedAt(now);
-            setAutoPulled(now);
-            onSynced?.(now);
-            await reloadAfterPull();
+                clearUnsyncedChanges();
+                const now = new Date();
+                saveLastSyncedAt(now);
+                setAutoPulled(now);
+                onSynced?.(now);
+                await reloadAfterPull();
+            });
             return false;
         } finally {
             editing.stop();

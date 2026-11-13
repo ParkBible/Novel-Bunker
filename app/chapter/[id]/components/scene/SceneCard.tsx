@@ -61,6 +61,7 @@ export function SceneCard({
 
     const {
         draft: content,
+        syncKey: contentSyncKey,
         handleChange: handleContentChange,
         handleFocus: handleContentFocus,
         handleBlur: handleContentBlur,
@@ -187,6 +188,7 @@ export function SceneCard({
                     onReady={onEditorReady}
                     onFocus={handleContentFocus}
                     onBlur={handleContentBlur}
+                    syncKey={contentSyncKey}
                 />
             </div>
         </div>

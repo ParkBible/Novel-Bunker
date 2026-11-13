@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useContentReplaceStore } from "../stores/contentReplaceStore";
 import { useDebouncedCallback } from "./useDebouncedCallback";
 
 export function useDraftValue(
@@ -15,6 +16,20 @@ export function useDraftValue(
             setDraft(value);
         }
     }, [value]);
+
+    // Drive 받기·복원으로 데이터가 통째로 바뀌면 입력 중이어도 새 내용으로 맞춘다.
+    // syncKey는 입력 중에도 내용을 갈아야 하는 편집기(SceneEditor)에 알리는 용도
+    const revision = useContentReplaceStore((s) => s.revision);
+    const seenRevisionRef = useRef(revision);
+    const [syncKey, setSyncKey] = useState(0);
+    useEffect(() => {
+        if (seenRevisionRef.current === revision) return;
+        seenRevisionRef.current = revision;
+        // 옛 내용 위에서 잡힌 저장이 새 내용을 덮어쓰지 않도록 버린다
+        debouncedSave.cancel();
+        setDraft(value);
+        setSyncKey((key) => key + 1);
+    }, [revision, value, debouncedSave]);
 
     // 탭 숨김/페이지 이탈 시 대기 중이던 저장을 즉시 커밋 → 마지막 입력 유실 방지
     useEffect(() => {
@@ -47,5 +62,5 @@ export function useDraftValue(
         debouncedSave.flush();
     };
 
-    return { draft, handleChange, handleFocus, handleBlur };
+    return { draft, syncKey, handleChange, handleFocus, handleBlur };
 }

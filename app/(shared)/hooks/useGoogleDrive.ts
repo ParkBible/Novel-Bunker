@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { chapterOps } from "../db/operations";
 import { useTranslation } from "../i18n/TranslationProvider";
 import { routes } from "../routes";
+import { replaceContent } from "../stores/contentReplaceStore";
 import { useDriveSyncStore } from "../stores/driveSyncStore";
 import { useEditorStore } from "../stores/editorStore";
 import {
@@ -220,13 +221,15 @@ export function useGoogleDrive() {
     // (같은 파일을 두 번 받지 않고, 미리 보여준 내용과 실제 적용본이 어긋나지 않는다)
     const download = useCallback(
         (prefetched?: RemoteBackup) =>
-            withSync(async () => {
-                await importFromDrive(
-                    prefetched,
-                    t("version_beforeDriveDownload"),
-                );
-                await reloadPreservingLocation();
-            }),
+            withSync(() =>
+                replaceContent(async () => {
+                    await importFromDrive(
+                        prefetched,
+                        t("version_beforeDriveDownload"),
+                    );
+                    await reloadPreservingLocation();
+                }),
+            ),
         [withSync, reloadPreservingLocation, t],
     );
 
@@ -311,10 +314,12 @@ export function useGoogleDrive() {
 
     const restoreSnapshot = useCallback(
         (fileId: string) =>
-            withSync(async () => {
-                await restoreSnapshotFn(fileId);
-                await reloadPreservingLocation();
-            }),
+            withSync(() =>
+                replaceContent(async () => {
+                    await restoreSnapshotFn(fileId);
+                    await reloadPreservingLocation();
+                }),
+            ),
         [withSync, reloadPreservingLocation],
     );
 

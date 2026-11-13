@@ -9,6 +9,7 @@ import { snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import type { TranslationKey } from "@/app/(shared)/i18n/translations";
 import { routes } from "@/app/(shared)/routes";
+import { replaceContent } from "@/app/(shared)/stores/contentReplaceStore";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
 import {
     type CharacterFieldKey,
@@ -136,11 +137,13 @@ export function VersionHistoryModal({ onClose }: Props) {
     const router = useRouter();
     const { loadData } = useEditorStore();
 
-    // Drive에 연결돼 있으면 기기간 공유 기록, 아니면 이 기기의 로컬 기록으로 폴백
-    const source = useMemo<HistorySource>(
-        () => (getAccessToken() ? cloudSource : localSource),
-        [],
+    // Drive에 연결돼 있으면 기기간 공유 기록을 먼저 보여준다. 이 기기에만 남는 기록
+    // (Drive 받기 직전 보존본, 하루 2개씩 남는 지난 버전)도 찾을 수 있게 전환을 둔다.
+    const isCloudAvailable = useMemo(() => !!getAccessToken(), []);
+    const [scope, setScope] = useState<"cloud" | "local">(
+        isCloudAvailable ? "cloud" : "local",
     );
+    const source = scope === "cloud" ? cloudSource : localSource;
 
     const [metas, setMetas] = useState<HistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -164,6 +167,15 @@ export function VersionHistoryModal({ onClose }: Props) {
     useEffect(() => {
         reload();
     }, [reload]);
+
+    const handleScopeChange = (next: "cloud" | "local") => {
+        if (next === scope) return;
+        setScope(next);
+        setMetas([]);
+        setCompare(null);
+        setConfirmRestoreId(null);
+        setError(null);
+    };
 
     // 선택한 버전을 "현재 상태"와 비교 (버전=이전, 현재=이후)
     const handleCompare = async (entry: HistoryEntry) => {
@@ -228,33 +240,35 @@ export function VersionHistoryModal({ onClose }: Props) {
         try {
             // 복원 전 현재 상태를 로컬 히스토리에 보존 (덮어쓰기 대비 안전망)
             await snapshotOps.createAutoIfChanged();
-            await source.restore(id);
+            await replaceContent(async () => {
+                await source.restore(id);
 
-            // 보고 있던 챕터가 복원 데이터에 그대로 있으면 그 작품을 유지
-            // 로드해 현재 위치를 지킨다. 사라졌을 때만 활성 작품을 로드하고
-            // 안전한 경로로 이동. (다른 작품/첫 작품으로 튕기는 문제 방지)
-            const currentChapterId =
-                typeof params.id === "string"
-                    ? Number.parseInt(params.id, 10)
-                    : null;
-            const survivingProjectId =
-                currentChapterId !== null
-                    ? await chapterOps.getProjectId(currentChapterId)
-                    : undefined;
-            if (survivingProjectId !== undefined) {
-                await loadData(survivingProjectId);
-            } else {
-                await loadData();
-                const restoredChapters = useEditorStore.getState().chapters;
-                if (restoredChapters.length > 0) {
-                    const firstChapter = [...restoredChapters].sort(
-                        (a, b) => a.order - b.order,
-                    )[0];
-                    router.push(routes.chapter(firstChapter.id as number));
+                // 보고 있던 챕터가 복원 데이터에 그대로 있으면 그 작품을 유지
+                // 로드해 현재 위치를 지킨다. 사라졌을 때만 활성 작품을 로드하고
+                // 안전한 경로로 이동. (다른 작품/첫 작품으로 튕기는 문제 방지)
+                const currentChapterId =
+                    typeof params.id === "string"
+                        ? Number.parseInt(params.id, 10)
+                        : null;
+                const survivingProjectId =
+                    currentChapterId !== null
+                        ? await chapterOps.getProjectId(currentChapterId)
+                        : undefined;
+                if (survivingProjectId !== undefined) {
+                    await loadData(survivingProjectId);
                 } else {
-                    router.push(routes.home);
+                    await loadData();
+                    const restoredChapters = useEditorStore.getState().chapters;
+                    if (restoredChapters.length > 0) {
+                        const firstChapter = [...restoredChapters].sort(
+                            (a, b) => a.order - b.order,
+                        )[0];
+                        router.push(routes.chapter(firstChapter.id as number));
+                    } else {
+                        router.push(routes.home);
+                    }
                 }
-            }
+            });
 
             onClose();
         } catch {
@@ -279,16 +293,40 @@ export function VersionHistoryModal({ onClose }: Props) {
                         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                             {t("version_title")}
                         </h2>
-                        <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                            {source.isCloud ? (
-                                <Cloud className="size-3" />
-                            ) : (
+                        {isCloudAvailable ? (
+                            <div className="flex items-center rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800">
+                                {(["cloud", "local"] as const).map((option) => (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        onClick={() =>
+                                            handleScopeChange(option)
+                                        }
+                                        disabled={busy}
+                                        aria-pressed={scope === option}
+                                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40 ${
+                                            scope === option
+                                                ? "bg-white text-zinc-700 shadow-sm dark:bg-zinc-700 dark:text-zinc-100"
+                                                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                        }`}
+                                    >
+                                        {option === "cloud" ? (
+                                            <Cloud className="size-3" />
+                                        ) : (
+                                            <Laptop className="size-3" />
+                                        )}
+                                        {option === "cloud"
+                                            ? t("version_scopeCloud")
+                                            : t("version_scopeLocal")}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                                 <Laptop className="size-3" />
-                            )}
-                            {source.isCloud
-                                ? t("version_scopeCloud")
-                                : t("version_scopeLocal")}
-                        </span>
+                                {t("version_scopeLocal")}
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-1">
                         <button
@@ -387,7 +425,9 @@ export function VersionHistoryModal({ onClose }: Props) {
                 {/* 푸터 */}
                 <div className="border-t border-zinc-100 px-5 py-2.5 dark:border-zinc-800">
                     <p className="text-center text-[11px] text-zinc-400">
-                        {t("version_footer")}
+                        {source.isCloud
+                            ? t("version_footerCloud")
+                            : t("version_footer")}
                     </p>
                 </div>
             </div>
