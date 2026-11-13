@@ -128,6 +128,8 @@ export interface Snapshot {
     removed?: number; // 직전 스냅샷 대비 줄어든 글자 수
     scenesChanged?: number; // 직전 스냅샷 대비 바뀐 씬 개수
     changedScenes?: string[]; // 바뀐 씬 이름 (앞의 몇 개만)
+    loresChanged?: number; // 직전 스냅샷 대비 바뀐 설정집 항목 개수
+    charactersChanged?: number; // 직전 스냅샷 대비 바뀐 인물 개수 (관계 포함)
 }
 
 // 스냅샷 본문. id는 Snapshot.id와 1:1로 맞춘다.
@@ -446,6 +448,9 @@ class NovelBunkerDB extends Dexie {
         this.version(16).upgrade((tx) =>
             tx.table("settings").bulkDelete(LEGACY_SETTING_KEYS),
         );
+
+        // v17: 요약에 바뀐 설정집·인물 개수가 추가돼 기존 스냅샷도 채운다.
+        this.version(17).upgrade(backfillSnapshotSummaries);
     }
 }
 
@@ -459,7 +464,10 @@ async function backfillSnapshotSummaries(
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
     const needsFill = (s: Snapshot) =>
-        s.added === undefined || s.changedScenes === undefined;
+        s.added === undefined ||
+        s.changedScenes === undefined ||
+        s.loresChanged === undefined ||
+        s.charactersChanged === undefined;
     if (!snapshots.some(needsFill)) return;
 
     let prev: BackupData | null = null;
@@ -471,9 +479,14 @@ async function backfillSnapshotSummaries(
         try {
             const parsed = JSON.parse(body.data) as BackupData;
             if (needsFill(row)) {
-                await tx
-                    .table("snapshots")
-                    .update(row.id, computeStats(parsed, prev));
+                // 이미 있는 값은 만들 당시의 직전 스냅샷 기준이다. 그 사이 스냅샷이
+                // 정리돼 비교 대상이 달라졌을 수 있으니 빈 칸만 채운다.
+                const missing = Object.fromEntries(
+                    Object.entries(computeStats(parsed, prev)).filter(
+                        ([key]) => row[key as keyof Snapshot] === undefined,
+                    ),
+                );
+                await tx.table("snapshots").update(row.id, missing);
             }
             prev = parsed;
         } catch {

@@ -7,9 +7,18 @@ import { type BackupData, collectLocalData } from "@/app/(shared)/db/backup";
 import { chapterOps } from "@/app/(shared)/db/operations";
 import { snapshotOps } from "@/app/(shared)/db/snapshots";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
+import type { TranslationKey } from "@/app/(shared)/i18n/translations";
 import { routes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
-import { diffScenes, type SceneDiff } from "@/app/(shared)/utils/diff";
+import {
+    type CharacterFieldKey,
+    diffCharacters,
+    diffLores,
+    diffScenes,
+    type EntryDiff,
+    type LoreFieldKey,
+    type SceneDiff,
+} from "@/app/(shared)/utils/diff";
 import {
     createSnapshotNow,
     deleteSnapshot,
@@ -18,8 +27,27 @@ import {
     listSnapshots,
     restoreSnapshot,
 } from "@/app/(shared)/utils/googleDrive";
+import { LONG_FIELDS } from "../../constants/characterGuideData";
 import { VersionDiffViewer } from "./VersionDiffViewer";
 import { type TimelineEntry, VersionTimeline } from "./VersionTimeline";
+
+// 비교 화면의 칸 이름표는 편집 화면과 같은 문구를 쓴다
+const LORE_FIELD_LABELS: Record<LoreFieldKey, TranslationKey> = {
+    category: "loreDetail_category",
+    description: "loreDetail_description",
+};
+
+const CHARACTER_FIELD_LABELS: Partial<
+    Record<CharacterFieldKey, TranslationKey>
+> = {
+    group: "characterInfo_group",
+    age: "characterInfo_age",
+    gender: "characterInfo_gender",
+    role: "characterInfo_role",
+    mbti: "characterInfo_mbti",
+    tags: "characterInfo_tags",
+    relationships: "version_fieldRelationship",
+};
 
 function formatDate(date: Date): string {
     return date.toLocaleString("ko-KR", {
@@ -59,6 +87,8 @@ const localSource: HistorySource = {
             removed: m.removed,
             scenesChanged: m.scenesChanged,
             changedScenes: m.changedScenes,
+            loresChanged: m.loresChanged,
+            charactersChanged: m.charactersChanged,
         })),
     getData: (id) => snapshotOps.getData(Number(id)),
     restore: (id) => snapshotOps.restore(Number(id)),
@@ -79,6 +109,8 @@ const cloudSource: HistorySource = {
             removed: s.removed,
             scenesChanged: s.scenesChanged,
             changedScenes: s.changedScenes,
+            loresChanged: s.loresChanged,
+            charactersChanged: s.charactersChanged,
         })),
     getData: (id) => getSnapshotData(id),
     restore: (id) => restoreSnapshot(id),
@@ -93,7 +125,9 @@ interface Props {
 // 선택한 버전(이전) ↔ 현재 상태(이후) 비교 결과
 interface CompareResult {
     entry: HistoryEntry;
-    diffs: SceneDiff[];
+    scenes: SceneDiff[];
+    lores: EntryDiff[];
+    characters: EntryDiff[];
 }
 
 export function VersionHistoryModal({ onClose }: Props) {
@@ -141,9 +175,21 @@ export function VersionHistoryModal({ onClose }: Props) {
                 collectLocalData(),
             ]);
             if (!versionData) throw new Error();
+            const loreLabel = (key: LoreFieldKey) => t(LORE_FIELD_LABELS[key]);
+            const characterLabel = (key: CharacterFieldKey) => {
+                const labelKey = CHARACTER_FIELD_LABELS[key];
+                if (labelKey) return t(labelKey);
+                return LONG_FIELDS.find((f) => f.key === key)?.label ?? key;
+            };
             setCompare({
                 entry,
-                diffs: diffScenes(versionData, currentData),
+                scenes: diffScenes(versionData, currentData),
+                lores: diffLores(versionData, currentData, loreLabel),
+                characters: diffCharacters(
+                    versionData,
+                    currentData,
+                    characterLabel,
+                ),
             });
             setConfirmRestoreId(null);
         } catch {
@@ -289,7 +335,9 @@ export function VersionHistoryModal({ onClose }: Props) {
                         {!loading && compare && (
                             <>
                                 <VersionDiffViewer
-                                    diffs={compare.diffs}
+                                    scenes={compare.scenes}
+                                    lores={compare.lores}
+                                    characters={compare.characters}
                                     versionLabel={formatDate(
                                         compare.entry.createdAt,
                                     )}

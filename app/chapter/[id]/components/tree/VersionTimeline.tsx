@@ -14,6 +14,8 @@ export interface TimelineEntry {
     removed?: number;
     scenesChanged?: number;
     changedScenes?: string[];
+    loresChanged?: number;
+    charactersChanged?: number;
 }
 
 // 목록에 이름을 다 늘어놓으면 줄이 넘치므로 앞 두 개만 보이고 나머지는 개수로
@@ -133,7 +135,9 @@ export function VersionTimeline({
                                 {!!(
                                     entry.added ||
                                     entry.removed ||
-                                    entry.scenesChanged
+                                    entry.scenesChanged ||
+                                    entry.loresChanged ||
+                                    entry.charactersChanged
                                 ) && (
                                     <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-medium tabular-nums">
                                         {!!entry.added && (
@@ -153,6 +157,20 @@ export function VersionTimeline({
                                             <span className="text-zinc-400 dark:text-zinc-500">
                                                 {t("version_sceneCount", {
                                                     n: entry.scenesChanged,
+                                                })}
+                                            </span>
+                                        )}
+                                        {!!entry.loresChanged && (
+                                            <span className="text-zinc-400 dark:text-zinc-500">
+                                                {t("version_loreCount", {
+                                                    n: entry.loresChanged,
+                                                })}
+                                            </span>
+                                        )}
+                                        {!!entry.charactersChanged && (
+                                            <span className="text-zinc-400 dark:text-zinc-500">
+                                                {t("version_characterCount", {
+                                                    n: entry.charactersChanged,
                                                 })}
                                             </span>
                                         )}

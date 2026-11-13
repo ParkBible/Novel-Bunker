@@ -532,12 +532,19 @@ function encodeSnapshotStats(stats: SnapshotStats): Record<string, string> {
         nbRemoved: String(stats.removed),
         nbScenes: String(stats.scenesChanged),
         nbNames: encodeSceneNames(stats.changedScenes),
+        nbLores: String(stats.loresChanged),
+        nbChars: String(stats.charactersChanged),
     };
 }
 
 type SnapshotSummary = Pick<
     SnapshotInfo,
-    "added" | "removed" | "scenesChanged" | "changedScenes"
+    | "added"
+    | "removed"
+    | "scenesChanged"
+    | "changedScenes"
+    | "loresChanged"
+    | "charactersChanged"
 >;
 
 function decodeSnapshotStats(
@@ -560,6 +567,8 @@ function decodeSnapshotStats(
                 : names === ""
                   ? []
                   : names.split(NAMES_SEPARATOR),
+        loresChanged: num(props.nbLores),
+        charactersChanged: num(props.nbChars),
     };
 }
 
@@ -599,6 +608,8 @@ export interface SnapshotInfo {
     removed?: number;
     scenesChanged?: number;
     changedScenes?: string[];
+    loresChanged?: number;
+    charactersChanged?: number;
 }
 
 export async function listSnapshots(): Promise<SnapshotInfo[]> {

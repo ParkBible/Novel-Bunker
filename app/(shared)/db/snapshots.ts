@@ -15,6 +15,8 @@ export interface SnapshotMeta {
     removed?: number;
     scenesChanged?: number;
     changedScenes?: string[];
+    loresChanged?: number;
+    charactersChanged?: number;
 }
 
 // ── 보관 정책 ────────────────────────────────────────────────
@@ -63,6 +65,8 @@ function toMeta(s: Snapshot): SnapshotMeta {
         removed: s.removed,
         scenesChanged: s.scenesChanged,
         changedScenes: s.changedScenes,
+        loresChanged: s.loresChanged,
+        charactersChanged: s.charactersChanged,
     };
 }
 

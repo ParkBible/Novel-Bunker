@@ -1,4 +1,5 @@
 import type { BackupData } from "../db/backup";
+import type { Character, Lore } from "../db/index";
 
 // ── HTML → 문단(줄) 배열 ──────────────────────────────────────
 // TipTap이 생성하는 <p>/<blockquote>/<br> 등을 줄바꿈으로 바꾼 뒤
@@ -137,4 +138,160 @@ export function diffScenes(a: BackupData, b: BackupData): SceneDiff[] {
         if (x.chapterId !== y.chapterId) return x.chapterId - y.chapterId;
         return x.order - y.order;
     });
+}
+
+// ── 설정집·인물 단위 비교 ─────────────────────────────────────
+// 씬과 달리 여러 칸으로 나뉜 항목이라 칸마다 "이름표: 값" 줄을 만들어 같은 줄 비교에 태운다.
+// 순서·수정 시각은 내용이 아니라서 비교에서 뺀다.
+
+type FieldKind = "short" | "long" | "tags";
+
+export const LORE_FIELDS = [
+    { key: "category", kind: "short" },
+    { key: "description", kind: "long" },
+] as const satisfies readonly { key: keyof Lore; kind: FieldKind }[];
+
+export const CHARACTER_FIELDS = [
+    { key: "group", kind: "short" },
+    { key: "age", kind: "short" },
+    { key: "gender", kind: "short" },
+    { key: "role", kind: "short" },
+    { key: "mbti", kind: "short" },
+    { key: "tags", kind: "tags" },
+    { key: "appearance", kind: "long" },
+    { key: "personality", kind: "long" },
+    { key: "description", kind: "long" },
+] as const satisfies readonly { key: keyof Character; kind: FieldKind }[];
+
+export type LoreFieldKey = (typeof LORE_FIELDS)[number]["key"];
+// 관계는 인물 레코드 밖(characterRelationships)에 있지만 "누가 누구에게"는 그 인물의 정보로 보여준다
+export type CharacterFieldKey =
+    | (typeof CHARACTER_FIELDS)[number]["key"]
+    | "relationships";
+
+export interface EntryDiff {
+    id: number;
+    title: string;
+    status: Exclude<SceneStatus, "unchanged">;
+    lines: DiffLine[];
+}
+
+interface EntryContent {
+    id: number;
+    title: string;
+    lines: string[];
+}
+
+function fieldLines(label: string, kind: FieldKind, value: unknown): string[] {
+    if (kind === "tags") {
+        const tags = Array.isArray(value) ? value : [];
+        return tags.length > 0 ? [`${label}: ${tags.join(", ")}`] : [];
+    }
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text) return [];
+    if (kind === "short") return [`${label}: ${text}`];
+    const paragraphs = htmlToParagraphs(text);
+    return paragraphs.length > 0 ? [`[${label}]`, ...paragraphs] : [];
+}
+
+function loreContents(
+    data: BackupData | null,
+    label: (key: LoreFieldKey) => string,
+): EntryContent[] {
+    return [...(data?.lores ?? [])]
+        .sort((a, b) =>
+            (a.category ?? "") !== (b.category ?? "")
+                ? (a.category ?? "").localeCompare(b.category ?? "")
+                : a.order - b.order,
+        )
+        .map((lore) => ({
+            id: lore.id as number,
+            title: lore.name,
+            lines: [
+                `# ${lore.name}`,
+                ...LORE_FIELDS.flatMap(({ key, kind }) =>
+                    fieldLines(label(key), kind, lore[key]),
+                ),
+            ],
+        }));
+}
+
+function characterContents(
+    data: BackupData | null,
+    label: (key: CharacterFieldKey) => string,
+): EntryContent[] {
+    const characters = data?.characters ?? [];
+    const nameById = new Map(characters.map((c) => [c.id as number, c.name]));
+    const relationships = data?.characterRelationships ?? [];
+    return [...characters]
+        .sort((a, b) => a.order - b.order)
+        .map((character) => ({
+            id: character.id as number,
+            title: character.name,
+            lines: [
+                `# ${character.name}`,
+                ...CHARACTER_FIELDS.flatMap(({ key, kind }) =>
+                    fieldLines(label(key), kind, character[key]),
+                ),
+                ...relationships
+                    .filter((r) => r.fromCharacterId === character.id)
+                    .map(
+                        (r) =>
+                            `${label("relationships")} → ${nameById.get(r.toCharacterId) ?? ""}: ${r.label}`,
+                    )
+                    .sort(),
+            ],
+        }));
+}
+
+// 바뀐 항목만 돌려준다. 줄 비교는 내용이 다른 항목에만 돌린다.
+function diffEntries(
+    before: EntryContent[],
+    after: EntryContent[],
+): EntryDiff[] {
+    const beforeById = new Map(before.map((e) => [e.id, e]));
+    const afterIds = new Set(after.map((e) => e.id));
+    const diffs: EntryDiff[] = [];
+
+    for (const entry of after) {
+        const prev = beforeById.get(entry.id);
+        if (prev && prev.lines.join("\n") === entry.lines.join("\n")) continue;
+        diffs.push({
+            id: entry.id,
+            title: entry.title,
+            status: prev ? "modified" : "added",
+            lines: diffLines(prev?.lines ?? [], entry.lines),
+        });
+    }
+    for (const entry of before) {
+        if (afterIds.has(entry.id)) continue;
+        diffs.push({
+            id: entry.id,
+            title: entry.title,
+            status: "removed",
+            lines: diffLines(entry.lines, []),
+        });
+    }
+    return diffs;
+}
+
+/** 두 백업(A=이전, B=이후)의 설정집 항목 중 바뀐 것. A가 없으면 B 전부가 새 항목이다 */
+export function diffLores(
+    a: BackupData | null,
+    b: BackupData,
+    label: (key: LoreFieldKey) => string,
+): EntryDiff[] {
+    return diffEntries(loreContents(a, label), loreContents(b, label));
+}
+
+/** 두 백업(A=이전, B=이후)의 인물 중 바뀐 것 (그 인물이 맺은 관계 포함) */
+export function diffCharacters(
+    a: BackupData | null,
+    b: BackupData,
+    label: (key: CharacterFieldKey) => string,
+): EntryDiff[] {
+    return diffEntries(
+        characterContents(a, label),
+        characterContents(b, label),
+    );
 }

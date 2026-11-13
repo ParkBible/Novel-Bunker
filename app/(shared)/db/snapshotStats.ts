@@ -1,9 +1,13 @@
+import { diffCharacters, diffLores } from "../utils/diff";
 import type { BackupData } from "./backup";
 import type { Scene } from "./index";
 
 // 스냅샷 저장 시점에 계산해 두는 타임라인 요약값.
 // db/index.ts의 마이그레이션에서도 쓰이므로 별도 모듈로 둔다.
-// (여기서 index/backup은 타입만 가져와 런타임 순환 참조가 없다)
+// (여기서 index/backup은 타입만 가져와 런타임 순환 참조가 없다. utils/diff도 타입만 가져온다)
+
+// 개수만 세므로 이름표는 언어와 무관한 칸 이름 그대로 쓴다
+const fieldKey = (key: string): string => key;
 
 // 목록에 이름을 다 늘어놓을 수 없으니 앞의 몇 개만 저장한다.
 const SCENE_NAMES_MAX = 3;
@@ -33,6 +37,8 @@ export interface SnapshotStats {
     removed: number;
     scenesChanged: number;
     changedScenes: string[];
+    loresChanged: number;
+    charactersChanged: number;
 }
 
 export function computeStats(
@@ -43,6 +49,8 @@ export function computeStats(
         (sum, s) => sum + plainLength(s.content),
         0,
     );
+    const loresChanged = diffLores(prev, data, fieldKey).length;
+    const charactersChanged = diffCharacters(prev, data, fieldKey).length;
 
     if (!prev) {
         return {
@@ -51,6 +59,8 @@ export function computeStats(
             removed: 0,
             scenesChanged: data.scenes.length,
             changedScenes: toNames(data.scenes),
+            loresChanged,
+            charactersChanged,
         };
     }
 
@@ -85,5 +95,7 @@ export function computeStats(
         removed,
         scenesChanged: changed.length,
         changedScenes: toNames(changed),
+        loresChanged,
+        charactersChanged,
     };
 }

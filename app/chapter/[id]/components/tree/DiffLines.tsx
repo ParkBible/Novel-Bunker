@@ -19,7 +19,7 @@ const MARKER: Record<DiffLine["type"], string> = {
     same: "",
 };
 
-// diffScenes는 제목 변경도 잡으려고 본문 앞에 "# 제목" 줄을 끼워 넣는다.
+// 씬·설정집·인물 비교는 제목(이름) 변경도 잡으려고 내용 앞에 "# 제목" 줄을 끼워 넣는다.
 // 섹션 머리말에 제목이 이미 있으므로, 그대로면 감추고 바뀐 경우만 남긴다.
 const TITLE_LINE = /^# /;
 
