@@ -16,7 +16,7 @@
 - UI/UX: Tailwind CSS 4.0
 - Editor: TipTap
 - Database: Dexie.js (IndexedDB)
-- AI Engine: DeepSeek API (`deepseek-chat`, `deepseek-reasoner`)
+- AI Engine: DeepSeek API (`deepseek-flash`, 생각 모드 켜기/끄기)
 - Icon: Lucide React
 - State Management: Zustand
 

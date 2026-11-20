@@ -6,6 +6,7 @@ import {
 
 // DeepSeek Chat Completions API (OpenAI 호환). 키는 서버 환경변수에서만 읽는다.
 const DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_MODEL = "deepseek-flash";
 
 type ChatRole = "system" | "user" | "assistant";
 interface ChatMessage {
@@ -30,10 +31,11 @@ export class AiServiceError extends Error {
     }
 }
 
-function resolveModel(modelId: unknown, jsonMode?: boolean): AiModelId {
-    // deepseek-reasoner는 response_format(JSON 모드)을 지원하지 않으므로 chat 모델로 고정
-    if (jsonMode) return "deepseek-chat";
-    return isAiModelId(modelId) ? modelId : DEFAULT_AI_MODEL;
+function isThinkingEnabled(modelId: unknown, jsonMode?: boolean): boolean {
+    // 맞춤법 검사는 정해진 JSON 형식만 채우면 되는 일이라 생각 모드를 끈다 (느리고 비싸기만 하다)
+    if (jsonMode) return false;
+    const mode: AiModelId = isAiModelId(modelId) ? modelId : DEFAULT_AI_MODEL;
+    return mode === "thinking";
 }
 
 // 예전 버전이 실패 시 대화 기록에 'model' 메시지로 저장하던 오류 문구.
@@ -74,7 +76,7 @@ function mapUpstreamError(status: number, fallback: string): AiServiceError {
     }
 }
 
-// deepseek-reasoner는 같은 역할의 메시지가 연달아 오는 것을 허용하지 않으므로 합친다.
+// 생각 모드(옛 deepseek-reasoner)는 같은 역할의 메시지가 연달아 오는 것을 허용하지 않으므로 합친다.
 // (실패한 요청 뒤 사용자 메시지가 이어지는 경우 등)
 function mergeConsecutive(messages: ChatMessage[]): ChatMessage[] {
     const merged: ChatMessage[] = [];
@@ -122,7 +124,13 @@ async function createChatCompletion(
                 Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: resolveModel(options.model, options.jsonMode),
+                model: DEEPSEEK_MODEL,
+                // 생각 모드는 기본값이 켜짐이라 끌 때도 명시해야 한다
+                thinking: {
+                    type: isThinkingEnabled(options.model, options.jsonMode)
+                        ? "enabled"
+                        : "disabled",
+                },
                 messages: mergeConsecutive(messages),
                 stream: false,
                 ...(options.jsonMode

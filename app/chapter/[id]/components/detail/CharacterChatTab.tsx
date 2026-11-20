@@ -172,7 +172,7 @@ export function CharacterChatTab({
                 >
                     {AI_MODELS.map((m) => (
                         <option key={m.id} value={m.id}>
-                            {m.label}
+                            {t(m.labelKey)}
                         </option>
                     ))}
                 </select>

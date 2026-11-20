@@ -15,14 +15,15 @@ export const apiRoutes = {
     authConfig: "/api/auth/config",
 } as const;
 
-// DeepSeek 모델 목록 (서버는 이 목록에 있는 모델만 허용한다)
+// DeepSeek 답변 방식. 둘 다 같은 모델(deepseek-flash)이고 생각 모드만 켜고 끈다.
+// 서버는 이 목록에 있는 값만 허용한다
 export const AI_MODELS = [
-    { id: "deepseek-chat", label: "Chat" },
-    { id: "deepseek-reasoner", label: "Reasoner" },
+    { id: "fast", labelKey: "aiModel_fast" },
+    { id: "thinking", labelKey: "aiModel_thinking" },
 ] as const;
 
 export type AiModelId = (typeof AI_MODELS)[number]["id"];
-export const DEFAULT_AI_MODEL: AiModelId = "deepseek-chat";
+export const DEFAULT_AI_MODEL: AiModelId = "fast";
 
 export function isAiModelId(value: unknown): value is AiModelId {
     return AI_MODELS.some((m) => m.id === value);
