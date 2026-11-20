@@ -173,7 +173,7 @@ export async function generateFeedback(
 ${synopsis}
 
 **등장인물:**
-${characters.join(", ") || "정보 없음"}
+${characters.join("\n") || "정보 없음"}
 
 **씬 내용:**
 ${stripHtml(sceneContent)}

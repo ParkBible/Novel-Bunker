@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { AiLoginNotice } from "@/app/(shared)/components/AiLoginNotice";
 import { MarkdownText } from "@/app/(shared)/components/MarkdownText";
+import type { Character } from "@/app/(shared)/db";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -34,6 +35,27 @@ export const CHAPTER_PROMPT_OPTIONS: PromptOption[] = [
     },
 ];
 
+function describeCharacter(character: Character): string {
+    const basics = [
+        character.role,
+        character.gender,
+        character.age,
+        character.mbti,
+    ]
+        .filter(Boolean)
+        .join(", ");
+    const details = [
+        character.personality && `성격: ${character.personality}`,
+        character.appearance && `외모: ${character.appearance}`,
+        character.description && `설명: ${character.description}`,
+        character.tags?.length > 0 && `태그: ${character.tags.join(", ")}`,
+    ].filter(Boolean);
+    return [
+        `- ${character.name}${basics ? ` (${basics})` : ""}`,
+        ...details.map((detail) => `  ${detail}`),
+    ].join("\n");
+}
+
 export function AiFeedbackSection({
     content,
     promptOptions,
@@ -42,7 +64,8 @@ export function AiFeedbackSection({
     promptOptions: PromptOption[];
 }) {
     const t = useTranslation();
-    const { synopsis, isLoadingAI, setIsLoadingAI, aiModel } = useEditorStore();
+    const { synopsis, characters, isLoadingAI, setIsLoadingAI, aiModel } =
+        useEditorStore();
     const [feedback, setFeedback] = useState<string>("");
     const [authRequired, setAuthRequired] = useState(false);
     const [selectedPrompt, setSelectedPrompt] = useState<string>(
@@ -58,6 +81,7 @@ export function AiFeedbackSection({
                 {
                     sceneContent: content,
                     synopsis,
+                    characters: characters.map(describeCharacter),
                     prompt: selectedPrompt,
                     model: aiModel,
                 },

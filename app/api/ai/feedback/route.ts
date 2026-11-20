@@ -14,10 +14,14 @@ export const POST = withAiRoute(
             );
         }
 
+        const characterProfiles: string[] = Array.isArray(characters)
+            ? characters.filter((c): c is string => typeof c === "string")
+            : [];
+
         const feedback = await generateFeedback(
             sceneContent,
             synopsis || "",
-            characters || [],
+            characterProfiles,
             prompt,
             model,
         );
