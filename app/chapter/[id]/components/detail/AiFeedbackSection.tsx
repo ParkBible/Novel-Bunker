@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { AiLoginNotice } from "@/app/(shared)/components/AiLoginNotice";
+import { MarkdownText } from "@/app/(shared)/components/MarkdownText";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 import { apiRoutes } from "@/app/(shared)/routes";
 import { useEditorStore } from "@/app/(shared)/stores/editorStore";
@@ -118,9 +119,10 @@ export function AiFeedbackSection({
             )}
 
             {feedback ? (
-                <div className="mt-3 rounded-lg bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                    {feedback}
-                </div>
+                <MarkdownText
+                    text={feedback}
+                    className="mt-3 rounded-lg bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                />
             ) : (
                 <p className="mt-3 text-center text-xs text-zinc-400">
                     {t("aiFeedback_hint")}

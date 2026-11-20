@@ -2,6 +2,7 @@
 
 import { FileText, Sparkles } from "lucide-react";
 import type { RefObject } from "react";
+import { MarkdownText } from "@/app/(shared)/components/MarkdownText";
 import type { AiMessage } from "@/app/(shared)/db";
 import { useTranslation } from "@/app/(shared)/i18n/TranslationProvider";
 
@@ -59,13 +60,17 @@ export function MessageList({ messages, isLoading, scrollRef }: Props) {
                     )}
 
                     <div
-                        className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                        className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
                             msg.role === "user"
-                                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                                ? "whitespace-pre-wrap bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                                 : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                         }`}
                     >
-                        {msg.text}
+                        {msg.role === "user" ? (
+                            msg.text
+                        ) : (
+                            <MarkdownText text={msg.text} />
+                        )}
                     </div>
                 </div>
             ))}
